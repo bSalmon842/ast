@@ -1,0 +1,29 @@
+version(2);
+project_name = "Asteroids";
+
+patterns = {
+"*.c",
+"*.cpp",
+"*.h",
+"*.m",
+"*.bat",
+"*.sh",
+"*.4coder",
+"*.txt",
+};
+blacklist_patterns = {
+".*",
+};
+
+load_paths = {
+.win = {
+{ .path = ".", .recursive = false, .relative = true, },
+},
+};
+
+commands = {
+};
+
+fkey_command = {
+};
+
