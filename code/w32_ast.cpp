@@ -445,7 +445,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     
     BS842_Timing_Init();
     
-    BS842_Plotting_Init(1, 1200, 300);
+    BS842_Plotting_Init(1, 1200, 300, "C:\\Windows\\Fonts\\Arial.ttf");
     
     W32_BackBuffer platformBackBuffer = {};
     W32_ResizeDIBSection(&platformBackBuffer, 1280, 720);
@@ -550,9 +550,13 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 RenderDebugVerticalLine(&platformBackBuffer, 100, 200, 300, 0xFF00FF00);
 #endif
                 
-                float xData[8] = {12.0f, 24.5f, 32.0f, 48.0f, 60.0f, 65.0f, 79.0f, 90.0f};
-                float yData[8] = {0.0f, 0.0f, 20.0f, 50.0f, 80.0f, 86.0f, 70.0f, 50.0f};
-                BS842_Plotting_PlotData(0, xData, yData, 8);
+                float xData0[8] = {12.0f, 24.5f, 32.0f, 48.0f, 60.0f, 65.0f, 79.0f, 90.0f};
+                float yData0[8] = {0.0f, -5.0f, 20.0f, 50.0f, 80.0f, 86.0f, 70.0f, 50.0f};
+                BS842_Plotting_PlotData(0, 0, xData0, yData0, 8);
+                
+                float xData1[8] = {10.0f, 20.5f, 32.0f, 52.0f, 67.0f, 70.0f, 78.0f, 92.0f};
+                float yData1[8] = {40.0f, -10.0f, 30.0f, 33.0f, 90.0f, 150.0f, 60.0f, 40.0f};
+                BS842_Plotting_PlotData(0, 1, xData1, yData1, 8);
                 
                 BS842_Plotting_UpdatePlot(0);
                 
