@@ -9,17 +9,14 @@ Notice: (C) Copyright 2021 by Brock Salmon. All Rights Reserved
 #include <Windows.h>
 #include <mmdeviceapi.h>
 #include <AudioClient.h>
-#include <stdio.h>
+#include <direct.h>
 
-#include "ast_utility.h"
+#include "ast_platform.h"
+#include "w32_ast_dev.cpp"
 
+#define BS842_DONT_FETCH_WINMM
 #define BS842_W32TIMING_IMPLEMENTATION
 #include "bs842_w32_timing.h"
-
-#define BS842_PLOTTING_IMPLEMENTATION
-#include "bs842_plotting.h"
-
-#define BITMAP_BYTES_PER_PIXEL 4
 
 struct W32_BackBuffer
 {
@@ -53,49 +50,86 @@ struct W32_DebugTimeMarker
     u32 writeCursor;
 };
 
-struct Game_AudioBuffer
-{
-    s16 *samples;
-};
-
-struct Game_ButtonState
-{
-    b32 endedFrameDown;
-    s32 halfTransitionCount;
-};
-
-struct Game_Keyboard
-{
-    b32 isConnected;
-    
-    union
-    {
-        Game_ButtonState keys[6];
-        struct
-        {
-            Game_ButtonState keyW;
-            Game_ButtonState keyS;
-            Game_ButtonState keyA;
-            Game_ButtonState keyD;
-            Game_ButtonState keySpace;
-            Game_ButtonState keyEsc;
-        };
-    };
-};
-
-struct Game_Input
-{
-    b32 exeReloaded;
-    f32 deltaTime;
-    
-    Game_Keyboard keyboard;
-};
-
 global b32 globalRunning;
 
-#define CHECK_COM_FAILURE_ASSERT(func) if (FAILED(func)) {ASSERT(!"Error");}
+#if AST_INTERNAL
+DEBUG_PLATFORM_FREE_FILE(Debug_W32_FreeFile)
+{
+    if (memory)
+    {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
+
+DEBUG_PLATFORM_READ_FILE(Debug_W32_ReadFile)
+{
+    Debug_ReadFileResult result = {};
+    
+    HANDLE fileHandle = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if (fileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER fileSize;
+        if (GetFileSizeEx(fileHandle, &fileSize))
+        {
+            u32 fileSize32 = SafeTruncateU64(fileSize.QuadPart);
+            result.contents = VirtualAlloc(0, fileSize32, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            if (result.contents)
+            {
+                DWORD bytesRead;
+                if (ReadFile(fileHandle, result.contents, fileSize32, &bytesRead, 0) && (fileSize32 == bytesRead))
+                {
+                    result.contentsSize = fileSize32;
+                }
+                else
+                {
+                    Debug_W32_FreeFile(result.contents);
+                    result.contents = 0;
+                }
+            }
+        }
+        
+        CloseHandle(fileHandle);
+    }
+    else
+    {
+        printf("FAILED TO OPEN FILE %s FOR READING: %d\n", filename, GetLastError());
+        ASSERT(false);
+    }
+    
+    return result;
+}
+
+function void HandleCycleCounters(Game_Memory *memory)
+{
+    for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
+    {
+        DebugCycleCounter *counter = &memory->counters[counterIndex];
+        
+        if (counter->hitCount)
+        {
+            counter->hitCount = 0;
+            counter->cycleCount = 0;
+        }
+    }
+}
+#endif // AST_INTERNAL
+
+PLATFORM_MEM_ALLOC(W32_MemAlloc)
+{
+    void *result = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    return result;
+}
+
+PLATFORM_MEM_FREE(W32_MemFree)
+{
+    if (memory)
+    {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
 
 //~ AUDIO
+#define CHECK_COM_FAILURE_ASSERT(func) if (FAILED(func)) {ASSERT(!"Error");}
 function void W32_InitWASAPI(IAudioClient **audioClient, IAudioRenderClient **audioRenderClient, s32 samplesPerSecond, s32 bufferSizeSamples)
 {
     IMMDeviceEnumerator *enumerator;
@@ -218,60 +252,6 @@ function void W32_PresentBuffer(HDC deviceContext, W32_BackBuffer *backBuffer, W
     }
 }
 
-function void RenderClear(W32_BackBuffer *backBuffer, u32 colour)
-{
-    u8 *row = (u8 *)backBuffer->memory;
-    for (s32 y = 0; y < backBuffer->height; ++y)
-    {
-        u32 *pixel = (u32 *)row;
-        for (s32 x = 0; x < backBuffer->width; ++x)
-        {
-            *pixel++ = colour;
-        }
-        
-        row += backBuffer->pitch;
-    }
-}
-
-function void RenderBox(W32_BackBuffer *backBuffer, s32 originX, s32 originY, s32 width, s32 height, u32 colour)
-{
-    // TODO(bSalmon): Do checks for screen bounds
-    
-    s32 minX = originX - width / 2;
-    s32 minY = originY - height / 2;
-    s32 maxX = originX + (width - width / 2);
-    s32 maxY = originY + (height - height / 2);
-    
-    if (minX < 0)
-    {
-        minX = 0;
-    }
-    if (minY < 0)
-    {
-        minY = 0;
-    }
-    if (maxX == backBuffer->width)
-    {
-        maxX = backBuffer->width - 1;
-    }
-    if (maxY == backBuffer->height)
-    {
-        maxY = backBuffer->height - 1;
-    }
-    
-    u8 *row = (u8 *)backBuffer->memory + (minY * backBuffer->pitch);
-    for (s32 y = minY; y < maxY; ++y)
-    {
-        u32 *pixel = (u32 *)row + minX;
-        for (s32 x = minX; x < maxX; ++x)
-        {
-            *pixel++ = colour;
-        }
-        
-        row += backBuffer->pitch;
-    }
-}
-
 function void RenderDebugVerticalLine(W32_BackBuffer *backBuffer, s32 x, s32 yTop, s32 yBottom, u32 colour)
 {
     if (x >= 0 && x < backBuffer->width)
@@ -351,10 +331,6 @@ function void W32_ProcessPendingMessages(HWND window, W32_BackBuffer *backBuffer
                     {
                         W32_ProcessKeyboardEvent(&keyboard->keyW, keyIsDown);
                     }
-                    if (vkCode == 'S')
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyS, keyIsDown);
-                    }
                     if (vkCode == 'A')
                     {
                         W32_ProcessKeyboardEvent(&keyboard->keyA, keyIsDown);
@@ -370,6 +346,10 @@ function void W32_ProcessPendingMessages(HWND window, W32_BackBuffer *backBuffer
                     if (vkCode == VK_ESCAPE)
                     {
                         W32_ProcessKeyboardEvent(&keyboard->keyEsc, keyIsDown);
+                    }
+                    if (vkCode == VK_F1)
+                    {
+                        W32_ProcessKeyboardEvent(&keyboard->keyF1, keyIsDown);
                     }
                     
                     if (keyIsDown)
@@ -432,8 +412,13 @@ function LRESULT CALLBACK W32_WndProc(HWND window, UINT msg, WPARAM wParam, LPAR
     return result;
 }
 
+#if AST_INTERNAL
+Game_Memory *debugGlobalMem;
+#endif
 s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s32 showCode)
 {
+    _chdir("..\\data");
+    
 #if AST_INTERNAL
     AllocConsole();
     s32 hConsole = 0;
@@ -445,10 +430,19 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     
     BS842_Timing_Init();
     
-    BS842_Plotting_Init(1, 1200, 300, "C:\\Windows\\Fonts\\Arial.ttf");
+    W32_State platformState = {};
+    W32_GetExeFileName(&platformState);
+    
+    char programCodeDLLPath[W32_FILEPATH_MAX_LENGTH];
+    char tempDLLPath[W32_FILEPATH_MAX_LENGTH];
+    char lockPath[W32_FILEPATH_MAX_LENGTH];
+    
+    W32_BuildExePathFileName(&platformState, "ast.dll", programCodeDLLPath);
+    W32_BuildExePathFileName(&platformState, "ast_temp.dll", tempDLLPath);
+    W32_BuildExePathFileName(&platformState, "lock.tmp", lockPath);
     
     W32_BackBuffer platformBackBuffer = {};
-    W32_ResizeDIBSection(&platformBackBuffer, 1280, 720);
+    W32_ResizeDIBSection(&platformBackBuffer, 900, 900);
     
     WNDCLASSA windowClass = {};
     windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -461,14 +455,15 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
         HWND window = CreateWindowExA(0,
                                       windowClass.lpszClassName, "Asteroids",
                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                                      CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
+                                      CW_USEDEFAULT, CW_USEDEFAULT, 900, 900,
                                       0, 0, instance, 0);
         
         if (window)
         {
             HDC deviceContext = GetDC(window);
             
-            BS842_Timing_ChangeRefreshRate(deviceContext, true, 60);
+#define TARGET_HZ 60
+            BS842_Timing_ChangeRefreshRate(deviceContext, false, 0);
             
             s32 audioLatencyFrames = 1;
             W32_AudioOutput audioOutput = {};
@@ -482,12 +477,11 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             
             globalRunning = true;
             
+            W32_ProgramCode programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
+            
             Game_Input inputs[2] = {};
             Game_Input *newInput = &inputs[0];
             Game_Input *oldInput = &inputs[1];
-            
-            s32 boxX = 100;
-            s32 boxY = 100;
             
             s16 *samples = (s16 *)VirtualAlloc(0, audioOutput.secondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             
@@ -497,79 +491,123 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             LPVOID baseAddress = 0;
 #endif
             
+            Game_Memory gameMem = {};
             
+            gameMem.platform.Debug_FreeFile = Debug_W32_FreeFile;
+            gameMem.platform.Debug_ReadFile = Debug_W32_ReadFile;
+            gameMem.platform.MemAlloc = W32_MemAlloc;
+            gameMem.platform.MemFree = W32_MemFree;
             
-            while (globalRunning)
+            gameMem.permaStorageSize = MEGABYTE(16);
+            gameMem.transStorageSize = MEGABYTE(512);
+            
+            u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize;
+            gameMem.permaStorage = VirtualAlloc(baseAddress, totalMemSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            gameMem.transStorage = (u8 *)gameMem.permaStorage + gameMem.permaStorageSize;
+            
+            if (samples && gameMem.permaStorage && gameMem.transStorage)
             {
-                newInput->deltaTime = BS842_Timing_GetDeltaTime();
-                newInput->exeReloaded = false;
+                s32 debugTimeMarkerIndex = 0;
+                W32_DebugTimeMarker debugTimeMarkers[TARGET_HZ] = {};
                 
-                Game_Keyboard *oldKeyboard = &oldInput->keyboard;
-                Game_Keyboard *newKeyboard = &newInput->keyboard;
-                *newKeyboard = {};
-                newKeyboard->isConnected = true;
+                u32 lastPlayCursor = 0;
+                b32 soundValid = false;
                 
-                for (s32 keyIndex = 0; keyIndex < ARRAY_COUNT(newKeyboard->keys); ++keyIndex)
+                while (globalRunning)
                 {
-                    newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
-                }
-                
-                W32_ProcessPendingMessages(window, &platformBackBuffer, newKeyboard);
-                
-                RenderClear(&platformBackBuffer, 0xFFAAAAAA);
-                
-                u32 boxColour = 0xFFFFFFFF;
-                if (newKeyboard->keyW.endedFrameDown)
-                {
-                    boxY--;
-                }
-                if (newKeyboard->keyS.endedFrameDown)
-                {
-                    boxY++;
-                }
-                if (newKeyboard->keyA.endedFrameDown)
-                {
-                    boxX--;
-                }
-                if (newKeyboard->keyD.endedFrameDown)
-                {
-                    boxX++;
-                }
-                if (newKeyboard->keySpace.endedFrameDown)
-                {
-                    boxColour -= 0x00FF0000;
-                }
-                if (newKeyboard->keyEsc.endedFrameDown)
-                {
-                    boxColour -= 0x0000FF00;
-                }
-                
-#if 0
-                RenderBox(&platformBackBuffer, boxX, boxY, 50, 50, boxColour);
-                
-                RenderDebugVerticalLine(&platformBackBuffer, 100, 200, 300, 0xFF00FF00);
+#if AST_INTERNAL
+                    FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
+                    if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
+                    {
+                        Sleep(33);
+                        
+                        W32_UnloadProgramCode(&programCode);
+                        programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
+                    }
 #endif
-                
-                float xData0[8] = {12.0f, 24.5f, 32.0f, 48.0f, 60.0f, 65.0f, 79.0f, 90.0f};
-                float yData0[8] = {0.0f, -5.0f, 20.0f, 50.0f, 80.0f, 86.0f, 70.0f, 50.0f};
-                BS842_Plotting_PlotData(0, 0, xData0, yData0, 8);
-                
-                float xData1[8] = {10.0f, 20.5f, 32.0f, 52.0f, 67.0f, 70.0f, 78.0f, 92.0f};
-                float yData1[8] = {40.0f, -10.0f, 30.0f, 33.0f, 90.0f, 150.0f, 60.0f, 40.0f};
-                BS842_Plotting_PlotData(0, 1, xData1, yData1, 8);
-                
-                BS842_Plotting_UpdatePlot(0);
-                
-                BS842_Plotting_GetPlotMemory(0, (u8 *)platformBackBuffer.memory + ((128 * platformBackBuffer.pitch) + 64), platformBackBuffer.pitch);
-                
-                BS842_Timing_FrameEnd();
-                
-                //printf("%.02f / %.03f\n", BS842_Timing_GetFramesPerSecond(), BS842_Timing_GetMSPerFrame());
-                
-                W32_WindowDims windowDim = W32_GetWindowDims(window);
-                W32_PresentBuffer(deviceContext, &platformBackBuffer, windowDim);
-                
-                SWAP(newInput, oldInput);
+                    
+                    newInput->deltaTime = BS842_Timing_GetDeltaTime();
+                    newInput->exeReloaded = false;
+                    
+                    Game_Keyboard *oldKeyboard = &oldInput->keyboard;
+                    Game_Keyboard *newKeyboard = &newInput->keyboard;
+                    *newKeyboard = {};
+                    newKeyboard->isConnected = true;
+                    
+                    for (s32 keyIndex = 0; keyIndex < ARRAY_COUNT(newKeyboard->keys); ++keyIndex)
+                    {
+                        newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
+                    }
+                    
+                    W32_ProcessPendingMessages(window, &platformBackBuffer, newKeyboard);
+                    
+                    POINT mouseLoc;
+                    GetCursorPos(&mouseLoc);
+                    ScreenToClient(window, &mouseLoc);
+                    b32 mouseLeftDown = (GetKeyState(VK_LBUTTON) & (1 << 15));
+                    b32 mouseRightDown = (GetKeyState(VK_RBUTTON) & (1 << 15));
+                    
+#if AST_INTERNAL
+                    debugGlobalMem = &gameMem;
+#endif
+                    
+                    s32 samplesToWrite = 0;
+                    u32 audioPadding;
+                    if (SUCCEEDED(audioOutput.audioClient->GetCurrentPadding(&audioPadding)))
+                    {
+                        samplesToWrite = (s32)(audioOutput.secondaryBufferSize - audioPadding);
+                        if (samplesToWrite > audioOutput.latencySampleCount)
+                        {
+                            samplesToWrite = audioOutput.latencySampleCount;
+                        }
+                    }
+                    
+                    Game_AudioBuffer gameAudioBuffer = {};
+                    gameAudioBuffer.samplesPerSecond = audioOutput.samplesPerSecond;
+                    gameAudioBuffer.sampleCount = Align8(samplesToWrite);
+                    gameAudioBuffer.samples = samples;
+                    
+                    Game_BackBuffer gameBackBuffer = {};
+                    gameBackBuffer.width = platformBackBuffer.width;
+                    gameBackBuffer.height = platformBackBuffer.height;
+                    gameBackBuffer.pitch = platformBackBuffer.pitch;
+                    gameBackBuffer.memory = platformBackBuffer.memory;
+                    
+                    W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
+                    
+                    ASSERT(programCode.UpdateRender);
+                    programCode.UpdateRender(&gameBackBuffer, &gameMem, newInput, &gameAudioBuffer);
+                    
+                    BS842_Timing_FrameEnd();
+                    
+                    W32_WindowDims windowDim = W32_GetWindowDims(window);
+                    //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
+                    W32_PresentBuffer(deviceContext, &platformBackBuffer, windowDim);
+                    
+#if AST_INTERNAL
+                    {
+                        W32_DebugTimeMarker *marker = &debugTimeMarkers[debugTimeMarkerIndex++];
+                        if (debugTimeMarkerIndex >= ARRAY_COUNT(debugTimeMarkers))
+                        {
+                            debugTimeMarkerIndex = 0;
+                        }
+                        
+                        u64 positionFreq, positionUnits;
+                        
+                        IAudioClock *audioClock;
+                        audioOutput.audioClient->GetService(IID_PPV_ARGS(&audioClock));
+                        audioClock->GetFrequency(&positionFreq);
+                        audioClock->GetPosition(&positionUnits, 0);
+                        audioClock->Release();
+                        
+                        marker->playCursor = (s32)(audioOutput.samplesPerSecond * (positionUnits / positionFreq)) % audioOutput.samplesPerSecond;
+                    }
+#endif
+                    SWAP(newInput, oldInput);
+                    
+                    HandleCycleCounters(&gameMem);
+                    printf("%.02f / %.03f\n", BS842_Timing_GetFramesPerSecond(), BS842_Timing_GetMSPerFrame());
+                }
             }
         }
     }

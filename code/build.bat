@@ -1,5 +1,9 @@
 @echo off
 
+time /T
+date /T
+echo.
+
 REM -MTd for debug build
 set commonFlagsCompiler=-MTd -nologo -Gm- -GR- -fp:fast -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4996 -FC -Z7 -DAST_INTERNAL=1 -DAST_SLOW=1
 set commonFlagsLinker= -incremental:no -opt:ref 
@@ -7,5 +11,18 @@ set commonFlagsLinker= -incremental:no -opt:ref
 IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build
 
-cl %commonFlagsCompiler% ..\code\w32_ast.cpp /link %commonFlagsLinker% user32.lib gdi32.lib ole32.lib
+REM 64-bit
+del *.pdb > NUL 2> NUL
+echo WAITING FOR PDB > lock.tmp
+
+echo COMPILING DLL
+cl %commonFlagsCompiler% ..\code\ast.cpp -LD /link %commonFlagsLinker% -PDB:game_%random%.pdb -EXPORT:Game_UpdateRender
+del lock.tmp
+
+echo.
+
+echo COMPILING PLATFORM
+cl %commonFlagsCompiler% ..\code\w32_ast.cpp /link %commonFlagsLinker% user32.lib gdi32.lib ole32.lib winmm.lib
+
+echo.
 popd

@@ -109,6 +109,7 @@ extern "C"
     TIME_BEGIN_PERIOD(timeBeginPeriodStub)
     {
         // Stub, so do nothing
+        (void) uPeriod;
         return MMSYSERR_NOTENABLED;
     }
     static time_begin_period *timeBeginPeriod_ = timeBeginPeriodStub;

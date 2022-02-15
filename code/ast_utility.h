@@ -33,18 +33,60 @@ typedef u64 usize;
 #if AST_SLOW
 #define ASSERT(check) if(!(check)) {*(s32 *)0 = 0;}
 #define INVALID_CODE_PATH ASSERT(false)
+#define INVALID_DEFAULT default: { INVALID_CODE_PATH; } break;
 #else
 #define ASSERT(check)
 #define INVALID_CODE_PATH
+#define INVALID_DEFAULT
 #endif
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 #define SWAP(a, b) {decltype(a) temp = a; a = b; b = temp;}
 
+#define Align8(value) ((value + 7) & ~7)
+
 #define KILOBYTE(value) ((value) * 1024LL)
 #define MEGABYTE(value) (KILOBYTE(value) * 1024LL)
 #define GIGABYTE(value) (MEGABYTE(value) * 1024LL)
 #define TERABYTE(value) (GIGABYTE(value) * 1024LL)
+
+#define TAU 6.28318530717958647692f
+
+#define BITMAP_BYTES_PER_PIXEL 4
+
+inline s32 StringLength(char *string)
+{
+    s32 result = 0;
+    char *c = string;
+    while (*c++)
+    {
+        ++result;
+    }
+    
+    return result;
+}
+
+inline void ConcatStrings(char *dest, char *a, usize aSize, char *b, usize bSize)
+{
+    for (s32 i = 0; i < aSize; ++i)
+    {
+        *dest++ = *a++;
+    }
+    
+    for (s32 i = 0; i < bSize; ++i)
+    {
+        *dest++ = *b++;
+    }
+    
+    *dest++ = 0;
+}
+
+inline u32 SafeTruncateU64(u64 value)
+{
+    ASSERT(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return result;
+}
 
 #define AST_UTILITY_H
 #endif //AST_UTILITY_H
