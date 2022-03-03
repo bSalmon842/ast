@@ -9,6 +9,7 @@ set commonFlagsCompiler=-MTd -nologo -Gm- -GR- -fp:fast -EHa- -Od -Oi -WX -W4 -w
 set commonFlagsLinker= -incremental:no -opt:ref 
 
 IF NOT EXIST ..\build mkdir ..\build
+IF NOT EXIST ..\build\asset_build mkdir ..\build\asset_build
 pushd ..\build
 
 REM 64-bit
@@ -22,7 +23,14 @@ del lock.tmp
 echo.
 
 echo COMPILING PLATFORM
-cl %commonFlagsCompiler% ..\code\w32_ast.cpp /link %commonFlagsLinker% user32.lib gdi32.lib ole32.lib winmm.lib
+cl %commonFlagsCompiler% ..\code\w32_ast.cpp /link %commonFlagsLinker% user32.lib gdi32.lib ole32.lib winmm.lib opengl32.lib
 
 echo.
+
+pushd .\asset_build
+
+echo COMPILING ASSET BUILDER
+cl %commonFlagsCompiler% ..\..\code\asset_build\asset_build.cpp /link %commonFlagsLinker%
+
+popd
 popd

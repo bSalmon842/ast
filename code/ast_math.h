@@ -160,14 +160,9 @@ inline v2s MaxElementsV2S(v2s a, v2s b)
     return result;
 }
 
-function b32 WithinRect(v2f point, Rect2f rect)
+inline f32 SafeRatio(f32 num, f32 div, f32 n)
 {
-    b32 result = false;
-    if (point.x >= rect.min.x && point.x <= rect.max.x &&
-        point.y >= rect.min.y && point.y <= rect.max.y)
-    {
-        result = true;
-    }
+    f32 result = (div != 0.0f) ? num / div : n;
     return result;
 }
 

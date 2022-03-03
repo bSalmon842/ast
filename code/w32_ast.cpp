@@ -2,7 +2,7 @@
 Project: Asteroids
 File: w32_ast.cpp
 Author: Brock Salmon
-Notice: (C) Copyright 2021 by Brock Salmon. All Rights Reserved
+Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 #define WIN32_LEAN_AND_MEAN
@@ -10,45 +10,22 @@ Notice: (C) Copyright 2021 by Brock Salmon. All Rights Reserved
 #include <mmdeviceapi.h>
 #include <AudioClient.h>
 #include <direct.h>
+#include <gl/gl.h>
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif // MSC_VER
 
 #include "ast_platform.h"
 #include "w32_ast_dev.cpp"
+
+#include "w32_ast.h"
 
 #define BS842_DONT_FETCH_WINMM
 #define BS842_W32TIMING_IMPLEMENTATION
 #include "bs842_w32_timing.h"
 
-struct W32_BackBuffer
-{
-    BITMAPINFO info;
-    void *memory;
-    s32 width;
-    s32 height;
-    u32 pitch;
-};
-
-struct W32_WindowDims
-{
-    s32 width;
-    s32 height;
-};
-
-struct W32_AudioOutput
-{
-    IAudioClient *audioClient;
-    IAudioRenderClient *renderClient;
-    s32 samplesPerSecond;
-    s32 bytesPerSample;
-    s32 secondaryBufferSize;
-    s32 latencySampleCount;
-    u32 runningSampleIndex;
-};
-
-struct W32_DebugTimeMarker
-{
-    u32 playCursor;
-    u32 writeCursor;
-};
+#include "ast_opengl.cpp"
 
 global b32 globalRunning;
 
@@ -114,18 +91,78 @@ function void HandleCycleCounters(Game_Memory *memory)
 }
 #endif // AST_INTERNAL
 
-PLATFORM_MEM_ALLOC(W32_MemAlloc)
+function PLATFORM_MEM_ALLOC(W32_MemAlloc)
 {
     void *result = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     return result;
 }
 
-PLATFORM_MEM_FREE(W32_MemFree)
+function PLATFORM_MEM_FREE(W32_MemFree)
 {
     if (memory)
     {
         VirtualFree(memory, 0, MEM_RELEASE);
     }
+}
+
+function PLATFORM_MICROSECONDS_SINCE_EPOCH(W32_MicrosecondsSinceEpoch)
+{
+    u64 result = 0;
+    
+    FILETIME fileTime = {};
+    SYSTEMTIME systemTime = {};
+    GetSystemTime(&systemTime);
+    SystemTimeToFileTime(&systemTime, &fileTime);
+    
+    ULARGE_INTEGER fileTimeInt = {};
+    fileTimeInt.LowPart = fileTime.dwLowDateTime;
+    fileTimeInt.HighPart = fileTime.dwHighDateTime;
+    
+    SYSTEMTIME epoch = {};
+    epoch.wYear = 1970;
+    epoch.wMonth = 1;
+    epoch.wDayOfWeek = 4;
+    epoch.wDay = 1;
+    
+    SystemTimeToFileTime(&epoch, &fileTime);
+    
+    ULARGE_INTEGER epochFileTime = {};
+    epochFileTime.LowPart = fileTime.dwLowDateTime;
+    epochFileTime.HighPart = fileTime.dwHighDateTime;
+    
+    result = (fileTimeInt.QuadPart - epochFileTime.QuadPart) / 10;
+    
+    return result;
+}
+
+function PLATFORM_SECONDS_SINCE_EPOCH(W32_SecondsSinceEpoch)
+{
+    u64 result = 0;
+    
+    FILETIME fileTime = {};
+    SYSTEMTIME systemTime = {};
+    GetSystemTime(&systemTime);
+    SystemTimeToFileTime(&systemTime, &fileTime);
+    
+    ULARGE_INTEGER fileTimeInt = {};
+    fileTimeInt.LowPart = fileTime.dwLowDateTime;
+    fileTimeInt.HighPart = fileTime.dwHighDateTime;
+    
+    SYSTEMTIME epoch = {};
+    epoch.wYear = 1970;
+    epoch.wMonth = 1;
+    epoch.wDayOfWeek = 4;
+    epoch.wDay = 1;
+    
+    SystemTimeToFileTime(&epoch, &fileTime);
+    
+    ULARGE_INTEGER epochFileTime = {};
+    epochFileTime.LowPart = fileTime.dwLowDateTime;
+    epochFileTime.HighPart = fileTime.dwHighDateTime;
+    
+    result = (fileTimeInt.QuadPart - epochFileTime.QuadPart) / 10000000;
+    
+    return result;
 }
 
 //~ AUDIO
@@ -179,6 +216,119 @@ function void W32_FillAudioBuffer(W32_AudioOutput *audioOutput, u32 samplesWrite
     }
 }
 
+//~ FILE I/O
+function PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(W32_GetAllFilesOfExtBegin)
+{
+    Platform_FileGroup result = {};
+    
+    W32_FileGroup *w32FileGroup = (W32_FileGroup *)VirtualAlloc(0, sizeof(W32_FileGroup), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    result.platform = w32FileGroup;
+    
+    wchar_t *searchName = L"*.*";
+    switch (fileType)
+    {
+        case PlatformFileType_Asset:
+        {
+            searchName = L"*.aaf";
+        } break;
+        
+        case PlatformFileType_Save:
+        {
+            searchName = L"*.asf";
+        } break;
+        
+        INVALID_DEFAULT;
+    }
+    
+    WIN32_FIND_DATAW findData = {};
+    HANDLE findHandle = FindFirstFileW(searchName, &findData);
+    
+    while (findHandle != INVALID_HANDLE_VALUE)
+    {
+        ++result.fileCount;
+        
+        if (!FindNextFileW(findHandle, &findData))
+        {
+            FindClose(findHandle);
+            break;
+        }
+    }
+    
+    w32FileGroup->findHandle = FindFirstFileW(searchName, &w32FileGroup->findData);
+    
+    return result;
+}
+
+function PLATFORM_GET_ALL_FILES_OF_EXT_END(W32_GetAllFilesOfExtEnd)
+{
+    W32_FileGroup *w32FileGroup = (W32_FileGroup *)fileGroup->platform;
+    if (w32FileGroup)
+    {
+        if (w32FileGroup->findHandle != INVALID_HANDLE_VALUE)
+        {
+            FindClose(w32FileGroup->findHandle);
+        }
+        
+        VirtualFree(w32FileGroup, 0, MEM_RELEASE);
+    }
+}
+
+function PLATFORM_OPEN_NEXT_FILE(W32_OpenNextFile)
+{
+    Platform_FileHandle result = {};
+    
+    W32_FileGroup *w32FileGroup = (W32_FileGroup *)fileGroup->platform;
+    W32_FileHandle *w32FileHandle = 0;
+    
+    if (w32FileGroup->findHandle != INVALID_HANDLE_VALUE)
+    {
+        w32FileHandle = (W32_FileHandle *)VirtualAlloc(0, sizeof(W32_FileHandle), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        result.platform = w32FileHandle;
+        
+        if (w32FileHandle)
+        {
+            w32FileHandle->w32Handle = CreateFileW(w32FileGroup->findData.cFileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+            result.errored = (w32FileHandle->w32Handle == INVALID_HANDLE_VALUE);
+        }
+        
+        if (!FindNextFileW(w32FileGroup->findHandle, &w32FileGroup->findData))
+        {
+            FindClose(w32FileGroup->findHandle);
+            w32FileGroup->findHandle = INVALID_HANDLE_VALUE;
+        }
+    }
+    
+    return result;
+}
+
+function PLATFORM_MARK_FILE_ERROR(W32_MarkFileError)
+{
+#if AST_INTERNAL
+    printf("FILE ERROR: %s\n", errorMsg);
+#endif
+    
+    fileHandle->errored = true;
+}
+
+function PLATFORM_READ_DATA_FROM_FILE(W32_ReadDataFromFile)
+{
+    if (Platform_NoFileErrors(fileHandle))
+    {
+        W32_FileHandle *handle = (W32_FileHandle *)fileHandle->platform;
+        OVERLAPPED overlapped = {};
+        overlapped.Offset = (u32)(offset & 0xFFFFFFFF);
+        overlapped.OffsetHigh = (u32)((offset >> 32) & 0xFFFFFFFF);
+        
+        u32 fileSize = SafeTruncateU64(size);
+        
+        DWORD bytesRead;
+        if (!ReadFile(handle->w32Handle, dest, fileSize, &bytesRead, &overlapped) || !(fileSize == bytesRead))
+        {
+            W32_MarkFileError(fileHandle, "Failed to Read Data from File");
+        }
+    }
+}
+
 //~ INPUT
 function void W32_ProcessKeyboardEvent(Game_ButtonState *state, b32 keyIsDown)
 {
@@ -189,7 +339,35 @@ function void W32_ProcessKeyboardEvent(Game_ButtonState *state, b32 keyIsDown)
     }
 }
 
-//~ RENDERING
+//~ RENDERING / OPENGL
+function void W32_InitOpenGL(HDC deviceContext)
+{
+    PIXELFORMATDESCRIPTOR pfdReq = {};
+    pfdReq.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    pfdReq.nVersion = 1;
+    pfdReq.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfdReq.iPixelType = PFD_TYPE_RGBA;
+    pfdReq.cColorBits = 32;
+    pfdReq.cAlphaBits = 8;
+    pfdReq.iLayerType = PFD_MAIN_PLANE;
+    
+    s32 pfdIndex = ChoosePixelFormat(deviceContext, &pfdReq);
+    
+    PIXELFORMATDESCRIPTOR pfd = {};
+    DescribePixelFormat(deviceContext, pfdIndex, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
+    SetPixelFormat(deviceContext, pfdIndex, &pfd);
+    
+    HGLRC glRC = wglCreateContext(deviceContext);
+    if (wglMakeCurrent(deviceContext, glRC))
+    {
+        //glGenTextures(1, &globalTextureHandle);
+    }
+    else
+    {
+        ASSERT(false);
+    }
+}
+
 inline W32_WindowDims W32_GetWindowDims(HWND window)
 {
     W32_WindowDims result = {};
@@ -215,7 +393,7 @@ function void W32_ResizeDIBSection(W32_BackBuffer *backBuffer, s32 width, s32 he
     
     backBuffer->info.bmiHeader.biSize = sizeof(backBuffer->info.bmiHeader);
     backBuffer->info.bmiHeader.biWidth = backBuffer->width;
-    backBuffer->info.bmiHeader.biHeight = -backBuffer->height;
+    backBuffer->info.bmiHeader.biHeight = backBuffer->height;
     backBuffer->info.bmiHeader.biPlanes = 1;
     backBuffer->info.bmiHeader.biBitCount = 32;
     backBuffer->info.bmiHeader.biCompression = BI_RGB;
@@ -224,32 +402,10 @@ function void W32_ResizeDIBSection(W32_BackBuffer *backBuffer, s32 width, s32 he
     backBuffer->memory = VirtualAlloc(0, bitmapMemSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 }
 
-function void W32_PresentBuffer(HDC deviceContext, W32_BackBuffer *backBuffer, W32_WindowDims windowDim)
+function void W32_PresentBuffer(Game_RenderCommands *commands, PlatformAPI platform, HDC deviceContext)
 {
-    if ((windowDim.width >= (backBuffer->width * 1.5f)) && (windowDim.height >= (backBuffer->height * 1.5f)))
-    {
-        StretchDIBits(deviceContext,
-                      0, 0, windowDim.width, windowDim.height,     // DEST
-                      0, 0, backBuffer->width, backBuffer->height, // SRC
-                      backBuffer->memory, &backBuffer->info,
-                      DIB_RGB_COLORS, SRCCOPY);
-    }
-    else
-    {
-        s32 offsetX = 0;
-        s32 offsetY = 0;
-        
-        PatBlt(deviceContext, 0, 0, windowDim.width, offsetY, BLACKNESS);
-        PatBlt(deviceContext, 0, 0, offsetX, windowDim.height, BLACKNESS);
-        PatBlt(deviceContext, offsetX + backBuffer->width, 0, windowDim.width, windowDim.height, BLACKNESS);
-        PatBlt(deviceContext, 0, offsetY + backBuffer->height, windowDim.width, windowDim.height, BLACKNESS);
-        
-        StretchDIBits(deviceContext,
-                      offsetX, offsetY, backBuffer->width, backBuffer->height, // DEST
-                      0, 0, backBuffer->width, backBuffer->height,             // SRC
-                      backBuffer->memory, &backBuffer->info,
-                      DIB_RGB_COLORS, SRCCOPY);
-    }
+    OpenGL_Render(commands, platform);
+    SwapBuffers(deviceContext);
 }
 
 function void RenderDebugVerticalLine(W32_BackBuffer *backBuffer, s32 x, s32 yTop, s32 yBottom, u32 colour)
@@ -294,7 +450,7 @@ function void W32_RenderAudioSyncDisplay(W32_BackBuffer *backBuffer, s32 markerC
 }
 
 //~ WINDOWS
-function void W32_ProcessPendingMessages(HWND window, W32_BackBuffer *backBuffer, Game_Keyboard *keyboard)
+function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, Game_RenderCommands *renderCommands, PlatformAPI platform)
 {
     MSG msg;
     
@@ -312,8 +468,7 @@ function void W32_ProcessPendingMessages(HWND window, W32_BackBuffer *backBuffer
                 PAINTSTRUCT paint;
                 HDC deviceContext = BeginPaint(window, &paint);
                 
-                W32_WindowDims windowDim = W32_GetWindowDims(window);
-                W32_PresentBuffer(deviceContext, backBuffer, windowDim);
+                W32_PresentBuffer(renderCommands, platform, deviceContext);
                 EndPaint(window, &paint);
             }break;
             
@@ -380,20 +535,15 @@ function LRESULT CALLBACK W32_WndProc(HWND window, UINT msg, WPARAM wParam, LPAR
     {
         case WM_CLOSE:
         {
-            // TODO(bSalmon): Handle with message to the user
             globalRunning = false;
         }break;
         
         case WM_DESTROY:
         {
-            // TODO(bSalmon): Handle as an error
             globalRunning = false;
         }break;
         
-        case WM_PAINT:
-        {
-            //ASSERT(!"Paint Dispatched");
-        }break;
+        case WM_PAINT: { } break;
         
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
@@ -461,6 +611,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
         if (window)
         {
             HDC deviceContext = GetDC(window);
+            W32_InitOpenGL(deviceContext);
             
 #define TARGET_HZ 60
             BS842_Timing_ChangeRefreshRate(deviceContext, false, 0);
@@ -492,11 +643,25 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
 #endif
             
             Game_Memory gameMem = {};
+            PlatformAPI platform = {};
+            platform.Debug_FreeFile = Debug_W32_FreeFile;
+            platform.Debug_ReadFile = Debug_W32_ReadFile;
+            platform.MemAlloc = W32_MemAlloc;
+            platform.MemFree = W32_MemFree;
+            platform.MicrosecondsSinceEpoch = W32_MicrosecondsSinceEpoch;
+            platform.SecondsSinceEpoch = W32_SecondsSinceEpoch;
+            platform.GetAllFilesOfExtBegin = W32_GetAllFilesOfExtBegin;
+            platform.GetAllFilesOfExtEnd = W32_GetAllFilesOfExtEnd;
+            platform.OpenNextFile = W32_OpenNextFile;
+            platform.MarkFileError = W32_MarkFileError;
+            platform.ReadDataFromFile = W32_ReadDataFromFile;
+            gameMem.platform = platform;
             
-            gameMem.platform.Debug_FreeFile = Debug_W32_FreeFile;
-            gameMem.platform.Debug_ReadFile = Debug_W32_ReadFile;
-            gameMem.platform.MemAlloc = W32_MemAlloc;
-            gameMem.platform.MemFree = W32_MemFree;
+            s32 cpuInfo[4];
+            __cpuid(cpuInfo, 1);
+            gameMem.availableInstructionSets.sse3 = cpuInfo[2] & (1 << 0) || false;
+            gameMem.availableInstructionSets.sse4_2 = cpuInfo[2] & (1 << 20) || false;
+            gameMem.availableInstructionSets.avx = cpuInfo[2] & (1 << 28) || false;
             
             gameMem.permaStorageSize = MEGABYTE(16);
             gameMem.transStorageSize = MEGABYTE(512);
@@ -512,6 +677,11 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 
                 u32 lastPlayCursor = 0;
                 b32 soundValid = false;
+                
+                usize maxPushBufferSize = MEGABYTE(4);
+                void *pushBufferBase = VirtualAlloc(0, maxPushBufferSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                Game_RenderCommands gameRenderCommands = InitialiseRenderCommands(maxPushBufferSize, pushBufferBase,
+                                                                                  platformBackBuffer.width, platformBackBuffer.height);
                 
                 while (globalRunning)
                 {
@@ -539,7 +709,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
                     }
                     
-                    W32_ProcessPendingMessages(window, &platformBackBuffer, newKeyboard);
+                    W32_ProcessPendingMessages(window, newKeyboard, &gameRenderCommands, platform);
                     
                     POINT mouseLoc;
                     GetCursorPos(&mouseLoc);
@@ -567,22 +737,16 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     gameAudioBuffer.sampleCount = Align8(samplesToWrite);
                     gameAudioBuffer.samples = samples;
                     
-                    Game_BackBuffer gameBackBuffer = {};
-                    gameBackBuffer.width = platformBackBuffer.width;
-                    gameBackBuffer.height = platformBackBuffer.height;
-                    gameBackBuffer.pitch = platformBackBuffer.pitch;
-                    gameBackBuffer.memory = platformBackBuffer.memory;
-                    
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
                     ASSERT(programCode.UpdateRender);
-                    programCode.UpdateRender(&gameBackBuffer, &gameMem, newInput, &gameAudioBuffer);
+                    programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
                     
                     BS842_Timing_FrameEnd();
                     
-                    W32_WindowDims windowDim = W32_GetWindowDims(window);
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
-                    W32_PresentBuffer(deviceContext, &platformBackBuffer, windowDim);
+                    
+                    W32_PresentBuffer(&gameRenderCommands, platform, deviceContext);
                     
 #if AST_INTERNAL
                     {

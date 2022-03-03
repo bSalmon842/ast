@@ -10,6 +10,12 @@ enum TextAlign
 
 typedef struct
 {
+    char *text;
+    u8 length;
+} RenderString;
+
+typedef struct
+{
     u32 a;
     u32 b;
     u32 c;
@@ -32,7 +38,7 @@ typedef struct
 
 typedef struct
 {
-    Bitmap *bitmap;
+    BitmapID bitmapID;
     v2f offset;
     v2f dims;
     f32 angle;
@@ -54,26 +60,21 @@ typedef struct
 
 typedef struct
 {
-    stbtt_fontinfo *fontInfo;
+    RenderString string;
+    
     v2f offset;
-    char *text;
-    
+    f32 scale;
     TextAlign align;
-    
-    f32 lineHeight;
     v4f colour;
-    
-    PlatformAPI platform;
 } RenderEntry_Text;
 
-typedef struct
+struct RenderGroup
 {
-    v2f worldToPixelConversion;
+    struct Game_State *gameState;
+    Game_Memory *memory;
     
-    u8 *pushBufferBase;
-    usize pushBufferSize;
-    usize maxPushBufferSize;
-} RenderGroup;
+    v2f worldToPixelConversion;
+};
 
 #define AST_RENDER_H
 #endif //AST_RENDER_H

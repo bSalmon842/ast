@@ -24,9 +24,9 @@ function v2f GetAsteroidDims(AsteroidSize size)
     v2f result = {};
     switch (size)
     {
-        CASE_SETRESULT(AsteroidSize_Large, V2F(15.0f));
-        CASE_SETRESULT(AsteroidSize_Medium, V2F(10.0f));
-        CASE_SETRESULT(AsteroidSize_Small, V2F(5.0f));
+        CASE_SETRESULT(AsteroidSize_Large, V2F(10.0f));
+        CASE_SETRESULT(AsteroidSize_Medium, V2F(5.0f));
+        CASE_SETRESULT(AsteroidSize_Small, V2F(2.5f));
         INVALID_DEFAULT;
     }
     return result;
@@ -59,6 +59,7 @@ function AsteroidSize GetAsteroidSizeFromDims(v2f dims)
 function void MoveEntity(Game_Input *input, Entity *entity)
 {
     entity->pos += entity->dP * input->deltaTime;
+    entity->angle += entity->dA * input->deltaTime;
 }
 
 function void MoveEntityLoop(Game_Input *input, Entity *entity, v2f worldDims)
@@ -91,11 +92,77 @@ function Entity MakeEntity(Entity_Type type, b32 startActive, v2f initialPos, v2
     result.type = type;
     result.active = startActive;
     result.angle = initialAngle;
+    result.dA = 0.0f;
     result.pos = initialPos;
     result.dP = V2F();
     result.dims = dims;
     
+    result.extraInfo = 0;
+    
     return result;
+}
+
+function Entity MakeEntity_Asteroid(b32 startActive, v2f initialPos, v2f dP, f32 dA, AsteroidSize size, u8 bitmapIndex, PlatformAPI platform)
+{
+    Entity result = {};
+    
+    result.type = Entity_Asteroids;
+    result.active = startActive;
+    result.angle = 0.0f;
+    result.dA = dA;
+    result.pos = initialPos;
+    result.dP = dP;
+    result.dims = GetAsteroidDims(size);
+    
+    result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Asteroid));
+    EntityInfo_Asteroid *astInfo = (EntityInfo_Asteroid *)result.extraInfo;
+    astInfo->size = size;
+    astInfo->bitmapIndex = bitmapIndex;
+    
+    return result;
+}
+
+function Entity MakeEntity_Shot(v2f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
+{
+    Entity result = {};
+    
+    result.type = Entity_Shot;
+    result.active = true;
+    result.angle = 0.0f;
+    result.pos = initialPos;
+    result.dP = dP;
+    result.dims = V2F(1.0f);
+    
+    result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Shot));
+    EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)result.extraInfo;
+    shotInfo->timer = InitialiseTimer(0.0f, lifetime);
+    
+    return result;
+}
+
+function Entity MakeEntity_UFO(v2f initialPos, v2f dims, s32 vMoveDir, PlatformAPI platform)
+{
+    Entity result = {};
+    
+    result.type = Entity_UFO;
+    result.active = true;
+    result.angle = TAU * 0.25f;
+    result.pos = initialPos;
+    result.dP = V2F(10.0f, 0.0f);
+    result.dims = dims;
+    
+    result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_UFO));
+    EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)result.extraInfo;
+    ufoInfo->timer = InitialiseTimer(0.0f, 10.0f);
+    ufoInfo->vMoveDir = vMoveDir;
+    
+    return result;
+}
+
+function void ClearEntity(Entity *entity, PlatformAPI platform)
+{
+    platform.MemFree(entity->extraInfo);
+    *entity = {};
 }
 
 function Entity *FindFirstNullEntity(Entity *entityList, s32 entityListSize)

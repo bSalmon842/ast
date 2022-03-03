@@ -1,0 +1,62 @@
+struct AAFHeader
+{
+	u(4) magicValue;
+	u(4) assetCount;
+	u(8) dataSize;
+};
+
+enum AssetType
+{
+	AssetType_Null,
+    
+    AssetType_Bitmap,
+    AssetType_Audio,
+    AssetType_Font,
+    
+    AssetType_Count,
+};
+
+enum BitmapID
+{
+    BitmapID_Null,
+    
+    BitmapID_Player_NoTrail,
+    BitmapID_Asteroid0,
+    BitmapID_Asteroid1,
+    BitmapID_Asteroid2,
+    BitmapID_Asteroid3,
+};
+
+struct BitmapInfo
+{
+	s(4) dims[2];
+	s(4) pitch;
+	BitmapID(4) id;
+};
+
+struct AssetHeader
+{
+	u(8) assetSize;
+	AssetType(1) type;
+	
+	BitmapInfo bitmap;
+};
+
+struct AssetData(var assetSize)
+{
+	raw(assetSize) data;
+};
+
+struct Asset
+{
+	AssetHeader header;
+	AssetData(header.assetSize) asset;
+};
+
+struct FileLayout
+{
+	AAFHeader fileHeader;
+	Asset assets[fileHeader.assetCount];
+};
+
+layout FileLayout;

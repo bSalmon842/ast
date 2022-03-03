@@ -27,8 +27,6 @@ typedef DEBUG_PLATFORM_FREE_FILE(debug_platformFreeFile);
 enum
 {
     DebugCycleCounter_GameUpdateRender,
-    DebugCycleCounter_RenderBitmap_Slow,
-    DebugCycleCounter_ProcessPixel,
     
     DebugCycleCounter_Count,
 };
@@ -49,19 +47,91 @@ struct DebugCycleCounter
 #endif
 #endif // AST_INTERNAL
 
+typedef struct
+{
+    b32 errored;
+    void *platform;
+} Platform_FileHandle;
+
+typedef struct
+{
+    u32 fileCount;
+    void *platform;
+} Platform_FileGroup;
+
+enum Platform_FileType
+{
+    PlatformFileType_Asset,
+    PlatformFileType_Save,
+};
+
+#define PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(funcName) Platform_FileGroup funcName(Platform_FileType fileType)
+typedef PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(platformGetAllFilesOfExtBegin);
+
+#define PLATFORM_GET_ALL_FILES_OF_EXT_END(funcName) void funcName(Platform_FileGroup *fileGroup)
+typedef PLATFORM_GET_ALL_FILES_OF_EXT_END(platformGetAllFilesOfExtEnd);
+
+#define PLATFORM_OPEN_NEXT_FILE(funcName) Platform_FileHandle funcName(Platform_FileGroup *fileGroup)
+typedef PLATFORM_OPEN_NEXT_FILE(platformOpenNextFile);
+
+#define PLATFORM_MARK_FILE_ERROR(funcName) void funcName(Platform_FileHandle *fileHandle, char *errorMsg)
+typedef PLATFORM_MARK_FILE_ERROR(platformMarkFileError);
+
+#define PLATFORM_READ_DATA_FROM_FILE(funcName) void funcName(Platform_FileHandle *fileHandle, usize offset, usize size, void *dest)
+typedef PLATFORM_READ_DATA_FROM_FILE(platformReadDataFromFile);
+
 #define PLATFORM_MEM_ALLOC(funcName) void *funcName(usize size)
 typedef PLATFORM_MEM_ALLOC(platformMemAlloc);
 
 #define PLATFORM_MEM_FREE(funcName) void funcName(void *memory)
 typedef PLATFORM_MEM_FREE(platformMemFree);
 
+#define PLATFORM_MICROSECONDS_SINCE_EPOCH(funcName) u64 funcName()
+typedef PLATFORM_MICROSECONDS_SINCE_EPOCH(platformMicrosecondsSinceEpoch);
+
+#define PLATFORM_SECONDS_SINCE_EPOCH(funcName) u64 funcName()
+typedef PLATFORM_SECONDS_SINCE_EPOCH(platformSecondsSinceEpoch);
+
+typedef void openglRender(struct RenderGroup *renderGroup, struct Bitmap *target);
+
+inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
+{
+    b32 result = (!fileHandle->errored);
+    return result;
+}
+
 typedef struct
 {
-    void *memory;
-    s32 width;
-    s32 height;
-    u32 pitch;
-} Game_BackBuffer;
+    u32 width;
+    u32 height;
+    
+    u8 *pushBufferBase;
+    usize pushBufferSize;
+    usize maxPushBufferSize;
+    
+    u32 cachedBitmapCount;
+    struct Bitmap *cachedBitmaps;
+    
+    u32 cachedGlyphCount;
+    struct Glyph *cachedGlyphs;
+} Game_RenderCommands;
+
+inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, void *pushBufferBase, u32 width, u32 height)
+{
+    Game_RenderCommands result = {};
+    
+    result.width = width;
+    result.height = height;
+    
+    result.pushBufferBase = (u8 *)pushBufferBase;
+    result.pushBufferSize = 0;
+    result.maxPushBufferSize = maxPushBufferSize;
+    
+    result.cachedBitmapCount = 0;
+    result.cachedGlyphCount = 0;
+    
+    return result;
+}
 
 typedef struct
 {
@@ -110,7 +180,23 @@ typedef struct
     
     platformMemAlloc *MemAlloc;
     platformMemFree *MemFree;
+    
+    platformMicrosecondsSinceEpoch *MicrosecondsSinceEpoch;
+    platformSecondsSinceEpoch *SecondsSinceEpoch;
+    
+    platformGetAllFilesOfExtBegin *GetAllFilesOfExtBegin;
+    platformGetAllFilesOfExtEnd *GetAllFilesOfExtEnd;
+    platformOpenNextFile *OpenNextFile;
+    platformMarkFileError *MarkFileError;
+    platformReadDataFromFile *ReadDataFromFile;
 } PlatformAPI;
+
+struct InstructionSets
+{
+    b8 sse3;
+    b8 sse4_2;
+    b8 avx;
+};
 
 typedef struct
 {
@@ -118,6 +204,8 @@ typedef struct
     u64 transStorageSize;
     void *permaStorage;
     void *transStorage;
+    
+    InstructionSets availableInstructionSets;
     
     PlatformAPI platform;
     
@@ -130,7 +218,7 @@ typedef struct
 extern Game_Memory *debugGlobalMem;
 #endif
 
-#define GAME_UPDATE_RENDER(funcName) void funcName(Game_BackBuffer *backBuffer, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)
+#define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)
 typedef GAME_UPDATE_RENDER(game_updateRender);
 
 #define AST_PLATFORM_H

@@ -89,5 +89,15 @@ inline void FinishTempMemory(TempMemory tempMem)
     --memRegion->tempCount;
 }
 
+inline void CopyMem(void *dest, void *src, usize size)
+{
+    u8 *destPtr = (u8 *)dest;
+    u8 *srcPtr = (u8 *)src;
+    for (usize i = 0; i < size; ++i)
+    {
+        *destPtr++ = *srcPtr++;
+    }
+}
+
 #define AST_MEMORY_H
 #endif //AST_MEMORY_H

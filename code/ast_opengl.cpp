@@ -1,0 +1,197 @@
+/*
+Project: Asteroids
+File: ast_opengl.cpp
+Author: Brock Salmon
+Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
+*/
+#include "ast.h"
+#include "ast_math.h"
+#include "ast_asset.h"
+#include "ast_render.h"
+
+#include "ast_asset.cpp"
+
+inline void OpenGL_Rectangle(v2f min, v2f max, v4f colour = V4F(1.0f))
+{
+    glBegin(GL_TRIANGLES);
+    
+    glColor4fv(colour.e);
+    
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(min.x, min.y);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(max.x, min.y);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(max.x, max.y);
+    
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(min.x, min.y);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(max.x, max.y);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(min.x, max.y);
+    
+    glEnd();
+}
+
+global u32 globalTexHandleCount = 0;
+function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
+{
+    glViewport(0, 0, commands->width, commands->height);
+    
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    glMatrixMode(GL_PROJECTION);
+    
+    f32 proj[] = 
+    {
+        SafeRatio(2.0f, (f32)commands->width, 1.0f), 0.0f, 0.0f, 0.0f,
+        0.0f, SafeRatio(2.0f, (f32)commands->height, 1.0f), 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 1.0f,
+    };
+    glLoadMatrixf(proj);
+    
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    
+    for (usize baseAddress = 0; baseAddress < commands->pushBufferSize;)
+    {
+        RenderEntry_Header *header = (RenderEntry_Header *)(commands->pushBufferBase + baseAddress);
+        baseAddress += sizeof(RenderEntry_Header);
+        
+        switch (header->type)
+        {
+            case RenderEntryType_RenderEntry_Bitmap:
+            {
+                RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(commands->pushBufferBase + baseAddress);
+                
+                Bitmap *texture = GetBitmapAsset(&commands->cachedBitmaps, &commands->cachedBitmapCount, platform, entry->bitmapID);
+                
+                if (texture)
+                {
+                    if (texture->info.handle)
+                    {
+                        glBindTexture(GL_TEXTURE_2D, texture->info.handle);
+                    }
+                    else
+                    {
+                        texture->info.handle = ++globalTexHandleCount;
+                        glBindTexture(GL_TEXTURE_2D, texture->info.handle);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->info.dims.w, texture->info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texture->memory);
+                        
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+                        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+                    }
+                }
+                
+                v2f min = entry->offset - (entry->dims / 2.0f);
+                v2f max = entry->offset + (entry->dims / 2.0f);
+                
+                f32 cosAngle = Cos(entry->angle);
+                f32 sinAngle = Sin(entry->angle);
+                
+                glMatrixMode(GL_MODELVIEW);
+                f32 modelView[] = 
+                {
+                    cosAngle, sinAngle, 0.0f, 0.0f,
+                    -sinAngle, cosAngle, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f,
+                    entry->offset.x - cosAngle * entry->offset.x - -sinAngle * entry->offset.y,
+                    entry->offset.y - sinAngle * entry->offset.x - cosAngle * entry->offset.y, 0.0f, 1.0f,
+                };
+                glLoadMatrixf(modelView);
+                
+                OpenGL_Rectangle(min, max, entry->colour);
+                
+                glMatrixMode(GL_MODELVIEW);
+                glLoadIdentity();
+                
+                baseAddress += sizeof(RenderEntry_Bitmap);
+            } break;
+            
+            case RenderEntryType_RenderEntry_Rect:
+            {
+                RenderEntry_Rect *entry = (RenderEntry_Rect *)(commands->pushBufferBase + baseAddress);
+                
+                v2f min = entry->offset - (entry->dims / 2.0f);
+                v2f max = entry->offset + (entry->dims / 2.0f);
+                
+                glDisable(GL_TEXTURE_2D);
+                OpenGL_Rectangle(min, max, entry->colour);
+                glEnable(GL_TEXTURE_2D);
+                
+                baseAddress += sizeof(RenderEntry_Rect);
+            } break;
+            
+            case RenderEntryType_RenderEntry_Clear:
+            {
+                RenderEntry_Clear *entry = (RenderEntry_Clear *)(commands->pushBufferBase + baseAddress);
+                
+                glClearColor(entry->colour.r, entry->colour.g, entry->colour.b, entry->colour.a);
+                glClear(GL_COLOR_BUFFER_BIT);
+                
+                baseAddress += sizeof(RenderEntry_Clear);
+            } break;
+            
+            case RenderEntryType_RenderEntry_Text:
+            {
+                RenderEntry_Text *entry = (RenderEntry_Text *)(commands->pushBufferBase + baseAddress);
+                
+                // TODO(bSalmon): Get rid of this
+                GetRequiredGlyphsForString(commands, platform, entry->string.text);
+                v2f stringDims = GetStringDims(commands, entry->scale, entry->string.text);
+                
+                char *c = entry->string.text;
+                f32 charPosX = (entry->align == TextAlign_Center) ? (entry->offset.x - (stringDims.x / 2.0f)) : entry->offset.x;
+                while (*c)
+                {
+                    Glyph *glyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, *c);
+                    
+                    if (glyph)
+                    {
+                        if (glyph->info.handle)
+                        {
+                            glBindTexture(GL_TEXTURE_2D, glyph->info.handle);
+                        }
+                        else
+                        {
+                            glyph->info.handle = ++globalTexHandleCount;
+                            glBindTexture(GL_TEXTURE_2D, glyph->info.handle);
+                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, glyph->info.dims.w, glyph->info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, glyph->memory);
+                            
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+                            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+                        }
+                        
+                        v2f min = V2F(charPosX, entry->offset.y - (f32)glyph->info.dims.y);
+                        v2f max = min + (ToV2F(glyph->info.dims) * entry->scale);
+                        OpenGL_Rectangle(min, max, entry->colour);
+                        
+                        charPosX += (glyph->info.dims.x * entry->scale);
+                    }
+                    
+                    c++;
+                }
+                
+                platform.MemFree(entry->string.text);
+                baseAddress += sizeof(RenderEntry_Text);
+            } break;
+            
+            INVALID_DEFAULT;
+        }
+    }
+    
+    commands->pushBufferSize = 0;
+}

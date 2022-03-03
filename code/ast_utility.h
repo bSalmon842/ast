@@ -43,6 +43,8 @@ typedef u64 usize;
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 #define SWAP(a, b) {decltype(a) temp = a; a = b; b = temp;}
 
+#define MIN(a, b) ((a < b) ? a : b)
+
 #define Align8(value) ((value + 7) & ~7)
 
 #define KILOBYTE(value) ((value) * 1024LL)
