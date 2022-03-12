@@ -4,12 +4,88 @@ File: ast_opengl.cpp
 Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
+
 #include "ast.h"
+#include "ast_utility.h"
 #include "ast_math.h"
 #include "ast_asset.h"
 #include "ast_render.h"
 
 #include "ast_asset.cpp"
+
+// NOTE(bSalmon): WGL defines
+#define WGL_CONTEXT_MAJOR_VERSION_ARB           0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB           0x2092
+#define WGL_CONTEXT_LAYER_PLANE_ARB             0x2093
+#define WGL_CONTEXT_FLAGS_ARB                   0x2094
+#define WGL_CONTEXT_PROFILE_MASK_ARB            0x9126
+#define WGL_CONTEXT_DEBUG_BIT_ARB               0x0001
+#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  0x0002
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+// NOTE(bSalmon): Universal GL defines
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
+#define GL_SRGB8_ALPHA8             0x8C43
+#define GL_FRAMEBUFFER_SRGB         0x8DB9
+
+global GLuint defaultOpenGLInternalFormat;
+
+struct OpenGL_Info
+{
+    char *vendor;
+    char *renderer;
+    char *version;
+    char *glslVersion;
+    char *extensions;
+    
+    b32 GL_EXT_texture_sRGB;
+    b32 GL_ARB_framebuffer_sRGB;
+};
+
+function OpenGL_Info OpenGL_GetInfo()
+{
+    OpenGL_Info result = {};
+    
+    result.vendor = (char *)glGetString(GL_VENDOR);
+    result.renderer = (char *)glGetString(GL_RENDERER);
+    result.version = (char *)glGetString(GL_VERSION);
+    result.glslVersion = (char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
+    result.extensions = (char *)glGetString(GL_EXTENSIONS);
+    
+    char *token = result.extensions;
+    while (*token)
+    {
+        while (IsCharWhitespace(*token)) { token++; }
+        char *end = token;
+        while (*end && !IsCharWhitespace(*end)) { end++; }
+        
+        s32 charCount = (s32)(end - token);
+        
+        if (StringsAreSame(token, "GL_EXT_texture_sRGB", charCount)) { result.GL_EXT_texture_sRGB = true; }
+        else if (StringsAreSame(token, "GL_ARB_framebuffer_sRGB", charCount)) { result.GL_ARB_framebuffer_sRGB = true; }
+        
+        token = end;
+    }
+    
+    return result;
+}
+
+function void OpenGL_Init()
+{
+    OpenGL_Info glInfo = OpenGL_GetInfo();
+    
+    defaultOpenGLInternalFormat = GL_RGBA8;
+    if (glInfo.GL_EXT_texture_sRGB)
+    {
+        defaultOpenGLInternalFormat = GL_SRGB8_ALPHA8;
+    }
+    
+    if (glInfo.GL_ARB_framebuffer_sRGB)
+    {
+        glEnable(GL_FRAMEBUFFER_SRGB);
+    }
+}
 
 inline void OpenGL_Rectangle(v2f min, v2f max, v4f colour = V4F(1.0f))
 {
@@ -93,8 +169,8 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     }
                 }
                 
-                v2f min = entry->offset - (entry->dims / 2.0f);
-                v2f max = entry->offset + (entry->dims / 2.0f);
+                v2f min = entry->offset - (entry->dims * texture->info.align);
+                v2f max = min + entry->dims;
                 
                 f32 cosAngle = Cos(entry->angle);
                 f32 sinAngle = Sin(entry->angle);
@@ -146,17 +222,13 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             {
                 RenderEntry_Text *entry = (RenderEntry_Text *)(commands->pushBufferBase + baseAddress);
                 
-                // TODO(bSalmon): Get rid of this
-                GetRequiredGlyphsForString(commands, platform, entry->string.text);
-                v2f stringDims = GetStringDims(commands, entry->scale, entry->string.text);
-                
                 char *c = entry->string.text;
-                f32 charPosX = (entry->align == TextAlign_Center) ? (entry->offset.x - (stringDims.x / 2.0f)) : entry->offset.x;
+                f32 charPosX = entry->offset.x;
                 while (*c)
                 {
-                    Glyph *glyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, *c);
+                    Glyph *glyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, entry->font, *c);
                     
-                    if (glyph)
+                    if (glyph && glyph->info.glyph != ' ')
                     {
                         if (glyph->info.handle)
                         {
@@ -175,11 +247,28 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
                         }
                         
-                        v2f min = V2F(charPosX, entry->offset.y - (f32)glyph->info.dims.y);
+                        v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph->info.dims) * entry->scale) * glyph->info.align);
                         v2f max = min + (ToV2F(glyph->info.dims) * entry->scale);
                         OpenGL_Rectangle(min, max, entry->colour);
                         
-                        charPosX += (glyph->info.dims.x * entry->scale);
+                        if (*(c + 1))
+                        {
+                            KernInfo kerning = GetKerningInfo(entry->kerningTable, *c, *(c + 1));
+                            charPosX += (glyph->info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
+                        }
+                    }
+                    else if (glyph && glyph->info.glyph == ' ')
+                    {
+                        if (GetMetadataForFont(commands, entry->font).monospace)
+                        {
+                            Glyph *sizeGlyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, entry->font, 'A');
+                            
+                            charPosX += sizeGlyph->info.dims.w * entry->scale;
+                        }
+                        else
+                        {
+                            charPosX += 32.0f * entry->scale;
+                        }
                     }
                     
                     c++;

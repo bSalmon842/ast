@@ -27,6 +27,7 @@ typedef DEBUG_PLATFORM_FREE_FILE(debug_platformFreeFile);
 enum
 {
     DebugCycleCounter_GameUpdateRender,
+    DebugCycleCounter_UpdateEntities,
     
     DebugCycleCounter_Count,
 };
@@ -102,6 +103,24 @@ inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
 
 typedef struct
 {
+    debug_platformFreeFile *Debug_FreeFile;
+    debug_platformReadFile *Debug_ReadFile;
+    
+    platformMemAlloc *MemAlloc;
+    platformMemFree *MemFree;
+    
+    platformMicrosecondsSinceEpoch *MicrosecondsSinceEpoch;
+    platformSecondsSinceEpoch *SecondsSinceEpoch;
+    
+    platformGetAllFilesOfExtBegin *GetAllFilesOfExtBegin;
+    platformGetAllFilesOfExtEnd *GetAllFilesOfExtEnd;
+    platformOpenNextFile *OpenNextFile;
+    platformMarkFileError *MarkFileError;
+    platformReadDataFromFile *ReadDataFromFile;
+} PlatformAPI;
+
+typedef struct
+{
     u32 width;
     u32 height;
     
@@ -114,6 +133,12 @@ typedef struct
     
     u32 cachedGlyphCount;
     struct Glyph *cachedGlyphs;
+    
+    u32 kerningTableCount;
+    struct KerningTable *kerningTables;
+    
+    u32 metadataCount;
+    struct FontMetadata *metadatas;
 } Game_RenderCommands;
 
 inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, void *pushBufferBase, u32 width, u32 height)
@@ -129,6 +154,7 @@ inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, voi
     
     result.cachedBitmapCount = 0;
     result.cachedGlyphCount = 0;
+    result.kerningTableCount = 0;
     
     return result;
 }
@@ -172,24 +198,6 @@ typedef struct
     
     Game_Keyboard keyboard;
 } Game_Input;
-
-typedef struct
-{
-    debug_platformFreeFile *Debug_FreeFile;
-    debug_platformReadFile *Debug_ReadFile;
-    
-    platformMemAlloc *MemAlloc;
-    platformMemFree *MemFree;
-    
-    platformMicrosecondsSinceEpoch *MicrosecondsSinceEpoch;
-    platformSecondsSinceEpoch *SecondsSinceEpoch;
-    
-    platformGetAllFilesOfExtBegin *GetAllFilesOfExtBegin;
-    platformGetAllFilesOfExtEnd *GetAllFilesOfExtEnd;
-    platformOpenNextFile *OpenNextFile;
-    platformMarkFileError *MarkFileError;
-    platformReadDataFromFile *ReadDataFromFile;
-} PlatformAPI;
 
 struct InstructionSets
 {

@@ -200,6 +200,23 @@ inline bool operator>=(name a, name b) \
 { \
 return (a > b || a == b); \
 } \
+\
+inline name &operator--(name &a) \
+{ \
+a.x = a.x - 1; \
+a.y = a.y - 1; \
+\
+return a; \
+} \
+\
+inline name &operator++(name &a) \
+{ \
+a.x = a.x + 1; \
+a.y = a.y + 1; \
+\
+return a; \
+} \
+\
 
 #define Make3DStruct(type, name, capital_name) \
 struct name \

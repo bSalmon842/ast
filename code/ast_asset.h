@@ -23,6 +23,7 @@ enum BitmapID : u32
 typedef struct
 {
     v2s dims;
+    v2f align;
     u32 id;
     u32 handle;
 } BitmapInfo;
@@ -30,10 +31,30 @@ typedef struct
 typedef struct
 {
     v2s dims;
-    s32 baseline;
+    v2f align;
     char glyph;
+    
+    char font[32];
     u32 handle;
 } GlyphInfo;
+
+struct KernInfo
+{
+    f32 advance;
+    char codepoint0;
+    char codepoint1;
+    
+    char font[32];
+};
+
+struct FontMetadata
+{
+    f32 lineGap;
+    b32 monospace;
+    b32 allCapital;
+    
+    char font[32];
+};
 
 struct Bitmap
 {
@@ -94,6 +115,8 @@ enum AssetType : u8
     AssetType_Bitmap,
     AssetType_Audio,
     AssetType_Glyph,
+    AssetType_Kerning,
+    AssetType_FontMetadata,
     
     AssetType_Count,
 };
@@ -107,6 +130,8 @@ typedef struct
     {
         BitmapInfo bitmap;
         GlyphInfo glyph;
+        KernInfo kerning;
+        FontMetadata metadata;
         // Audio audio;
     };
 } AssetHeader;

@@ -29,6 +29,12 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 global b32 globalRunning;
 
+typedef BOOL WINAPI wgl_swapIntervalEXT(s32 interval);
+global wgl_swapIntervalEXT *wglSwapInterval;
+
+typedef HGLRC WINAPI wgl_createContextAttribsARB(HDC deviceContext, HGLRC shareContext, const s32 *attribs);
+global wgl_createContextAttribsARB *wglCreateContextAttribsARB;
+
 #if AST_INTERNAL
 DEBUG_PLATFORM_FREE_FILE(Debug_W32_FreeFile)
 {
@@ -360,7 +366,43 @@ function void W32_InitOpenGL(HDC deviceContext)
     HGLRC glRC = wglCreateContext(deviceContext);
     if (wglMakeCurrent(deviceContext, glRC))
     {
-        //glGenTextures(1, &globalTextureHandle);
+        wglCreateContextAttribsARB = (wgl_createContextAttribsARB *)wglGetProcAddress("wglCreateContextAttribsARB");
+        if (wglCreateContextAttribsARB)
+        {
+            HGLRC shareContext = 0;
+            s32 contextAttribs[] = 
+            {
+                WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+                WGL_CONTEXT_MINOR_VERSION_ARB, 0,
+                WGL_CONTEXT_FLAGS_ARB, 0
+#if AST_INTERNAL
+                | WGL_CONTEXT_DEBUG_BIT_ARB
+#endif
+                ,
+                WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+                0,
+            };
+            
+            HGLRC modernGLContext = wglCreateContextAttribsARB(deviceContext, shareContext, contextAttribs);
+            if (modernGLContext)
+            {
+                wglMakeCurrent(deviceContext, modernGLContext);
+                wglDeleteContext(glRC);
+                glRC = modernGLContext;
+            }
+        }
+        else
+        {
+            
+        }
+        
+        OpenGL_Init();
+        
+        wglSwapInterval = (wgl_swapIntervalEXT *)wglGetProcAddress("wglSwapInteralEXT");
+        if (wglSwapInterval)
+        {
+            wglSwapInterval(1);
+        }
     }
     else
     {
@@ -739,8 +781,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
-                    ASSERT(programCode.UpdateRender);
-                    programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
+                    if (programCode.UpdateRender)
+                    {
+                        programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
+                    }
                     
                     BS842_Timing_FrameEnd();
                     

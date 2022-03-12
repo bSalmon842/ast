@@ -2,17 +2,18 @@
 
 #ifndef AST_RENDER_H
 
-enum TextAlign
-{
-    TextAlign_Center,
-    TextAlign_TopLeft,
-};
-
-typedef struct
+struct RenderString
 {
     char *text;
     u8 length;
-} RenderString;
+};
+
+struct KerningTable
+{
+    KernInfo *table;
+    u32 infoCount;
+    char font[32];
+};
 
 typedef struct
 {
@@ -61,10 +62,11 @@ typedef struct
 typedef struct
 {
     RenderString string;
+    char font[32];
+    KerningTable kerningTable;
     
     v2f offset;
     f32 scale;
-    TextAlign align;
     v4f colour;
 } RenderEntry_Text;
 

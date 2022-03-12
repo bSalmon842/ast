@@ -1,0 +1,302 @@
+Saving Bitmap 1 to File "graphics.aaf", Asset Size: 25598, Total Size: 25598
+Saving Bitmap 2 to File "graphics.aaf", Asset Size: 25646, Total Size: 51244
+Saving Bitmap 3 to File "graphics.aaf", Asset Size: 33550, Total Size: 84794
+Saving Bitmap 4 to File "graphics.aaf", Asset Size: 33086, Total Size: 117880
+Saving Bitmap 5 to File "graphics.aaf", Asset Size: 27614, Total Size: 145494
+Saving Bitmap 6 to File "graphics.aaf", Asset Size: 11962, Total Size: 157456
+Saving Glyph ! of Hyperspace to File "fonts.aaf", Asset Size: 3050, Total Size: 3050
+Saving Glyph " of Hyperspace to File "fonts.aaf", Asset Size: 2238, Total Size: 5288
+Saving Glyph # of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 24606
+Saving Glyph $ of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 43924
+Saving Glyph % of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 63242
+Saving Glyph & of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 82560
+Saving Glyph ' of Hyperspace to File "fonts.aaf", Asset Size: 830, Total Size: 83390
+Saving Glyph ( of Hyperspace to File "fonts.aaf", Asset Size: 11350, Total Size: 94740
+Saving Glyph ) of Hyperspace to File "fonts.aaf", Asset Size: 11350, Total Size: 106090
+Saving Glyph * of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 125408
+Saving Glyph + of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 144726
+Saving Glyph , of Hyperspace to File "fonts.aaf", Asset Size: 878, Total Size: 145604
+Saving Glyph - of Hyperspace to File "fonts.aaf", Asset Size: 2150, Total Size: 147754
+Saving Glyph . of Hyperspace to File "fonts.aaf", Asset Size: 494, Total Size: 148248
+Saving Glyph / of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 167566
+Saving Glyph 0 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 186884
+Saving Glyph 1 of Hyperspace to File "fonts.aaf", Asset Size: 3050, Total Size: 189934
+Saving Glyph 2 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 209252
+Saving Glyph 3 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 228570
+Saving Glyph 4 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 247888
+Saving Glyph 5 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 267206
+Saving Glyph 6 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 286524
+Saving Glyph 7 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 305842
+Saving Glyph 8 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 325160
+Saving Glyph 9 of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 344478
+Saving Glyph : of Hyperspace to File "fonts.aaf", Asset Size: 1754, Total Size: 346232
+Saving Glyph ; of Hyperspace to File "fonts.aaf", Asset Size: 2558, Total Size: 348790
+Saving Glyph < of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 368108
+Saving Glyph = of Hyperspace to File "fonts.aaf", Asset Size: 7950, Total Size: 376058
+Saving Glyph > of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 395376
+Saving Glyph ? of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 414694
+Saving Glyph @ of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 434012
+Saving Glyph A of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 453330
+Saving Glyph B of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 472648
+Saving Glyph C of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 491966
+Saving Glyph D of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 511284
+Saving Glyph E of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 530602
+Saving Glyph F of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 549920
+Saving Glyph G of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 569238
+Saving Glyph H of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 588556
+Saving Glyph I of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 607874
+Saving Glyph J of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 627192
+Saving Glyph K of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 646510
+Saving Glyph L of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 665828
+Saving Glyph M of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 685146
+Saving Glyph N of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 704464
+Saving Glyph O of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 723782
+Saving Glyph P of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 743100
+Saving Glyph Q of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 762418
+Saving Glyph R of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 781736
+Saving Glyph S of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 801054
+Saving Glyph T of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 820372
+Saving Glyph U of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 839690
+Saving Glyph V of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 859008
+Saving Glyph W of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 878326
+Saving Glyph X of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 897644
+Saving Glyph Y of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 916962
+Saving Glyph Z of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 936280
+Saving Glyph [ of Hyperspace to File "fonts.aaf", Asset Size: 10686, Total Size: 946966
+Saving Glyph \ of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 966284
+Saving Glyph ] of Hyperspace to File "fonts.aaf", Asset Size: 10686, Total Size: 976970
+Saving Glyph ^ of Hyperspace to File "fonts.aaf", Asset Size: 7254, Total Size: 984224
+Saving Glyph _ of Hyperspace to File "fonts.aaf", Asset Size: 1918, Total Size: 986142
+Saving Glyph ` of Hyperspace to File "fonts.aaf", Asset Size: 4278, Total Size: 990420
+Saving Glyph a of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1009738
+Saving Glyph b of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1029056
+Saving Glyph c of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1048374
+Saving Glyph d of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1067692
+Saving Glyph e of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1087010
+Saving Glyph f of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1106328
+Saving Glyph g of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1125646
+Saving Glyph h of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1144964
+Saving Glyph i of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1164282
+Saving Glyph j of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1183600
+Saving Glyph k of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1202918
+Saving Glyph l of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1222236
+Saving Glyph m of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1241554
+Saving Glyph n of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1260872
+Saving Glyph o of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1280190
+Saving Glyph p of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1299508
+Saving Glyph q of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1318826
+Saving Glyph r of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1338144
+Saving Glyph s of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1357462
+Saving Glyph t of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1376780
+Saving Glyph u of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1396098
+Saving Glyph v of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1415416
+Saving Glyph w of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1434734
+Saving Glyph x of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1454052
+Saving Glyph y of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1473370
+Saving Glyph z of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1492688
+Saving Glyph { of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1512006
+Saving Glyph | of Hyperspace to File "fonts.aaf", Asset Size: 3914, Total Size: 1515920
+Saving Glyph } of Hyperspace to File "fonts.aaf", Asset Size: 19318, Total Size: 1535238
+Saving Glyph ~ of Hyperspace to File "fonts.aaf", Asset Size: 7254, Total Size: 1542492
+Saving Kerning A + T of Hyperspace with Advance -28.00953 to File "fonts.aaf", Asset Size: 62, Total Size: 1542554
+Saving Kerning A + V of Hyperspace with Advance -13.62351 to File "fonts.aaf", Asset Size: 62, Total Size: 1542616
+Saving Kerning A + W of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1542678
+Saving Kerning A + Y of Hyperspace with Advance -29.63622 to File "fonts.aaf", Asset Size: 62, Total Size: 1542740
+Saving Kerning A + v of Hyperspace with Advance -13.62351 to File "fonts.aaf", Asset Size: 62, Total Size: 1542802
+Saving Kerning A + w of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1542864
+Saving Kerning A + y of Hyperspace with Advance -29.63622 to File "fonts.aaf", Asset Size: 62, Total Size: 1542926
+Saving Kerning F + , of Hyperspace with Advance -77.16601 to File "fonts.aaf", Asset Size: 62, Total Size: 1542988
+Saving Kerning F + . of Hyperspace with Advance -79.40270 to File "fonts.aaf", Asset Size: 62, Total Size: 1543050
+Saving Kerning F + A of Hyperspace with Advance -18.40191 to File "fonts.aaf", Asset Size: 62, Total Size: 1543112
+Saving Kerning L + T of Hyperspace with Advance -31.21207 to File "fonts.aaf", Asset Size: 62, Total Size: 1543174
+Saving Kerning L + V of Hyperspace with Advance -29.63622 to File "fonts.aaf", Asset Size: 62, Total Size: 1543236
+Saving Kerning L + W of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543298
+Saving Kerning L + Y of Hyperspace with Advance -31.21207 to File "fonts.aaf", Asset Size: 62, Total Size: 1543360
+Saving Kerning L + y of Hyperspace with Advance -31.21207 to File "fonts.aaf", Asset Size: 62, Total Size: 1543422
+Saving Kerning P + , of Hyperspace with Advance -77.16601 to File "fonts.aaf", Asset Size: 62, Total Size: 1543484
+Saving Kerning P + . of Hyperspace with Advance -79.40270 to File "fonts.aaf", Asset Size: 62, Total Size: 1543546
+Saving Kerning P + A of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543608
+Saving Kerning R + T of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543670
+Saving Kerning R + V of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543732
+Saving Kerning R + W of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543794
+Saving Kerning R + Y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543856
+Saving Kerning R + y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1543918
+Saving Kerning T + , of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1543980
+Saving Kerning T + - of Hyperspace with Advance -31.21207 to File "fonts.aaf", Asset Size: 62, Total Size: 1544042
+Saving Kerning T + . of Hyperspace with Advance -55.35822 to File "fonts.aaf", Asset Size: 62, Total Size: 1544104
+Saving Kerning T + : of Hyperspace with Advance -55.35822 to File "fonts.aaf", Asset Size: 62, Total Size: 1544166
+Saving Kerning T + ; of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1544228
+Saving Kerning T + A of Hyperspace with Advance -28.00953 to File "fonts.aaf", Asset Size: 62, Total Size: 1544290
+Saving Kerning T + O of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544352
+Saving Kerning T + a of Hyperspace with Advance -28.00953 to File "fonts.aaf", Asset Size: 62, Total Size: 1544414
+Saving Kerning T + c of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544476
+Saving Kerning T + e of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544538
+Saving Kerning T + i of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544600
+Saving Kerning T + o of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544662
+Saving Kerning T + r of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544724
+Saving Kerning T + s of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544786
+Saving Kerning T + u of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544848
+Saving Kerning T + w of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544910
+Saving Kerning T + y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1544972
+Saving Kerning V + , of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1545034
+Saving Kerning V + - of Hyperspace with Advance -18.40191 to File "fonts.aaf", Asset Size: 62, Total Size: 1545096
+Saving Kerning V + . of Hyperspace with Advance -53.78237 to File "fonts.aaf", Asset Size: 62, Total Size: 1545158
+Saving Kerning V + : of Hyperspace with Advance -42.54805 to File "fonts.aaf", Asset Size: 62, Total Size: 1545220
+Saving Kerning V + ; of Hyperspace with Advance -41.93805 to File "fonts.aaf", Asset Size: 62, Total Size: 1545282
+Saving Kerning V + A of Hyperspace with Advance -13.62351 to File "fonts.aaf", Asset Size: 62, Total Size: 1545344
+Saving Kerning V + O of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545406
+Saving Kerning V + a of Hyperspace with Advance -13.62351 to File "fonts.aaf", Asset Size: 62, Total Size: 1545468
+Saving Kerning V + e of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545530
+Saving Kerning V + i of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545592
+Saving Kerning V + o of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545654
+Saving Kerning V + r of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545716
+Saving Kerning V + u of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545778
+Saving Kerning V + y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545840
+Saving Kerning W + , of Hyperspace with Advance -29.12788 to File "fonts.aaf", Asset Size: 62, Total Size: 1545902
+Saving Kerning W + - of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1545964
+Saving Kerning W + . of Hyperspace with Advance -31.36458 to File "fonts.aaf", Asset Size: 62, Total Size: 1546026
+Saving Kerning W + : of Hyperspace with Advance -31.36458 to File "fonts.aaf", Asset Size: 62, Total Size: 1546088
+Saving Kerning W + ; of Hyperspace with Advance -29.12788 to File "fonts.aaf", Asset Size: 62, Total Size: 1546150
+Saving Kerning W + A of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546212
+Saving Kerning W + a of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546274
+Saving Kerning W + e of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546336
+Saving Kerning W + i of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546398
+Saving Kerning W + o of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546460
+Saving Kerning W + r of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546522
+Saving Kerning W + u of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546584
+Saving Kerning W + y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1546646
+Saving Kerning Y + , of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1546708
+Saving Kerning Y + - of Hyperspace with Advance -31.21207 to File "fonts.aaf", Asset Size: 62, Total Size: 1546770
+Saving Kerning Y + . of Hyperspace with Advance -55.35822 to File "fonts.aaf", Asset Size: 62, Total Size: 1546832
+Saving Kerning Y + : of Hyperspace with Advance -55.35822 to File "fonts.aaf", Asset Size: 62, Total Size: 1546894
+Saving Kerning Y + ; of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1546956
+Saving Kerning Y + A of Hyperspace with Advance -29.63622 to File "fonts.aaf", Asset Size: 62, Total Size: 1547018
+Saving Kerning Y + a of Hyperspace with Advance -29.63622 to File "fonts.aaf", Asset Size: 62, Total Size: 1547080
+Saving Kerning Y + e of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547142
+Saving Kerning Y + i of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547204
+Saving Kerning Y + o of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547266
+Saving Kerning Y + p of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547328
+Saving Kerning Y + q of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547390
+Saving Kerning Y + u of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547452
+Saving Kerning Y + v of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547514
+Saving Kerning f + f of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547576
+Saving Kerning r + , of Hyperspace with Advance -29.12788 to File "fonts.aaf", Asset Size: 62, Total Size: 1547638
+Saving Kerning r + - of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547700
+Saving Kerning r + . of Hyperspace with Advance -31.36458 to File "fonts.aaf", Asset Size: 62, Total Size: 1547762
+Saving Kerning r + c of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547824
+Saving Kerning r + d of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547886
+Saving Kerning r + e of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1547948
+Saving Kerning r + g of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548010
+Saving Kerning r + h of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548072
+Saving Kerning r + o of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548134
+Saving Kerning r + q of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548196
+Saving Kerning r + r of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548258
+Saving Kerning r + t of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548320
+Saving Kerning r + u of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548382
+Saving Kerning r + v of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548444
+Saving Kerning r + w of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548506
+Saving Kerning r + x of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548568
+Saving Kerning r + y of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548630
+Saving Kerning r + z of Hyperspace with Advance -7.21843 to File "fonts.aaf", Asset Size: 62, Total Size: 1548692
+Saving Kerning v + , of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1548754
+Saving Kerning v + . of Hyperspace with Advance -53.78237 to File "fonts.aaf", Asset Size: 62, Total Size: 1548816
+Saving Kerning w + , of Hyperspace with Advance -29.12788 to File "fonts.aaf", Asset Size: 62, Total Size: 1548878
+Saving Kerning w + . of Hyperspace with Advance -31.36458 to File "fonts.aaf", Asset Size: 62, Total Size: 1548940
+Saving Kerning y + , of Hyperspace with Advance -53.17236 to File "fonts.aaf", Asset Size: 62, Total Size: 1549002
+Saving Kerning y + . of Hyperspace with Advance -55.35822 to File "fonts.aaf", Asset Size: 62, Total Size: 1549064
+Saving Metadata for Font Hyperspace to File "fonts.aaf", Asset Size: 62, Total Size: 1549126
+Saving Glyph ! of Arial to File "fonts.aaf", Asset Size: 5910, Total Size: 1555036
+Saving Glyph " of Arial to File "fonts.aaf", Asset Size: 4686, Total Size: 1559722
+Saving Glyph # of Arial to File "fonts.aaf", Asset Size: 23202, Total Size: 1582924
+Saving Glyph $ of Arial to File "fonts.aaf", Asset Size: 24422, Total Size: 1607346
+Saving Glyph % of Arial to File "fonts.aaf", Asset Size: 33550, Total Size: 1640896
+Saving Glyph & of Arial to File "fonts.aaf", Asset Size: 26050, Total Size: 1666946
+Saving Glyph ' of Arial to File "fonts.aaf", Asset Size: 2102, Total Size: 1669048
+Saving Glyph ( of Arial to File "fonts.aaf", Asset Size: 14398, Total Size: 1683446
+Saving Glyph ) of Arial to File "fonts.aaf", Asset Size: 14398, Total Size: 1697844
+Saving Glyph * of Arial to File "fonts.aaf", Asset Size: 6458, Total Size: 1704302
+Saving Glyph + of Arial to File "fonts.aaf", Asset Size: 13518, Total Size: 1717820
+Saving Glyph , of Arial to File "fonts.aaf", Asset Size: 2110, Total Size: 1719930
+Saving Glyph - of Arial to File "fonts.aaf", Asset Size: 2022, Total Size: 1721952
+Saving Glyph . of Arial to File "fonts.aaf", Asset Size: 962, Total Size: 1722914
+Saving Glyph / of Arial to File "fonts.aaf", Asset Size: 12522, Total Size: 1735436
+Saving Glyph 0 of Arial to File "fonts.aaf", Asset Size: 20478, Total Size: 1755914
+Saving Glyph 1 of Arial to File "fonts.aaf", Asset Size: 11758, Total Size: 1767672
+Saving Glyph 2 of Arial to File "fonts.aaf", Asset Size: 20014, Total Size: 1787686
+Saving Glyph 3 of Arial to File "fonts.aaf", Asset Size: 20478, Total Size: 1808164
+Saving Glyph 4 of Arial to File "fonts.aaf", Asset Size: 21046, Total Size: 1829210
+Saving Glyph 5 of Arial to File "fonts.aaf", Asset Size: 20358, Total Size: 1849568
+Saving Glyph 6 of Arial to File "fonts.aaf", Asset Size: 20478, Total Size: 1870046
+Saving Glyph 7 of Arial to File "fonts.aaf", Asset Size: 19214, Total Size: 1889260
+Saving Glyph 8 of Arial to File "fonts.aaf", Asset Size: 20478, Total Size: 1909738
+Saving Glyph 9 of Arial to File "fonts.aaf", Asset Size: 20478, Total Size: 1930216
+Saving Glyph : of Arial to File "fonts.aaf", Asset Size: 3842, Total Size: 1934058
+Saving Glyph ; of Arial to File "fonts.aaf", Asset Size: 5182, Total Size: 1939240
+Saving Glyph < of Arial to File "fonts.aaf", Asset Size: 13982, Total Size: 1953222
+Saving Glyph = of Arial to File "fonts.aaf", Asset Size: 8878, Total Size: 1962100
+Saving Glyph > of Arial to File "fonts.aaf", Asset Size: 13982, Total Size: 1976082
+Saving Glyph ? of Arial to File "fonts.aaf", Asset Size: 19550, Total Size: 1995632
+Saving Glyph @ of Arial to File "fonts.aaf", Asset Size: 49342, Total Size: 2044974
+Saving Glyph A of Arial to File "fonts.aaf", Asset Size: 27926, Total Size: 2072900
+Saving Glyph B of Arial to File "fonts.aaf", Asset Size: 22766, Total Size: 2095666
+Saving Glyph C of Arial to File "fonts.aaf", Asset Size: 27474, Total Size: 2123140
+Saving Glyph D of Arial to File "fonts.aaf", Asset Size: 24830, Total Size: 2147970
+Saving Glyph E of Arial to File "fonts.aaf", Asset Size: 22422, Total Size: 2170392
+Saving Glyph F of Arial to File "fonts.aaf", Asset Size: 20358, Total Size: 2190750
+Saving Glyph G of Arial to File "fonts.aaf", Asset Size: 28186, Total Size: 2218936
+Saving Glyph H of Arial to File "fonts.aaf", Asset Size: 23454, Total Size: 2242390
+Saving Glyph I of Arial to File "fonts.aaf", Asset Size: 5222, Total Size: 2247612
+Saving Glyph J of Arial to File "fonts.aaf", Asset Size: 17310, Total Size: 2264922
+Saving Glyph K of Arial to File "fonts.aaf", Asset Size: 24830, Total Size: 2289752
+Saving Glyph L of Arial to File "fonts.aaf", Asset Size: 18982, Total Size: 2308734
+Saving Glyph M of Arial to File "fonts.aaf", Asset Size: 28270, Total Size: 2337004
+Saving Glyph N of Arial to File "fonts.aaf", Asset Size: 23798, Total Size: 2360802
+Saving Glyph O of Arial to File "fonts.aaf", Asset Size: 29254, Total Size: 2390056
+Saving Glyph P of Arial to File "fonts.aaf", Asset Size: 23110, Total Size: 2413166
+Saving Glyph Q of Arial to File "fonts.aaf", Asset Size: 31646, Total Size: 2444812
+Saving Glyph R of Arial to File "fonts.aaf", Asset Size: 26206, Total Size: 2471018
+Saving Glyph S of Arial to File "fonts.aaf", Asset Size: 24626, Total Size: 2495644
+Saving Glyph T of Arial to File "fonts.aaf", Asset Size: 23798, Total Size: 2519442
+Saving Glyph U of Arial to File "fonts.aaf", Asset Size: 23998, Total Size: 2543440
+Saving Glyph V of Arial to File "fonts.aaf", Asset Size: 27238, Total Size: 2570678
+Saving Glyph W of Arial to File "fonts.aaf", Asset Size: 37558, Total Size: 2608236
+Saving Glyph X of Arial to File "fonts.aaf", Asset Size: 27238, Total Size: 2635474
+Saving Glyph Y of Arial to File "fonts.aaf", Asset Size: 27238, Total Size: 2662712
+Saving Glyph Z of Arial to File "fonts.aaf", Asset Size: 23798, Total Size: 2686510
+Saving Glyph [ of Arial to File "fonts.aaf", Asset Size: 11398, Total Size: 2697908
+Saving Glyph \ of Arial to File "fonts.aaf", Asset Size: 12522, Total Size: 2710430
+Saving Glyph ] of Arial to File "fonts.aaf", Asset Size: 11398, Total Size: 2721828
+Saving Glyph ^ of Arial to File "fonts.aaf", Asset Size: 10058, Total Size: 2731886
+Saving Glyph _ of Arial to File "fonts.aaf", Asset Size: 3186, Total Size: 2735072
+Saving Glyph ` of Arial to File "fonts.aaf", Asset Size: 2142, Total Size: 2737214
+Saving Glyph a of Arial to File "fonts.aaf", Asset Size: 15374, Total Size: 2752588
+Saving Glyph b of Arial to File "fonts.aaf", Asset Size: 19774, Total Size: 2772362
+Saving Glyph c of Arial to File "fonts.aaf", Asset Size: 14846, Total Size: 2787208
+Saving Glyph d of Arial to File "fonts.aaf", Asset Size: 19774, Total Size: 2806982
+Saving Glyph e of Arial to File "fonts.aaf", Asset Size: 15374, Total Size: 2822356
+Saving Glyph f of Arial to File "fonts.aaf", Asset Size: 13286, Total Size: 2835642
+Saving Glyph g of Arial to File "fonts.aaf", Asset Size: 20354, Total Size: 2855996
+Saving Glyph h of Arial to File "fonts.aaf", Asset Size: 17950, Total Size: 2873946
+Saving Glyph i of Arial to File "fonts.aaf", Asset Size: 4878, Total Size: 2878824
+Saving Glyph j of Arial to File "fonts.aaf", Asset Size: 12050, Total Size: 2890874
+Saving Glyph k of Arial to File "fonts.aaf", Asset Size: 18294, Total Size: 2909168
+Saving Glyph l of Arial to File "fonts.aaf", Asset Size: 4878, Total Size: 2914046
+Saving Glyph m of Arial to File "fonts.aaf", Asset Size: 21822, Total Size: 2935868
+Saving Glyph n of Arial to File "fonts.aaf", Asset Size: 13374, Total Size: 2949242
+Saving Glyph o of Arial to File "fonts.aaf", Asset Size: 15902, Total Size: 2965144
+Saving Glyph p of Arial to File "fonts.aaf", Asset Size: 19550, Total Size: 2984694
+Saving Glyph q of Arial to File "fonts.aaf", Asset Size: 19202, Total Size: 3003896
+Saving Glyph r of Arial to File "fonts.aaf", Asset Size: 9278, Total Size: 3013174
+Saving Glyph s of Arial to File "fonts.aaf", Asset Size: 14054, Total Size: 3027228
+Saving Glyph t of Arial to File "fonts.aaf", Asset Size: 10942, Total Size: 3038170
+Saving Glyph u of Arial to File "fonts.aaf", Asset Size: 13582, Total Size: 3051752
+Saving Glyph v of Arial to File "fonts.aaf", Asset Size: 14678, Total Size: 3066430
+Saving Glyph w of Arial to File "fonts.aaf", Asset Size: 21482, Total Size: 3087912
+Saving Glyph x of Arial to File "fonts.aaf", Asset Size: 15182, Total Size: 3103094
+Saving Glyph y of Arial to File "fonts.aaf", Asset Size: 20830, Total Size: 3123924
+Saving Glyph z of Arial to File "fonts.aaf", Asset Size: 14174, Total Size: 3138098
+Saving Glyph { of Arial to File "fonts.aaf", Asset Size: 16190, Total Size: 3154288
+Saving Glyph | of Arial to File "fonts.aaf", Asset Size: 5886, Total Size: 3160174
+Saving Glyph } of Arial to File "fonts.aaf", Asset Size: 16638, Total Size: 3176812
+Saving Glyph ~ of Arial to File "fonts.aaf", Asset Size: 5518, Total Size: 3182330
+Saving Metadata for Font Arial to File "fonts.aaf", Asset Size: 62, Total Size: 3182392

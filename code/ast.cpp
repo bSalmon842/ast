@@ -5,9 +5,7 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): UFO
-
-// TODO(bSalmon): Font Work
+// TODO(bSalmon): More OpenGL work
 
 // TODO(bSalmon): Start collision rework
 // TODO(bSalmon): Collision box display
@@ -17,7 +15,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Particles
-// TODO(bSalmon): Debug outputs
+// TODO(bSalmon): Better Debug outputs
+// TODO(bSalmon): Multithreading
+// TODO(bSalmon): Menues
+// TODO(bSalmon): Loading Screens
 
 // TODO(bSalmon): Game:
 // TODO(bSalmon): Death and lives
@@ -25,7 +26,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 // TODO(bSalmon): Bitmap list
 // TODO(bSalmon): Ship (w/ rocket trail)
-// TODO(bSalmon): UFO (L: 200, S: 1000)
+// TODO(bSalmon): UFO (S: 1000)
 
 // TODO(bSalmon): Audio list
 // TODO(bSalmon): Ambient noise once every 2 seconds or so
@@ -53,9 +54,16 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
     char *nameTable[] = 
     {
         "GameUpdateRender",
+        "UpdateEntities",
     };
     
-    v2f debugLineOffset = V2F(20.0f, 100.0f);
+    f32 scale = 0.25f;
+    char *font = "Hyperspace";
+    
+    RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
+    PushText(commands, V2F(1.0f), title, font, V2F(20.0f, 100.0f), scale, V4F(1.0f));
+    
+    v2f debugLineOffset = V2F(20.0f, 182.0f);
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
     {
         DebugCycleCounter *counter = &memory->counters[counterIndex];
@@ -64,8 +72,8 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
         {
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, V2F(1.0f), string, debugLineOffset, 0.75f, TextAlign_TopLeft, V4F(1.0f));
-            debugLineOffset.y += 32.0f;
+            PushText(commands, V2F(1.0f), string, font, debugLineOffset, scale, V4F(1.0f));
+            debugLineOffset.y += GetMetadataForFont(commands, font).lineGap * scale;
         }
     }
 }
@@ -127,6 +135,74 @@ inline b32 InputNoRepeat(Game_ButtonState buttonState)
     return result;
 }
 
+function void FillKerningTables(Game_RenderCommands *commands, PlatformAPI platform)
+{
+    Platform_FileGroup fileGroup = platform.GetAllFilesOfExtBegin(PlatformFileType_Asset);
+    
+    for (u32 i = 0; i < fileGroup.fileCount; ++i)
+    {
+        Platform_FileHandle fileHandle = platform.OpenNextFile(&fileGroup);
+        AAFHeader fileHeader;
+        platform.ReadDataFromFile(&fileHandle, 0, sizeof(AAFHeader), &fileHeader);
+        ASSERT(fileHeader.magicValue == AAF_CODE('B', 'A', 'A', 'F'));
+        
+        usize offset = sizeof(AAFHeader);
+        for (u32 assetIndex = 0; assetIndex < fileHeader.assetCount; ++assetIndex)
+        {
+            AssetHeader assetHeader;
+            platform.ReadDataFromFile(&fileHandle, offset, sizeof(AssetHeader), &assetHeader);
+            offset += sizeof(AssetHeader);
+            
+            if (assetHeader.type == AssetType_Kerning)
+            {
+                KernInfo info = assetHeader.kerning;
+                
+                b32 kerningTableExists = false;
+                u32 kerningTableIndex = 0;
+                for (u32 tableIndex = 0; tableIndex < commands->kerningTableCount; ++tableIndex)
+                {
+                    KerningTable table = commands->kerningTables[tableIndex];
+                    if (StringsAreSame(table.font, info.font, StringLength(table.font)))
+                    {
+                        kerningTableExists = true;
+                        kerningTableIndex = tableIndex;
+                        break;
+                    }
+                }
+                
+                if (kerningTableExists)
+                {
+                    KerningTable *table = &commands->kerningTables[kerningTableIndex];
+                    table->infoCount++;
+                    table->table = (KernInfo *)realloc(table->table, table->infoCount * sizeof(KernInfo));
+                    table->table[table->infoCount - 1] = info;
+                }
+                else
+                {
+                    commands->kerningTableCount++;
+                    commands->kerningTables = (KerningTable *)realloc(commands->kerningTables, commands->kerningTableCount * sizeof(KerningTable));
+                    commands->kerningTables[commands->kerningTableCount - 1] = {};
+                    
+                    KerningTable *table = &commands->kerningTables[commands->kerningTableCount - 1];
+                    table->infoCount++;
+                    table->table = (KernInfo *)realloc(table->table, table->infoCount * sizeof(KernInfo));
+                    table->table[table->infoCount - 1] = info;
+                }
+            }
+            else if (assetHeader.type == AssetType_FontMetadata)
+            {
+                commands->metadataCount++;
+                commands->metadatas = (FontMetadata *)realloc(commands->metadatas, commands->metadataCount * sizeof(FontMetadata));
+                commands->metadatas[commands->metadataCount - 1] = assetHeader.metadata;
+            }
+            
+            offset += assetHeader.assetSize;
+        }
+    }
+    
+    platform.GetAllFilesOfExtEnd(&fileGroup);
+}
+
 global b32 showDebug = false;
 
 #if AST_INTERNAL
@@ -179,6 +255,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
+        
+        FillKerningTables(renderCommands, memory->platform);
         
         gameState->initialised = true;
     }
@@ -265,6 +343,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     PushClear(renderCommands, V4F(0.0f, 0.0f, 0.0f, 1.0f));
     
+    BEGIN_TIMED_BLOCK(UpdateEntities);
     UpdateTimer(&gameState->ufoSpawnTimer, input->deltaTime);
     if (gameState->ufoSpawnTimer.finished && !gameState->ufoSpawned)
     {
@@ -413,12 +492,12 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             }
         }
     }
-    
+    END_TIMED_BLOCK(UpdateEntities);
     
     RenderGroup *interfaceGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, V2F(15.0f, 50.0f), 1.0f, TextAlign_TopLeft, V4F(1.0f));
+    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, "Hyperspace", V2F(15.0f, 100.0f), 0.5f, V4F(1.0f));
     
     END_TIMED_BLOCK(GameUpdateRender);
     
@@ -432,7 +511,4 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     // AUDIO
     //OutputTestSineWave(gameState, audioBuffer, 256);
-    
-    
-    
 }

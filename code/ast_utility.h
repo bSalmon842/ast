@@ -83,6 +83,34 @@ inline void ConcatStrings(char *dest, char *a, usize aSize, char *b, usize bSize
     *dest++ = 0;
 }
 
+inline b32 StringsAreSame(char *a, char *b, s32 checkSize)
+{
+    b32 result = true;
+    
+    for (s32 i = 0; i < checkSize; ++i)
+    {
+        result &= (a[i] == b[i]);
+        if (!result)
+        {
+            break;
+        }
+    }
+    
+    return result;
+}
+
+inline b32 IsCharWhitespace(char c)
+{
+    b32 result = (c == ' ' ||
+                  c == '\t' ||
+                  c == '\v' ||
+                  c == '\f' ||
+                  c == '\n' ||
+                  c == '\r');
+    
+    return result;
+}
+
 inline u32 SafeTruncateU64(u64 value)
 {
     ASSERT(value <= 0xFFFFFFFF);

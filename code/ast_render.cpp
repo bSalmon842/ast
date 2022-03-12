@@ -31,7 +31,7 @@ inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion
     if (entry)
     {
         entry->bitmapID = id;
-        entry->offset = offset * worldToPixelConversion;
+        entry->offset = (offset * worldToPixelConversion);
         entry->dims = dims * worldToPixelConversion;
         entry->angle = angle + TAU * 0.25f;
         entry->colour = colour;
@@ -59,16 +59,32 @@ inline void PushClear(Game_RenderCommands *commands, v4f colour)
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, RenderString string, v2f offset, f32 scale, TextAlign align, v4f colour)
+inline void RenderStringToUpper(RenderString *string)
+{
+    for (s32 i = 0; i < string->length; ++i)
+    {
+        if (string->text[i] >= 'a' && string->text[i] <= 'z')
+        {
+            string->text[i] -= 32;
+        }
+    }
+}
+
+inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, RenderString string, char *font, v2f offset, f32 scale, v4f colour)
 {
     RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text);
     if (entry)
     {
         entry->string = string;
+        sprintf(entry->font, "%s", font);
+        if (GetMetadataForFont(commands, font).allCapital)
+        {
+            RenderStringToUpper(&entry->string);
+        }
+        entry->kerningTable = GetKerningTableForFont(commands, entry->font);
         entry->offset = offset * worldToPixelConversion;
         entry->offset.y = (f32)commands->height - offset.y;
         entry->scale = scale;
-        entry->align = align;
         entry->colour = colour;
     }
 }
