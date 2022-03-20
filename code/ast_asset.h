@@ -7,6 +7,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_ASSET_H
 
+#include "ast_platform.h"
+
 enum BitmapID : u32
 {
     BitmapID_Null,
@@ -17,6 +19,12 @@ enum BitmapID : u32
     BitmapID_Asteroid2,
     BitmapID_Asteroid3,
     BitmapID_UFO_Large,
+};
+
+struct GlyphIdentifier
+{
+    char glyph;
+    char *font;
 };
 
 #pragma pack(push, 1)
@@ -38,12 +46,16 @@ typedef struct
     u32 handle;
 } GlyphInfo;
 
-struct KernInfo
+struct Kerning
 {
     f32 advance;
     char codepoint0;
     char codepoint1;
-    
+};
+
+struct KerningTableInfo
+{
+    u32 infoCount;
     char font[32];
 };
 
@@ -66,6 +78,12 @@ struct Glyph
 {
     GlyphInfo info;
     void *memory;
+};
+
+struct KerningTable
+{
+    KerningTableInfo info;
+    Kerning *table;
 };
 
 typedef struct
@@ -108,6 +126,13 @@ typedef struct
     usize dataSize;
 } AAFHeader;
 
+enum AssetLoadState
+{
+    AssetLoad_Unloaded,
+    AssetLoad_Loading,
+    AssetLoad_Loaded,
+};
+
 enum AssetType : u8
 {
     AssetType_Null,
@@ -115,7 +140,7 @@ enum AssetType : u8
     AssetType_Bitmap,
     AssetType_Audio,
     AssetType_Glyph,
-    AssetType_Kerning,
+    AssetType_KerningTable,
     AssetType_FontMetadata,
     
     AssetType_Count,
@@ -130,7 +155,7 @@ typedef struct
     {
         BitmapInfo bitmap;
         GlyphInfo glyph;
-        KernInfo kerning;
+        KerningTableInfo kerning;
         FontMetadata metadata;
         // Audio audio;
     };
@@ -145,6 +170,37 @@ typedef struct
     
     usize assetDataSize; // NOTE(bSalmon): Only really useful for the Asset Builder
 } Game_Assets;
+
+struct LoadedAssetHeader
+{
+    u32 fileIndex;
+    
+    AssetType type;
+    AssetLoadState volatile loadState;
+    
+    union
+    {
+        BitmapInfo bitmap;
+        GlyphInfo glyph;
+        KerningTableInfo kerning;
+        FontMetadata metadata;
+        // Audio audio;
+    };
+    
+    usize assetSize;
+    usize assetOffset;
+    void *asset;
+};
+
+struct Game_LoadedAssets
+{
+    u32 assetCount;
+    LoadedAssetHeader *headers;
+    
+    PlatformAPI platform;
+    struct Transient_State *transState;
+    Platform_ParallelQueue *parallelQueue;
+};
 
 #define AST_ASSET_H
 #endif //AST_ASSET_H

@@ -8,9 +8,11 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast.h"
 #include "ast_utility.h"
 #include "ast_math.h"
+#include "ast_memory.h"
 #include "ast_asset.h"
 #include "ast_render.h"
 
+#include "ast_memory.cpp"
 #include "ast_asset.cpp"
 
 // NOTE(bSalmon): WGL defines
@@ -146,20 +148,24 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             case RenderEntryType_RenderEntry_Bitmap:
             {
                 RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(commands->pushBufferBase + baseAddress);
+                v2f min = V2F();
+                v2f max = V2F();
                 
-                Bitmap *texture = GetBitmapAsset(&commands->cachedBitmaps, &commands->cachedBitmapCount, platform, entry->bitmapID);
-                
-                if (texture)
+                LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Bitmap, &entry->bitmapID, false);
+                if (assetHeader->loadState == AssetLoad_Loaded)
                 {
-                    if (texture->info.handle)
+                    Bitmap texture = GetBitmapFromAssetHeader(assetHeader);
+                    ASSERT(texture.memory);
+                    
+                    if (texture.info.handle)
                     {
-                        glBindTexture(GL_TEXTURE_2D, texture->info.handle);
+                        glBindTexture(GL_TEXTURE_2D, texture.info.handle);
                     }
                     else
                     {
-                        texture->info.handle = ++globalTexHandleCount;
-                        glBindTexture(GL_TEXTURE_2D, texture->info.handle);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->info.dims.w, texture->info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texture->memory);
+                        texture.info.handle = ++globalTexHandleCount;
+                        glBindTexture(GL_TEXTURE_2D, texture.info.handle);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture.info.dims.w, texture.info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texture.memory);
                         
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -167,10 +173,10 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
                         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
                     }
+                    
+                    min = entry->offset - (entry->dims * texture.info.align);
+                    max = min + entry->dims;
                 }
-                
-                v2f min = entry->offset - (entry->dims * texture->info.align);
-                v2f max = min + entry->dims;
                 
                 f32 cosAngle = Cos(entry->angle);
                 f32 sinAngle = Sin(entry->angle);
@@ -226,48 +232,55 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 f32 charPosX = entry->offset.x;
                 while (*c)
                 {
-                    Glyph *glyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, entry->font, *c);
                     
-                    if (glyph && glyph->info.glyph != ' ')
+                    GlyphIdentifier glyphID = {*c, entry->font};
+                    LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Glyph, &glyphID, false);
+                    if (assetHeader->loadState == AssetLoad_Loaded)
                     {
-                        if (glyph->info.handle)
+                        Glyph glyph = GetGlyphFromAssetHeader(assetHeader);
+                        ASSERT(glyph.memory);
+                        if (glyph.info.glyph != ' ')
                         {
-                            glBindTexture(GL_TEXTURE_2D, glyph->info.handle);
-                        }
-                        else
-                        {
-                            glyph->info.handle = ++globalTexHandleCount;
-                            glBindTexture(GL_TEXTURE_2D, glyph->info.handle);
-                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, glyph->info.dims.w, glyph->info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, glyph->memory);
+                            if (glyph.info.handle)
+                            {
+                                glBindTexture(GL_TEXTURE_2D, glyph.info.handle);
+                            }
+                            else
+                            {
+                                glyph.info.handle = ++globalTexHandleCount;
+                                glBindTexture(GL_TEXTURE_2D, glyph.info.handle);
+                                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, glyph.info.dims.w, glyph.info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, glyph.memory);
+                                
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+                                glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+                            }
                             
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-                            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-                        }
-                        
-                        v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph->info.dims) * entry->scale) * glyph->info.align);
-                        v2f max = min + (ToV2F(glyph->info.dims) * entry->scale);
-                        OpenGL_Rectangle(min, max, entry->colour);
-                        
-                        if (*(c + 1))
-                        {
-                            KernInfo kerning = GetKerningInfo(entry->kerningTable, *c, *(c + 1));
-                            charPosX += (glyph->info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
-                        }
-                    }
-                    else if (glyph && glyph->info.glyph == ' ')
-                    {
-                        if (GetMetadataForFont(commands, entry->font).monospace)
-                        {
-                            Glyph *sizeGlyph = GetGlyphAsset(&commands->cachedGlyphs, &commands->cachedGlyphCount, platform, entry->font, 'A');
+                            v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
+                            v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);
+                            OpenGL_Rectangle(min, max, entry->colour);
                             
-                            charPosX += sizeGlyph->info.dims.w * entry->scale;
+                            if (*(c + 1))
+                            {
+                                Kerning kerning = GetKerningInfo(&entry->kerningTable, *c, *(c + 1));
+                                charPosX += (glyph.info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
+                            }
                         }
-                        else
+                        else if (glyph.info.glyph == ' ')
                         {
-                            charPosX += 32.0f * entry->scale;
+                            LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, entry->font, true);
+                            FontMetadata metadata = metadataHeader->metadata;
+                            if (metadata.monospace)
+                            {
+                                GlyphInfo sizeGlyph = assetHeader->glyph;
+                                charPosX += sizeGlyph.dims.w * entry->scale;
+                            }
+                            else
+                            {
+                                charPosX += 32.0f * entry->scale;
+                            }
                         }
                     }
                     

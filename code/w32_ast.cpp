@@ -18,6 +18,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_platform.h"
 #include "w32_ast_dev.cpp"
+#include "w32_ast_thread.cpp"
 
 #include "w32_ast.h"
 
@@ -633,6 +634,21 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     W32_BuildExePathFileName(&platformState, "ast_temp.dll", tempDLLPath);
     W32_BuildExePathFileName(&platformState, "lock.tmp", lockPath);
     
+    W32_Thread threads[7];
+    s32 threadCount = ARRAY_COUNT(threads);
+    Platform_ParallelQueue parallelQueue = {};
+    parallelQueue.semaphore = CreateSemaphoreEx(0, 0, threadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    for (s32 i = 0; i < threadCount; ++i)
+    {
+        W32_Thread *thread = &threads[i];
+        thread->threadIndex = i;
+        thread->queue = &parallelQueue;
+        
+        DWORD threadID;
+        HANDLE threadHandle = CreateThread(0, 0, ThreadProc, thread, 0, &threadID);
+        CloseHandle(threadHandle);
+    }
+    
     W32_BackBuffer platformBackBuffer = {};
     W32_ResizeDIBSection(&platformBackBuffer, 900, 900);
     
@@ -697,7 +713,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             platform.OpenNextFile = W32_OpenNextFile;
             platform.MarkFileError = W32_MarkFileError;
             platform.ReadDataFromFile = W32_ReadDataFromFile;
+            platform.AddParallelEntry = W32_AddParallelEntry;
+            platform.CompleteAllParallelWork = W32_CompleteAllParallelWork;
             gameMem.platform = platform;
+            gameMem.parallelQueue = &parallelQueue;
             
             s32 cpuInfo[4];
             __cpuid(cpuInfo, 1);
@@ -756,8 +775,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     POINT mouseLoc;
                     GetCursorPos(&mouseLoc);
                     ScreenToClient(window, &mouseLoc);
+#if 0
                     b32 mouseLeftDown = (GetKeyState(VK_LBUTTON) & (1 << 15));
                     b32 mouseRightDown = (GetKeyState(VK_RBUTTON) & (1 << 15));
+#endif
                     
 #if AST_INTERNAL
                     debugGlobalMem = &gameMem;
@@ -814,7 +835,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     SWAP(newInput, oldInput);
                     
                     HandleCycleCounters(&gameMem);
-                    printf("%.02f / %.03f\n", BS842_Timing_GetFramesPerSecond(), BS842_Timing_GetMSPerFrame());
+                    //printf("%.02f / %.03f\n", BS842_Timing_GetFramesPerSecond(), BS842_Timing_GetMSPerFrame());
                 }
             }
         }

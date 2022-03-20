@@ -419,7 +419,8 @@ name result = Create##name##_CenterHalfDims(center, dims / 2); \
 return result; \
 }
 
-/* EXAMPLE
+#ifdef BS842_MAKE_STRUCTS
+#pragma warning(disable:4146)
 Make2DStruct(f32, v2f, V2F);
 Make2DStruct(u32, v2u, V2U);
 Make2DStruct(s32, v2s, V2S);
@@ -428,12 +429,13 @@ Make3DStruct(f32, v3f, V3F);
 Make3DStruct(u32, v3u, V3U);
 Make3DStruct(s32, v3s, V3S);
 
-Make4DStruct(f32, v4f, V4F);
+Make4DStruct(f32, v4f, V4F, v3f);
 
 MakeRectStruct(v2f, Rect2f);
 MakeRectStruct(v2u, Rect2u);
 MakeRectStruct(v2s, Rect2s);
-*/
+#pragma warning(default:4146)
+#endif //BS842_MAKE_STRUCTS
 
 #define BS842_VECTOR_H
 #endif //BS842_VECTOR_H

@@ -66,6 +66,8 @@ enum Platform_FileType
     PlatformFileType_Save,
 };
 
+struct Platform_ParallelQueue;
+
 #define PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(funcName) Platform_FileGroup funcName(Platform_FileType fileType)
 typedef PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(platformGetAllFilesOfExtBegin);
 
@@ -93,7 +95,35 @@ typedef PLATFORM_MICROSECONDS_SINCE_EPOCH(platformMicrosecondsSinceEpoch);
 #define PLATFORM_SECONDS_SINCE_EPOCH(funcName) u64 funcName()
 typedef PLATFORM_SECONDS_SINCE_EPOCH(platformSecondsSinceEpoch);
 
-typedef void openglRender(struct RenderGroup *renderGroup, struct Bitmap *target);
+#define PARALLEL_WORK_CALLBACK(funcName) void funcName(void *data)
+typedef PARALLEL_WORK_CALLBACK(parallelWorkCallback);
+
+#define PLATFORM_ADD_PARALLEL_ENTRY(funcName) void funcName(Platform_ParallelQueue *queue, parallelWorkCallback *callback, void *data)
+typedef PLATFORM_ADD_PARALLEL_ENTRY(platformAddParallelEntry);
+
+#define PLATFORM_COMPLETE_ALL_PARALLEL_WORK(funcName) void funcName(Platform_ParallelQueue *queue)
+typedef PLATFORM_COMPLETE_ALL_PARALLEL_WORK(platformCompleteAllParallelWork);
+
+struct ParallelWorkEntry
+{
+    parallelWorkCallback *callback;
+    void *data;
+};
+
+struct Platform_ParallelQueue
+{
+    u32 volatile nextEntryToRead;
+    u32 volatile nextEntryToWrite;
+    
+    u32 volatile completionTarget;
+    u32 volatile completedCount;
+    
+    ParallelWorkEntry entries[256];
+    
+    void *semaphore;
+};
+
+//typedef void openglRender(struct RenderGroup *renderGroup, struct Bitmap *target);
 
 inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
 {
@@ -101,7 +131,7 @@ inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
     return result;
 }
 
-typedef struct
+struct PlatformAPI
 {
     debug_platformFreeFile *Debug_FreeFile;
     debug_platformReadFile *Debug_ReadFile;
@@ -117,9 +147,12 @@ typedef struct
     platformOpenNextFile *OpenNextFile;
     platformMarkFileError *MarkFileError;
     platformReadDataFromFile *ReadDataFromFile;
-} PlatformAPI;
+    
+    platformAddParallelEntry *AddParallelEntry;
+    platformCompleteAllParallelWork *CompleteAllParallelWork;
+};
 
-typedef struct
+struct Game_RenderCommands
 {
     u32 width;
     u32 height;
@@ -128,18 +161,8 @@ typedef struct
     usize pushBufferSize;
     usize maxPushBufferSize;
     
-    u32 cachedBitmapCount;
-    struct Bitmap *cachedBitmaps;
-    
-    u32 cachedGlyphCount;
-    struct Glyph *cachedGlyphs;
-    
-    u32 kerningTableCount;
-    struct KerningTable *kerningTables;
-    
-    u32 metadataCount;
-    struct FontMetadata *metadatas;
-} Game_RenderCommands;
+    struct Game_LoadedAssets *loadedAssets;
+};
 
 inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, void *pushBufferBase, u32 width, u32 height)
 {
@@ -152,9 +175,7 @@ inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, voi
     result.pushBufferSize = 0;
     result.maxPushBufferSize = maxPushBufferSize;
     
-    result.cachedBitmapCount = 0;
-    result.cachedGlyphCount = 0;
-    result.kerningTableCount = 0;
+    result.loadedAssets = 0;
     
     return result;
 }
@@ -215,6 +236,7 @@ typedef struct
     
     InstructionSets availableInstructionSets;
     
+    Platform_ParallelQueue *parallelQueue;
     PlatformAPI platform;
     
 #if AST_INTERNAL

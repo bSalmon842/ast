@@ -9,13 +9,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include <stdio.h>
 #include <direct.h>
 
-#include "..\bs842_vector.h"
 #include "..\ast_utility.h"
 
-Make2DStruct(f32, v2f, V2F);
-Make2DStruct(s32, v2s, V2S);
-Make3DStruct(f32, v3f, V3F);
-Make4DStruct(f32, v4f, V4F, v3f);
+#define BS842_MAKE_STRUCTS
+#include "..\bs842_vector.h"
 
 #include "..\ast_math.h"
 #include "..\ast_asset.h"
@@ -122,12 +119,12 @@ function AssetHeader MakeAssetHeader_Glyph(usize assetSize, GlyphInfo glyph)
     return result;
 }
 
-function AssetHeader MakeAssetHeader_Kerning(KernInfo kerning)
+function AssetHeader MakeAssetHeader_KerningTable(KerningTableInfo kerning)
 {
     AssetHeader result = {};
     
-    result.assetSize = 0;
-    result.type = AssetType_Kerning;
+    result.assetSize = kerning.infoCount * sizeof(Kerning);
+    result.type = AssetType_KerningTable;
     result.kerning = kerning;
     
     return result;
@@ -312,28 +309,45 @@ function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoi
     AddAsset(assets, assetHeader, glyph.memory);
 }
 
-function void AddToAssets_Metadata(Game_Assets *assets, FontInfo font)
+function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font)
 {
     float scale = stbtt_ScaleForPixelHeight(&font.font, DEFAULT_FONT_SIZE);
+    
+    KerningTable table = {};
+    sprintf(table.info.font, "%s", font.fontName);
     
     for (char codepoint0 = '!'; codepoint0 <= '~'; ++codepoint0)
     {
         for (char codepoint1 = '!'; codepoint1 <= '~'; ++codepoint1)
         {
-            KernInfo kernInfo = {};
-            kernInfo.codepoint0 = codepoint0;
-            kernInfo.codepoint1 = codepoint1;
-            sprintf(kernInfo.font, "%s", font.fontName);
-            
-            kernInfo.advance = scale * stbtt_GetCodepointKernAdvance(&font.font, codepoint0, codepoint1);
-            
-            if (kernInfo.advance != 0.0f)
+            f32 advance = scale * stbtt_GetCodepointKernAdvance(&font.font, codepoint0, codepoint1);
+            if (advance != 0.0f)
             {
-                AssetHeader assetHeader = MakeAssetHeader_Kerning(kernInfo);
-                AddAsset(assets, assetHeader, 0);
+                table.info.infoCount++;
             }
         }
     }
+    
+    table.table = (Kerning *)calloc(1, table.info.infoCount * sizeof(Kerning));
+    
+    u32 tableIndex = 0;
+    for (char codepoint0 = '!'; codepoint0 <= '~'; ++codepoint0)
+    {
+        for (char codepoint1 = '!'; codepoint1 <= '~'; ++codepoint1)
+        {
+            Kerning kerning = {};
+            kerning.codepoint0 = codepoint0;
+            kerning.codepoint1 = codepoint1;
+            kerning.advance = scale * stbtt_GetCodepointKernAdvance(&font.font, codepoint0, codepoint1);
+            
+            if (kerning.advance != 0.0f)
+            {
+                table.table[tableIndex++] = kerning;
+            }
+        }
+    }
+    AssetHeader kerningAssetHeader = MakeAssetHeader_KerningTable(table.info);
+    AddAsset(assets, kerningAssetHeader, table.table);
     
     FontMetadata metadata = {};
     s32 ascent, descent, lineGap;
@@ -343,8 +357,8 @@ function void AddToAssets_Metadata(Game_Assets *assets, FontInfo font)
     metadata.allCapital = font.allCapital;
     sprintf(metadata.font, "%s", font.fontName);
     
-    AssetHeader assetHeader = MakeAssetHeader_FontMetadata(metadata);
-    AddAsset(assets, assetHeader, 0);
+    AssetHeader metaAssetHeader = MakeAssetHeader_FontMetadata(metadata);
+    AddAsset(assets, metaAssetHeader, 0);
 }
 
 function void WriteAssetFile(Game_Assets assets, char *filename, FILE *logFile)
@@ -384,9 +398,9 @@ function void WriteAssetFile(Game_Assets assets, char *filename, FILE *logFile)
                         fprintf(logFile, "Saving Glyph %c of %s to File \"%s\", Asset Size: %lld, Total Size: %lld\n", assetHeader.glyph.glyph, assetHeader.glyph.font, filename, sizeof(AssetHeader) + assetHeader.assetSize, cumulativeSize);
                     } break;
                     
-                    case AssetType_Kerning:
+                    case AssetType_KerningTable:
                     {
-                        fprintf(logFile, "Saving Kerning %c + %c of %s with Advance %.05f to File \"%s\", Asset Size: %lld, Total Size: %lld\n", assetHeader.kerning.codepoint0, assetHeader.kerning.codepoint1, assetHeader.kerning.font, assetHeader.kerning.advance, filename, sizeof(AssetHeader) + assetHeader.assetSize, cumulativeSize);
+                        fprintf(logFile, "Saving Kerning Table for %s to File \"%s\", Asset Size: %lld, Total Size: %lld\n", assetHeader.kerning.font, filename, sizeof(AssetHeader) + assetHeader.assetSize, cumulativeSize);
                     } break;
                     
                     case AssetType_FontMetadata:
@@ -447,7 +461,7 @@ s32 main(s32 argc, char **argv)
             AddToAssets_Glyph(&assets, fonts[fontIndex], glyphCodepoint);
         }
         
-        AddToAssets_Metadata(&assets, fonts[fontIndex]);
+        AddToAssets_KerningAndMetadata(&assets, fonts[fontIndex]);
     }
     
     WriteAssetFile(assets, "fonts.aaf", logFile);

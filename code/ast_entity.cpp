@@ -45,17 +45,6 @@ function u32 GetScoreForAsteroidSize(AsteroidSize size)
     return result;
 }
 
-function AsteroidSize GetAsteroidSizeFromDims(v2f dims)
-{
-    AsteroidSize result = AsteroidSize_Large;
-    
-    if (dims == GetAsteroidDims(AsteroidSize_Large)) { result = AsteroidSize_Large; }
-    else if (dims == GetAsteroidDims(AsteroidSize_Medium)) { result = AsteroidSize_Medium; }
-    else if (dims == GetAsteroidDims(AsteroidSize_Small)) { result = AsteroidSize_Small; }
-    
-    return result;
-}
-
 function void MoveEntity(Game_Input *input, Entity *entity)
 {
     entity->pos += entity->dP * input->deltaTime;

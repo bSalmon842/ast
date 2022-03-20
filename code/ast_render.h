@@ -1,4 +1,9 @@
-/* date = February 14th 2022 2:58 pm */
+/*
+Project: Asteroids
+File: ast_render.h
+Author: Brock Salmon
+Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
+*/
 
 #ifndef AST_RENDER_H
 
@@ -6,13 +11,6 @@ struct RenderString
 {
     char *text;
     u8 length;
-};
-
-struct KerningTable
-{
-    KernInfo *table;
-    u32 infoCount;
-    char font[32];
 };
 
 typedef struct

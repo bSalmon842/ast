@@ -77,11 +77,17 @@ inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, 
     {
         entry->string = string;
         sprintf(entry->font, "%s", font);
-        if (GetMetadataForFont(commands, font).allCapital)
+        
+        LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
+        FontMetadata metadata = metadataHeader->metadata;
+        if (metadata.allCapital)
         {
             RenderStringToUpper(&entry->string);
         }
-        entry->kerningTable = GetKerningTableForFont(commands, entry->font);
+        
+        LoadedAssetHeader *kerningHeader = GetAsset(commands->loadedAssets, AssetType_KerningTable, font, true);
+        entry->kerningTable = GetKerningTableFromAssetHeader(kerningHeader);
+        
         entry->offset = offset * worldToPixelConversion;
         entry->offset.y = (f32)commands->height - offset.y;
         entry->scale = scale;

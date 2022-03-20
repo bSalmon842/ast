@@ -8,16 +8,15 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #ifndef AST_H
 
 #include "ast_platform.h"
+
+#define BS842_MAKE_STRUCTS
 #include "bs842_vector.h"
+
+#include "ast_intrinsics.h"
 #include "ast_memory.h"
 
 #define RND_IMPLEMENTATION
 #include "rnd.h"
-
-Make2DStruct(f32, v2f, V2F);
-Make2DStruct(s32, v2s, V2S);
-Make3DStruct(f32, v3f, V3F);
-Make4DStruct(f32, v4f, V4F, v3f);
 
 #include "ast_timer.h"
 #include "ast_entity.h"
@@ -52,6 +51,9 @@ struct Transient_State
     b32 initialised;
     
     MemoryRegion transRegion;
+    ParallelMemory parallelMems[8];
+    
+    Game_LoadedAssets loadedAssets;
 };
 
 #define AST_H

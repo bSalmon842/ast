@@ -16,7 +16,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Particles
 // TODO(bSalmon): Better Debug outputs
-// TODO(bSalmon): Multithreading
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
 
@@ -39,6 +38,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_timer.cpp"
 #include "ast_intrinsics.h"
 #include "ast_math.h"
+#include "ast_memory.cpp"
 #include "ast_asset.cpp"
 #include "ast_render.cpp"
 #include "ast_entity.cpp"
@@ -73,7 +73,10 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
             PushText(commands, V2F(1.0f), string, font, debugLineOffset, scale, V4F(1.0f));
-            debugLineOffset.y += GetMetadataForFont(commands, font).lineGap * scale;
+            
+            LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
+            FontMetadata metadata = metadataHeader->metadata;
+            debugLineOffset.y += metadata.lineGap * scale;
         }
     }
 }
@@ -135,74 +138,6 @@ inline b32 InputNoRepeat(Game_ButtonState buttonState)
     return result;
 }
 
-function void FillKerningTables(Game_RenderCommands *commands, PlatformAPI platform)
-{
-    Platform_FileGroup fileGroup = platform.GetAllFilesOfExtBegin(PlatformFileType_Asset);
-    
-    for (u32 i = 0; i < fileGroup.fileCount; ++i)
-    {
-        Platform_FileHandle fileHandle = platform.OpenNextFile(&fileGroup);
-        AAFHeader fileHeader;
-        platform.ReadDataFromFile(&fileHandle, 0, sizeof(AAFHeader), &fileHeader);
-        ASSERT(fileHeader.magicValue == AAF_CODE('B', 'A', 'A', 'F'));
-        
-        usize offset = sizeof(AAFHeader);
-        for (u32 assetIndex = 0; assetIndex < fileHeader.assetCount; ++assetIndex)
-        {
-            AssetHeader assetHeader;
-            platform.ReadDataFromFile(&fileHandle, offset, sizeof(AssetHeader), &assetHeader);
-            offset += sizeof(AssetHeader);
-            
-            if (assetHeader.type == AssetType_Kerning)
-            {
-                KernInfo info = assetHeader.kerning;
-                
-                b32 kerningTableExists = false;
-                u32 kerningTableIndex = 0;
-                for (u32 tableIndex = 0; tableIndex < commands->kerningTableCount; ++tableIndex)
-                {
-                    KerningTable table = commands->kerningTables[tableIndex];
-                    if (StringsAreSame(table.font, info.font, StringLength(table.font)))
-                    {
-                        kerningTableExists = true;
-                        kerningTableIndex = tableIndex;
-                        break;
-                    }
-                }
-                
-                if (kerningTableExists)
-                {
-                    KerningTable *table = &commands->kerningTables[kerningTableIndex];
-                    table->infoCount++;
-                    table->table = (KernInfo *)realloc(table->table, table->infoCount * sizeof(KernInfo));
-                    table->table[table->infoCount - 1] = info;
-                }
-                else
-                {
-                    commands->kerningTableCount++;
-                    commands->kerningTables = (KerningTable *)realloc(commands->kerningTables, commands->kerningTableCount * sizeof(KerningTable));
-                    commands->kerningTables[commands->kerningTableCount - 1] = {};
-                    
-                    KerningTable *table = &commands->kerningTables[commands->kerningTableCount - 1];
-                    table->infoCount++;
-                    table->table = (KernInfo *)realloc(table->table, table->infoCount * sizeof(KernInfo));
-                    table->table[table->infoCount - 1] = info;
-                }
-            }
-            else if (assetHeader.type == AssetType_FontMetadata)
-            {
-                commands->metadataCount++;
-                commands->metadatas = (FontMetadata *)realloc(commands->metadatas, commands->metadataCount * sizeof(FontMetadata));
-                commands->metadatas[commands->metadataCount - 1] = assetHeader.metadata;
-            }
-            
-            offset += assetHeader.assetSize;
-        }
-    }
-    
-    platform.GetAllFilesOfExtEnd(&fileGroup);
-}
-
 global b32 showDebug = false;
 
 #if AST_INTERNAL
@@ -217,6 +152,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
     Game_State *gameState = (Game_State *)memory->permaStorage;
+    PlatformAPI platform = memory->platform;
     if (!gameState->initialised)
     {
         u32 timeSeed = SafeTruncateU64(memory->platform.SecondsSinceEpoch());
@@ -256,8 +192,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
-        FillKerningTables(renderCommands, memory->platform);
-        
         gameState->initialised = true;
     }
     
@@ -266,6 +200,18 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     if (!transState->initialised)
     {
         InitMemRegion(&transState->transRegion, memory->transStorageSize - sizeof(Transient_State), (u8 *)memory->transStorage + sizeof(Transient_State));
+        
+        for (u32 memIndex = 0; memIndex < ARRAY_COUNT(transState->parallelMems); ++memIndex)
+        {
+            ParallelMemory *mem = &transState->parallelMems[memIndex];
+            
+            mem->inUse = false;
+            CreateMemorySubRegion(&mem->memRegion, &transState->transRegion, MEGABYTE(1));
+        }
+        
+        transState->loadedAssets = InitialiseLoadedAssets(platform, memory->parallelQueue);
+        transState->loadedAssets.transState = transState;
+        renderCommands->loadedAssets = &transState->loadedAssets;
         
         transState->initialised = true;
     }
@@ -280,7 +226,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         input->deltaTime = 0.0f;
     }
     
-    u32 boxColour = 0xFFFFFFFF;
     Game_Keyboard *keyboard = &input->keyboard;
     f32 playerRotateSpeed = 5.0f * input->deltaTime;
     v2f playerForward = V2F(Cos(gameState->playerEntity->angle), Sin(gameState->playerEntity->angle));
@@ -501,7 +446,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     END_TIMED_BLOCK(GameUpdateRender);
     
-    RenderGroup *debugGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
+    //RenderGroup *debugGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
     if (showDebug)
     {
         Debug_CycleCounters(memory, renderCommands, memory->platform);
