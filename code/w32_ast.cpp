@@ -18,7 +18,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_platform.h"
 #include "w32_ast_dev.cpp"
-#include "w32_ast_thread.cpp"
 
 #include "w32_ast.h"
 
@@ -26,15 +25,12 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define BS842_W32TIMING_IMPLEMENTATION
 #include "bs842_w32_timing.h"
 
-#include "ast_opengl.cpp"
-
 global b32 globalRunning;
+global HDC globalDeviceContext;
+global HGLRC globalGLContext;
 
-typedef BOOL WINAPI wgl_swapIntervalEXT(s32 interval);
-global wgl_swapIntervalEXT *wglSwapInterval;
-
-typedef HGLRC WINAPI wgl_createContextAttribsARB(HDC deviceContext, HGLRC shareContext, const s32 *attribs);
-global wgl_createContextAttribsARB *wglCreateContextAttribsARB;
+#include "w32_ast_opengl.cpp"
+#include "w32_ast_thread.cpp"
 
 #if AST_INTERNAL
 DEBUG_PLATFORM_FREE_FILE(Debug_W32_FreeFile)
@@ -347,68 +343,58 @@ function void W32_ProcessKeyboardEvent(Game_ButtonState *state, b32 keyIsDown)
 }
 
 //~ RENDERING / OPENGL
-function void W32_InitOpenGL(HDC deviceContext)
+function void W32_InitOpenGL(HDC deviceContext, HGLRC *glContext)
 {
-    PIXELFORMATDESCRIPTOR pfdReq = {};
-    pfdReq.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-    pfdReq.nVersion = 1;
-    pfdReq.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfdReq.iPixelType = PFD_TYPE_RGBA;
-    pfdReq.cColorBits = 32;
-    pfdReq.cAlphaBits = 8;
-    pfdReq.iLayerType = PFD_MAIN_PLANE;
+    globalGLContext = 0;
     
-    s32 pfdIndex = ChoosePixelFormat(deviceContext, &pfdReq);
-    
-    PIXELFORMATDESCRIPTOR pfd = {};
-    DescribePixelFormat(deviceContext, pfdIndex, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
-    SetPixelFormat(deviceContext, pfdIndex, &pfd);
-    
+    OpenGL_Info glInfo = {};
+    WGL_LoadWGLExtensions(&glInfo.support_SRGB);
+    WGL_SetPixelFormat(deviceContext, glInfo.support_SRGB);
     HGLRC glRC = wglCreateContext(deviceContext);
     if (wglMakeCurrent(deviceContext, glRC))
     {
-        wglCreateContextAttribsARB = (wgl_createContextAttribsARB *)wglGetProcAddress("wglCreateContextAttribsARB");
         if (wglCreateContextAttribsARB)
         {
             HGLRC shareContext = 0;
-            s32 contextAttribs[] = 
-            {
-                WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-                WGL_CONTEXT_MINOR_VERSION_ARB, 0,
-                WGL_CONTEXT_FLAGS_ARB, 0
-#if AST_INTERNAL
-                | WGL_CONTEXT_DEBUG_BIT_ARB
-#endif
-                ,
-                WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-                0,
-            };
-            
-            HGLRC modernGLContext = wglCreateContextAttribsARB(deviceContext, shareContext, contextAttribs);
+            HGLRC modernGLContext = wglCreateContextAttribsARB(deviceContext, shareContext, globalWGLContextAttribs);
             if (modernGLContext)
             {
-                wglMakeCurrent(deviceContext, modernGLContext);
+                if (wglMakeCurrent(deviceContext, modernGLContext))
+                {
+                    WGL_LoadGLFunctions(&glInfo);
+                    OpenGL_GetInfo(&glInfo);
+                }
                 wglDeleteContext(glRC);
-                glRC = modernGLContext;
+                *glContext = modernGLContext;
+                printf("Got Modern GL Context\n");
+            }
+            else
+            {
+                ASSERT(false);
             }
         }
         else
         {
-            
+            ASSERT(false);
         }
         
-        OpenGL_Init();
-        
-        wglSwapInterval = (wgl_swapIntervalEXT *)wglGetProcAddress("wglSwapInteralEXT");
-        if (wglSwapInterval)
+        wglSwapInterval = (wgl_swapIntervalEXT *)wglGetProcAddress("wglSwapIntervalEXT");
+        wglGetSwapInterval = (wgl_getSwapIntervalEXT *)wglGetProcAddress("wglGetSwapIntervalEXT");
+        if (wglSwapInterval && wglGetSwapInterval)
         {
             wglSwapInterval(1);
+        }
+        else
+        {
+            ASSERT(false);
         }
     }
     else
     {
         ASSERT(false);
     }
+    
+    OpenGL_Init(&glInfo);
 }
 
 inline W32_WindowDims W32_GetWindowDims(HWND window)
@@ -634,21 +620,6 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     W32_BuildExePathFileName(&platformState, "ast_temp.dll", tempDLLPath);
     W32_BuildExePathFileName(&platformState, "lock.tmp", lockPath);
     
-    W32_Thread threads[7];
-    s32 threadCount = ARRAY_COUNT(threads);
-    Platform_ParallelQueue parallelQueue = {};
-    parallelQueue.semaphore = CreateSemaphoreEx(0, 0, threadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
-    for (s32 i = 0; i < threadCount; ++i)
-    {
-        W32_Thread *thread = &threads[i];
-        thread->threadIndex = i;
-        thread->queue = &parallelQueue;
-        
-        DWORD threadID;
-        HANDLE threadHandle = CreateThread(0, 0, ThreadProc, thread, 0, &threadID);
-        CloseHandle(threadHandle);
-    }
-    
     W32_BackBuffer platformBackBuffer = {};
     W32_ResizeDIBSection(&platformBackBuffer, 900, 900);
     
@@ -668,18 +639,30 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
         
         if (window)
         {
-            HDC deviceContext = GetDC(window);
-            W32_InitOpenGL(deviceContext);
+            globalDeviceContext = GetDC(window);
+            W32_InitOpenGL(globalDeviceContext, &globalGLContext);
             
-#define TARGET_HZ 60
-            BS842_Timing_ChangeRefreshRate(deviceContext, false, 0);
+            W32_Thread threads[7];
+            s32 threadCount = ARRAY_COUNT(threads);
+            Platform_ParallelQueue parallelQueue = {};
+            parallelQueue.semaphore = CreateSemaphoreEx(0, 0, threadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+            for (s32 i = 0; i < threadCount; ++i)
+            {
+                W32_Thread *thread = &threads[i];
+                thread->threadIndex = i;
+                thread->queue = &parallelQueue;
+                
+                DWORD threadID;
+                HANDLE threadHandle = CreateThread(0, 0, ThreadProc, thread, 0, &threadID);
+                CloseHandle(threadHandle);
+            }
             
             s32 audioLatencyFrames = 1;
             W32_AudioOutput audioOutput = {};
             audioOutput.samplesPerSecond = 48000;
             audioOutput.bytesPerSample = sizeof(s16) * 2;
             audioOutput.secondaryBufferSize = audioOutput.samplesPerSecond;
-            audioOutput.latencySampleCount = audioLatencyFrames * (audioOutput.samplesPerSecond / BS842_Timing_GetRefreshRate());
+            audioOutput.latencySampleCount = audioLatencyFrames * (audioOutput.samplesPerSecond / 60);
             
             W32_InitWASAPI(&audioOutput.audioClient, &audioOutput.renderClient, audioOutput.samplesPerSecond, audioOutput.secondaryBufferSize);
             audioOutput.audioClient->Start();
@@ -715,6 +698,9 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             platform.ReadDataFromFile = W32_ReadDataFromFile;
             platform.AddParallelEntry = W32_AddParallelEntry;
             platform.CompleteAllParallelWork = W32_CompleteAllParallelWork;
+            platform.HasParallelWorkFinished = W32_HasParallelWorkFinished;
+            platform.AllocTexture = WGL_AllocTexture;
+            platform.FreeTexture = WGL_FreeTexture;
             gameMem.platform = platform;
             gameMem.parallelQueue = &parallelQueue;
             
@@ -734,7 +720,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             if (samples && gameMem.permaStorage && gameMem.transStorage)
             {
                 s32 debugTimeMarkerIndex = 0;
-                W32_DebugTimeMarker debugTimeMarkers[TARGET_HZ] = {};
+                W32_DebugTimeMarker debugTimeMarkers[60] = {};
                 
                 u32 lastPlayCursor = 0;
                 b32 soundValid = false;
@@ -744,6 +730,8 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 Game_RenderCommands gameRenderCommands = InitialiseRenderCommands(maxPushBufferSize, pushBufferBase,
                                                                                   platformBackBuffer.width, platformBackBuffer.height);
                 
+                LARGE_INTEGER lastCounter = BS842_Timing_GetClock();
+                f32 lastSecPerFrame = 0.16f;
                 while (globalRunning)
                 {
 #if AST_INTERNAL
@@ -757,7 +745,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     }
 #endif
                     
-                    newInput->deltaTime = BS842_Timing_GetDeltaTime();
+                    newInput->deltaTime = lastSecPerFrame;
                     newInput->exeReloaded = false;
                     
                     Game_Keyboard *oldKeyboard = &oldInput->keyboard;
@@ -807,11 +795,9 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
                     }
                     
-                    BS842_Timing_FrameEnd();
-                    
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
                     
-                    W32_PresentBuffer(&gameRenderCommands, platform, deviceContext);
+                    W32_PresentBuffer(&gameRenderCommands, platform, globalDeviceContext);
                     
 #if AST_INTERNAL
                     {
@@ -835,7 +821,13 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     SWAP(newInput, oldInput);
                     
                     HandleCycleCounters(&gameMem);
-                    //printf("%.02f / %.03f\n", BS842_Timing_GetFramesPerSecond(), BS842_Timing_GetMSPerFrame());
+                    
+                    LARGE_INTEGER endCounter = BS842_Timing_GetClock();
+                    lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);
+                    f32 fps = 1.0f / lastSecPerFrame;
+                    f32 mspf = 1000.0f * lastSecPerFrame;
+                    printf("%.02f / %.03f\n", fps, mspf);
+                    lastCounter = endCounter;
                 }
             }
         }

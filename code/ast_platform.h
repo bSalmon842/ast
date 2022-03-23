@@ -95,6 +95,12 @@ typedef PLATFORM_MICROSECONDS_SINCE_EPOCH(platformMicrosecondsSinceEpoch);
 #define PLATFORM_SECONDS_SINCE_EPOCH(funcName) u64 funcName()
 typedef PLATFORM_SECONDS_SINCE_EPOCH(platformSecondsSinceEpoch);
 
+#define PLATFORM_ALLOC_TEXTURE(funcName) void funcName(u32 *handle, s32 width, s32 height, void *data)
+typedef PLATFORM_ALLOC_TEXTURE(platformAllocTexture);
+
+#define PLATFORM_FREE_TEXTURE(funcName) void funcName(u32 textureHandle)
+typedef PLATFORM_FREE_TEXTURE(platformFreeTexture);
+
 #define PARALLEL_WORK_CALLBACK(funcName) void funcName(void *data)
 typedef PARALLEL_WORK_CALLBACK(parallelWorkCallback);
 
@@ -103,6 +109,9 @@ typedef PLATFORM_ADD_PARALLEL_ENTRY(platformAddParallelEntry);
 
 #define PLATFORM_COMPLETE_ALL_PARALLEL_WORK(funcName) void funcName(Platform_ParallelQueue *queue)
 typedef PLATFORM_COMPLETE_ALL_PARALLEL_WORK(platformCompleteAllParallelWork);
+
+#define PLATFORM_HAS_PARALLEL_WORK_FINISHED(funcName) b32 funcName(Platform_ParallelQueue *queue)
+typedef PLATFORM_HAS_PARALLEL_WORK_FINISHED(platformHasParallelWorkFinished);
 
 struct ParallelWorkEntry
 {
@@ -150,6 +159,10 @@ struct PlatformAPI
     
     platformAddParallelEntry *AddParallelEntry;
     platformCompleteAllParallelWork *CompleteAllParallelWork;
+    platformHasParallelWorkFinished *HasParallelWorkFinished;
+    
+    platformAllocTexture *AllocTexture;
+    platformFreeTexture *FreeTexture;
 };
 
 struct Game_RenderCommands

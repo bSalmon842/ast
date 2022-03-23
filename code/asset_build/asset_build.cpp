@@ -154,7 +154,6 @@ function void AddToAssets_Bitmap(Game_Assets *assets, char *filename, BitmapID i
     
     bitmap.info.dims = V2S(header->width, header->height);
     bitmap.info.id = id;
-    bitmap.info.handle = 0;
     
     ASSERT(bitmap.info.dims.h >= 0);
     ASSERT(header->compression == 3);

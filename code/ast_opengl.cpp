@@ -15,23 +15,11 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_memory.cpp"
 #include "ast_asset.cpp"
 
-// NOTE(bSalmon): WGL defines
-#define WGL_CONTEXT_MAJOR_VERSION_ARB           0x2091
-#define WGL_CONTEXT_MINOR_VERSION_ARB           0x2092
-#define WGL_CONTEXT_LAYER_PLANE_ARB             0x2093
-#define WGL_CONTEXT_FLAGS_ARB                   0x2094
-#define WGL_CONTEXT_PROFILE_MASK_ARB            0x9126
-#define WGL_CONTEXT_DEBUG_BIT_ARB               0x0001
-#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  0x0002
-#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
-#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
-
 // NOTE(bSalmon): Universal GL defines
+#define GL_NUM_EXTENSIONS           0x821D
 #define GL_SHADING_LANGUAGE_VERSION 0x8B8C
 #define GL_SRGB8_ALPHA8             0x8C43
 #define GL_FRAMEBUFFER_SRGB         0x8DB9
-
-global GLuint defaultOpenGLInternalFormat;
 
 struct OpenGL_Info
 {
@@ -41,49 +29,61 @@ struct OpenGL_Info
     char *glslVersion;
     char *extensions;
     
-    b32 GL_EXT_texture_sRGB;
-    b32 GL_ARB_framebuffer_sRGB;
+    type_glGetStringi *glGetStringi;
+    
+    b32 support_SRGB;
+    b32 ARB_framebuffer_object;
 };
 
-function OpenGL_Info OpenGL_GetInfo()
+function PLATFORM_ALLOC_TEXTURE(WGL_AllocTexture)
 {
-    OpenGL_Info result = {};
-    
-    result.vendor = (char *)glGetString(GL_VENDOR);
-    result.renderer = (char *)glGetString(GL_RENDERER);
-    result.version = (char *)glGetString(GL_VERSION);
-    result.glslVersion = (char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
-    result.extensions = (char *)glGetString(GL_EXTENSIONS);
-    
-    char *token = result.extensions;
-    while (*token)
+    glGenTextures(1, handle);
+    glBindTexture(GL_TEXTURE_2D, *handle);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
+    if (glGetError() != 0)
     {
-        while (IsCharWhitespace(*token)) { token++; }
-        char *end = token;
-        while (*end && !IsCharWhitespace(*end)) { end++; }
-        
-        s32 charCount = (s32)(end - token);
-        
-        if (StringsAreSame(token, "GL_EXT_texture_sRGB", charCount)) { result.GL_EXT_texture_sRGB = true; }
-        else if (StringsAreSame(token, "GL_ARB_framebuffer_sRGB", charCount)) { result.GL_ARB_framebuffer_sRGB = true; }
-        
-        token = end;
+        printf("glTexImage2D errored: 0x%x\n", glGetError());
     }
     
-    return result;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-function void OpenGL_Init()
+function PLATFORM_FREE_TEXTURE(WGL_FreeTexture)
 {
-    OpenGL_Info glInfo = OpenGL_GetInfo();
+    GLuint handle = (GLuint)textureHandle;
+    glDeleteTextures(1, &handle);
+}
+
+function void OpenGL_GetInfo(OpenGL_Info *glInfo)
+{
+    glInfo->vendor = (char *)glGetString(GL_VENDOR);
+    glInfo->renderer = (char *)glGetString(GL_RENDERER);
+    glInfo->version = (char *)glGetString(GL_VERSION);
+    glInfo->glslVersion = (char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
     
-    defaultOpenGLInternalFormat = GL_RGBA8;
-    if (glInfo.GL_EXT_texture_sRGB)
+    if (glInfo->glGetStringi)
     {
-        defaultOpenGLInternalFormat = GL_SRGB8_ALPHA8;
+        s32 extCount = 0;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &extCount);
+        
+        for (s32 extIndex = 0; extIndex < extCount; ++extIndex)
+        {
+            char *ext = (char *)glInfo->glGetStringi(GL_EXTENSIONS, extIndex);
+            
+            if (StringsAreSame(ext, "GL_ARB_framebuffer_object", StringLength(ext))) { glInfo->ARB_framebuffer_object = true; }
+        }
     }
-    
-    if (glInfo.GL_ARB_framebuffer_sRGB)
+}
+
+function void OpenGL_Init(OpenGL_Info *info)
+{
+    if (info->support_SRGB)
     {
         glEnable(GL_FRAMEBUFFER_SRGB);
     }
@@ -112,16 +112,9 @@ inline void OpenGL_Rectangle(v2f min, v2f max, v4f colour = V4F(1.0f))
     glEnd();
 }
 
-global u32 globalTexHandleCount = 0;
 function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
 {
     glViewport(0, 0, commands->width, commands->height);
-    
-    glMatrixMode(GL_TEXTURE);
-    glLoadIdentity();
-    
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
     
     glMatrixMode(GL_PROJECTION);
     
@@ -133,6 +126,12 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
         -1.0f, -1.0f, 0.0f, 1.0f,
     };
     glLoadMatrixf(proj);
+    
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
     
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
@@ -148,8 +147,6 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             case RenderEntryType_RenderEntry_Bitmap:
             {
                 RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(commands->pushBufferBase + baseAddress);
-                v2f min = V2F();
-                v2f max = V2F();
                 
                 LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Bitmap, &entry->bitmapID, false);
                 if (assetHeader->loadState == AssetLoad_Loaded)
@@ -157,45 +154,30 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     Bitmap texture = GetBitmapFromAssetHeader(assetHeader);
                     ASSERT(texture.memory);
                     
-                    if (texture.info.handle)
-                    {
-                        glBindTexture(GL_TEXTURE_2D, texture.info.handle);
-                    }
-                    else
-                    {
-                        texture.info.handle = ++globalTexHandleCount;
-                        glBindTexture(GL_TEXTURE_2D, texture.info.handle);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture.info.dims.w, texture.info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texture.memory);
-                        
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-                        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-                    }
+                    glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                     
-                    min = entry->offset - (entry->dims * texture.info.align);
-                    max = min + entry->dims;
+                    v2f min = entry->offset - (entry->dims * texture.info.align);
+                    v2f max = min + entry->dims;
+                    
+                    f32 cosAngle = Cos(entry->angle);
+                    f32 sinAngle = Sin(entry->angle);
+                    
+                    glMatrixMode(GL_MODELVIEW);
+                    f32 modelView[] = 
+                    {
+                        cosAngle, sinAngle, 0.0f, 0.0f,
+                        -sinAngle, cosAngle, 0.0f, 0.0f,
+                        0.0f, 0.0f, 1.0f, 0.0f,
+                        entry->offset.x - cosAngle * entry->offset.x - -sinAngle * entry->offset.y,
+                        entry->offset.y - sinAngle * entry->offset.x - cosAngle * entry->offset.y, 0.0f, 1.0f,
+                    };
+                    glLoadMatrixf(modelView);
+                    
+                    OpenGL_Rectangle(min, max, entry->colour);
+                    
+                    glMatrixMode(GL_MODELVIEW);
+                    glLoadIdentity();
                 }
-                
-                f32 cosAngle = Cos(entry->angle);
-                f32 sinAngle = Sin(entry->angle);
-                
-                glMatrixMode(GL_MODELVIEW);
-                f32 modelView[] = 
-                {
-                    cosAngle, sinAngle, 0.0f, 0.0f,
-                    -sinAngle, cosAngle, 0.0f, 0.0f,
-                    0.0f, 0.0f, 1.0f, 0.0f,
-                    entry->offset.x - cosAngle * entry->offset.x - -sinAngle * entry->offset.y,
-                    entry->offset.y - sinAngle * entry->offset.x - cosAngle * entry->offset.y, 0.0f, 1.0f,
-                };
-                glLoadMatrixf(modelView);
-                
-                OpenGL_Rectangle(min, max, entry->colour);
-                
-                glMatrixMode(GL_MODELVIEW);
-                glLoadIdentity();
                 
                 baseAddress += sizeof(RenderEntry_Bitmap);
             } break;
@@ -232,7 +214,6 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 f32 charPosX = entry->offset.x;
                 while (*c)
                 {
-                    
                     GlyphIdentifier glyphID = {*c, entry->font};
                     LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Glyph, &glyphID, false);
                     if (assetHeader->loadState == AssetLoad_Loaded)
@@ -241,22 +222,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                         ASSERT(glyph.memory);
                         if (glyph.info.glyph != ' ')
                         {
-                            if (glyph.info.handle)
-                            {
-                                glBindTexture(GL_TEXTURE_2D, glyph.info.handle);
-                            }
-                            else
-                            {
-                                glyph.info.handle = ++globalTexHandleCount;
-                                glBindTexture(GL_TEXTURE_2D, glyph.info.handle);
-                                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, glyph.info.dims.w, glyph.info.dims.h, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, glyph.memory);
-                                
-                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-                                glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-                            }
+                            glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                             
                             v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
                             v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);

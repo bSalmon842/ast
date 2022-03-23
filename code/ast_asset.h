@@ -33,7 +33,6 @@ typedef struct
     v2s dims;
     v2f align;
     u32 id;
-    u32 handle;
 } BitmapInfo;
 
 typedef struct
@@ -43,7 +42,6 @@ typedef struct
     char glyph;
     
     char font[32];
-    u32 handle;
 } GlyphInfo;
 
 struct Kerning
@@ -173,10 +171,11 @@ typedef struct
 
 struct LoadedAssetHeader
 {
-    u32 fileIndex;
+    Platform_FileHandle fileHandle;
     
     AssetType type;
     AssetLoadState volatile loadState;
+    u32 textureHandle;
     
     union
     {

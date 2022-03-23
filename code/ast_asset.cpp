@@ -5,42 +5,38 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-inline Platform_FileHandle GetFileHandleForAssetFileIndex(PlatformAPI platform, u32 fileIndex)
-{
-    Platform_FileHandle result = {};
-    
-    Platform_FileGroup fileGroup = platform.GetAllFilesOfExtBegin(PlatformFileType_Asset);
-    for (u32 i = 0; i < fileGroup.fileCount; ++i)
-    {
-        Platform_FileHandle fileHandle = platform.OpenNextFile(&fileGroup);
-        if (i == fileIndex)
-        {
-            result = fileHandle;
-        }
-    }
-    platform.GetAllFilesOfExtEnd(&fileGroup);
-    
-    return result;
-}
-
 struct LoadAssetData
 {
     ParallelMemory *mem;
     PlatformAPI platform;
-    u32 fileIndex;
-    usize offset;
-    usize size;
+    
+    Platform_FileHandle fileHandle;
+    AssetType type;
+    
     AssetLoadState volatile *state;
-    void **dest;
+    
+    s32 width;
+    s32 height;
+    
+    usize size;
+    usize offset;
+    void **data;
 };
 
+// TODO(bSalmon): There is a pointer disaster happening here for non-immediate retrievals, revert this and try again
 function void LoadAssetWork(LoadAssetData *data)
 {
     // TODO(bSalmon): Eventually use the transient mem instead of allocing for each asset
-    *data->dest = data->platform.MemAlloc(data->size);
+    *data->data = data->platform.MemAlloc(data->size);
+    data->platform.ReadDataFromFile(&data->fileHandle, data->offset, data->size, *data->data);
     
-    Platform_FileHandle fileHandle = GetFileHandleForAssetFileIndex(data->platform, data->fileIndex);
-    data->platform.ReadDataFromFile(&fileHandle, data->offset, data->size, *data->dest);
+#if 0
+    // NOTE(bSalmon): Nothing wrong with this, but just ifed out until it's needed or until it can be logged properly
+    if (!Platform_NoFileErrors(&data->fileHandle))
+    {
+        ASSERT(false);
+    }
+#endif
     
     *data->state = AssetLoad_Loaded;
 }
@@ -120,11 +116,27 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
         {
             LoadAssetData loadData = {};
             loadData.platform = loadedAssets->platform;
-            loadData.fileIndex = result->fileIndex;
-            loadData.offset = result->assetOffset;
-            loadData.size = result->assetSize;
+            
+            loadData.fileHandle = result->fileHandle;
+            loadData.type = result->type;
+            
             loadData.state = &result->loadState;
-            loadData.dest = &result->asset;
+            
+            if (result->type == AssetType_Bitmap)
+            {
+                loadData.width = result->bitmap.dims.w;
+                loadData.height = result->bitmap.dims.h;
+            }
+            else if (result->type == AssetType_Glyph)
+            {
+                loadData.width = result->glyph.dims.w;
+                loadData.height = result->glyph.dims.h;
+            }
+            
+            loadData.size = result->assetSize;
+            loadData.offset = result->assetOffset;
+            loadData.data = &result->asset;
+            
             LoadAssetWork(&loadData);
         }
         else
@@ -135,11 +147,26 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
                 LoadAssetData *loadData = PushStruct(&parallelMem->memRegion, LoadAssetData);
                 loadData->mem = parallelMem;
                 loadData->platform = loadedAssets->platform;
-                loadData->fileIndex = result->fileIndex;
-                loadData->offset = result->assetOffset;
-                loadData->size = result->assetSize;
+                
+                loadData->fileHandle = result->fileHandle;
+                loadData->type = result->type;
+                
                 loadData->state = &result->loadState;
-                loadData->dest = &result->asset;
+                
+                if (result->type == AssetType_Bitmap)
+                {
+                    loadData->width = result->bitmap.dims.w;
+                    loadData->height = result->bitmap.dims.h;
+                }
+                else if (result->type == AssetType_Glyph)
+                {
+                    loadData->width = result->glyph.dims.w;
+                    loadData->height = result->glyph.dims.h;
+                }
+                
+                loadData->size = result->assetSize;
+                loadData->offset = result->assetOffset;
+                loadData->data = &result->asset;
                 
                 loadedAssets->platform.AddParallelEntry(loadedAssets->parallelQueue, ParallelLoadAsset, loadData);
             }
@@ -148,6 +175,19 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
                 result->loadState = AssetLoad_Unloaded;
             }
         }
+    }
+    
+    if (result->loadState == AssetLoad_Loaded && result->textureHandle == 0)
+    {
+        if (result->type == AssetType_Bitmap)
+        {
+            loadedAssets->platform.AllocTexture(&result->textureHandle, result->bitmap.dims.w, result->bitmap.dims.h, result->asset);
+        }
+        else if (result->type == AssetType_Glyph)
+        {
+            loadedAssets->platform.AllocTexture(&result->textureHandle, result->glyph.dims.w, result->glyph.dims.h, result->asset);
+        }
+        
     }
     
     return result;
@@ -240,7 +280,7 @@ function Game_LoadedAssets InitialiseLoadedAssets(PlatformAPI platform, Platform
             offset += sizeof(AssetHeader);
             
             LoadedAssetHeader *header = &result.headers[currAssetIndex++];
-            header->fileIndex = fileIndex;
+            header->fileHandle = fileHandle;
             
             header->type = assetHeader.type;
             header->loadState = AssetLoad_Unloaded;

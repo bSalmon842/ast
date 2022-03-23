@@ -5,8 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): More OpenGL work
-
 // TODO(bSalmon): Start collision rework
 // TODO(bSalmon): Collision box display
 
@@ -135,6 +133,33 @@ inline v2f RandomChoosePointInArea(Game_State *gameState, v2f min, v2f max, b32 
 inline b32 InputNoRepeat(Game_ButtonState buttonState)
 {
     b32 result = buttonState.endedFrameDown && (buttonState.halfTransitionCount % 2 != 0);
+    return result;
+}
+
+// TODO(bSalmon): Updated to proper AABB, but needs to be search in P GJK collision to prevent collision skipping through thin objects like it can do now
+inline b32 AreEntitiesColliding(Entity *a, Entity *b, Game_RenderCommands *commands, v2f worldToPixelConversion)
+{
+    b32 result = false;
+    
+    v2f aMin = a->pos - (a->dims / 2.0f);
+    v2f aMax = a->pos + (a->dims / 2.0f);
+    v2f bMin = b->pos - (b->dims / 2.0f);
+    v2f bMax = b->pos + (b->dims / 2.0f);
+    
+    result = ((aMin >= bMin && aMin <= bMax) ||
+              (aMax >= bMin && aMax <= bMax));
+    
+#if 0    
+    PushRect(commands, worldToPixelConversion, b->pos, b->dims, 0.0f, V4F(0.5f, 0.5f, 0.5f, 1.0f));
+    PushRect(commands, worldToPixelConversion, a->pos, a->dims, 0.0f, V4F(1.0f, 0.5f, 0.5f, 1.0f));
+    
+    if (result)
+    {
+        PushRect(commands, worldToPixelConversion, b->pos, b->dims, 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+        PushRect(commands, worldToPixelConversion, a->pos, a->dims, 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    }
+#endif
+    
     return result;
 }
 
@@ -323,9 +348,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                         Entity *hit = &gameState->entities[hitIndex];
                         if (hit->type == Entity_Asteroids && hit->active)
                         {
-                            v2f min = hit->pos - (hit->dims / 2.0f);
-                            v2f max = hit->pos + (hit->dims / 2.0f);
-                            if (entity->pos >= min && entity->pos <= max)
+                            if (AreEntitiesColliding(entity, hit, renderCommands, renderGroup->worldToPixelConversion))
                             {
                                 v2f oldPos = hit->pos;
                                 AsteroidSize oldSize = ((EntityInfo_Asteroid *)hit->extraInfo)->size;
@@ -368,9 +391,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                         }
                         else if (hit->type == Entity_UFO && hit->active)
                         {
-                            v2f min = hit->pos - (hit->dims / 2.0f);
-                            v2f max = hit->pos + (hit->dims / 2.0f);
-                            if (entity->pos >= min && entity->pos <= max)
+                            if (AreEntitiesColliding(entity, hit, renderCommands, renderGroup->worldToPixelConversion))
                             {
                                 ClearEntity(entity, memory->platform);
                                 ClearEntity(hit, memory->platform);

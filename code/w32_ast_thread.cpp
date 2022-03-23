@@ -97,3 +97,9 @@ function PLATFORM_COMPLETE_ALL_PARALLEL_WORK(W32_CompleteAllParallelWork)
     queue->completionTarget = 0;
     queue->completedCount = 0;
 }
+
+function PLATFORM_HAS_PARALLEL_WORK_FINISHED(W32_HasParallelWorkFinished)
+{
+    b32 result = queue->completedCount != queue->completionTarget;
+    return result;
+}
