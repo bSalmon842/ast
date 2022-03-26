@@ -214,40 +214,36 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 f32 charPosX = entry->offset.x;
                 while (*c)
                 {
-                    GlyphIdentifier glyphID = {*c, entry->font};
-                    LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Glyph, &glyphID, false);
-                    if (assetHeader->loadState == AssetLoad_Loaded)
+                    switch (*c)
                     {
-                        Glyph glyph = GetGlyphFromAssetHeader(assetHeader);
-                        ASSERT(glyph.memory);
-                        if (glyph.info.glyph != ' ')
+                        case '\n':
                         {
-                            glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
-                            
-                            v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
-                            v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);
-                            OpenGL_Rectangle(min, max, entry->colour);
-                            
-                            if (*(c + 1))
-                            {
-                                Kerning kerning = GetKerningInfo(&entry->kerningTable, *c, *(c + 1));
-                                charPosX += (glyph.info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
-                            }
-                        }
-                        else if (glyph.info.glyph == ' ')
+                            entry->offset.y += entry->metadata.lineGap * entry->scale;
+                            charPosX = entry->offset.x;
+                        } break;
+                        
+                        default:
                         {
-                            LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, entry->font, true);
-                            FontMetadata metadata = metadataHeader->metadata;
-                            if (metadata.monospace)
+                            GlyphIdentifier glyphID = {*c, entry->font};
+                            LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Glyph, &glyphID, false);
+                            if (assetHeader->loadState == AssetLoad_Loaded)
                             {
-                                GlyphInfo sizeGlyph = assetHeader->glyph;
-                                charPosX += sizeGlyph.dims.w * entry->scale;
+                                Glyph glyph = GetGlyphFromAssetHeader(assetHeader);
+                                ASSERT(glyph.memory);
+                                
+                                glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
+                                
+                                v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
+                                v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);
+                                OpenGL_Rectangle(min, max, entry->colour);
+                                
+                                if (*(c + 1))
+                                {
+                                    Kerning kerning = GetKerningInfo(&entry->kerningTable, *c, *(c + 1));
+                                    charPosX += (glyph.info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
+                                }
                             }
-                            else
-                            {
-                                charPosX += 32.0f * entry->scale;
-                            }
-                        }
+                        } break;
                     }
                     
                     c++;

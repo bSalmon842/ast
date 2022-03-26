@@ -50,6 +50,14 @@ inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, 
     }
 }
 
+inline void PushHollowRect(Game_RenderCommands *commands, v2f worldToPixelConversion, v2f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
+{
+    PushRect(commands, worldToPixelConversion, {offset.x, offset.y + (dims.y / 2.0f)}, {dims.x, thickness}, angle, colour); // Top
+    PushRect(commands, worldToPixelConversion, {offset.x, offset.y - (dims.y / 2.0f)}, {dims.x, thickness}, angle, colour); // Bottom
+    PushRect(commands, worldToPixelConversion, {offset.x - (dims.x / 2.0f), offset.y}, {thickness, dims.y}, angle, colour); // Left
+    PushRect(commands, worldToPixelConversion, {offset.x + (dims.x / 2.0f), offset.y}, {thickness, dims.y}, angle, colour); // Right
+}
+
 inline void PushClear(Game_RenderCommands *commands, v4f colour)
 {
     RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear);
@@ -79,8 +87,8 @@ inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, 
         sprintf(entry->font, "%s", font);
         
         LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
-        FontMetadata metadata = metadataHeader->metadata;
-        if (metadata.allCapital)
+        entry->metadata = metadataHeader->metadata;
+        if (entry->metadata.allCapital)
         {
             RenderStringToUpper(&entry->string);
         }

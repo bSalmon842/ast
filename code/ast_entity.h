@@ -18,7 +18,7 @@ enum AsteroidSize
     AsteroidSize_Count,
 };
 
-enum Entity_Type
+enum EntityType
 {
     Entity_Null,
     
@@ -26,6 +26,8 @@ enum Entity_Type
     Entity_Shot,
     Entity_Asteroids,
     Entity_UFO,
+    
+    Entity_Debug_Wall,
     
     Entity_Count,
 };
@@ -50,8 +52,11 @@ struct EntityInfo_UFO
 
 struct Entity
 {
-    Entity_Type type;
+    EntityType type;
     b32 active;
+    s32 index;
+    
+    Collider collider;
     
     f32 angle;
     f32 dA;
@@ -61,6 +66,7 @@ struct Entity
     
     v2f dims;
     
+    b32 loop;
     void *extraInfo;
 };
 

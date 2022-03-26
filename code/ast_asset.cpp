@@ -11,19 +11,14 @@ struct LoadAssetData
     PlatformAPI platform;
     
     Platform_FileHandle fileHandle;
-    AssetType type;
     
     AssetLoadState volatile *state;
-    
-    s32 width;
-    s32 height;
     
     usize size;
     usize offset;
     void **data;
 };
 
-// TODO(bSalmon): There is a pointer disaster happening here for non-immediate retrievals, revert this and try again
 function void LoadAssetWork(LoadAssetData *data)
 {
     // TODO(bSalmon): Eventually use the transient mem instead of allocing for each asset
@@ -118,20 +113,8 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
             loadData.platform = loadedAssets->platform;
             
             loadData.fileHandle = result->fileHandle;
-            loadData.type = result->type;
             
             loadData.state = &result->loadState;
-            
-            if (result->type == AssetType_Bitmap)
-            {
-                loadData.width = result->bitmap.dims.w;
-                loadData.height = result->bitmap.dims.h;
-            }
-            else if (result->type == AssetType_Glyph)
-            {
-                loadData.width = result->glyph.dims.w;
-                loadData.height = result->glyph.dims.h;
-            }
             
             loadData.size = result->assetSize;
             loadData.offset = result->assetOffset;
@@ -149,20 +132,8 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
                 loadData->platform = loadedAssets->platform;
                 
                 loadData->fileHandle = result->fileHandle;
-                loadData->type = result->type;
                 
                 loadData->state = &result->loadState;
-                
-                if (result->type == AssetType_Bitmap)
-                {
-                    loadData->width = result->bitmap.dims.w;
-                    loadData->height = result->bitmap.dims.h;
-                }
-                else if (result->type == AssetType_Glyph)
-                {
-                    loadData->width = result->glyph.dims.w;
-                    loadData->height = result->glyph.dims.h;
-                }
                 
                 loadData->size = result->assetSize;
                 loadData->offset = result->assetOffset;

@@ -62,6 +62,7 @@ typedef struct
     RenderString string;
     char font[32];
     KerningTable kerningTable;
+    FontMetadata metadata;
     
     v2f offset;
     f32 scale;

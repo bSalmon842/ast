@@ -535,6 +535,10 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
                     {
                         W32_ProcessKeyboardEvent(&keyboard->keyF1, keyIsDown);
                     }
+                    if (vkCode == VK_F2)
+                    {
+                        W32_ProcessKeyboardEvent(&keyboard->keyF2, keyIsDown);
+                    }
                     
                     if (keyIsDown)
                     {
@@ -826,7 +830,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);
                     f32 fps = 1.0f / lastSecPerFrame;
                     f32 mspf = 1000.0f * lastSecPerFrame;
-                    printf("%.02f / %.03f\n", fps, mspf);
+                    //printf("%.02f / %.03f\n", fps, mspf);
                     lastCounter = endCounter;
                 }
             }

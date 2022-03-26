@@ -45,40 +45,47 @@ function u32 GetScoreForAsteroidSize(AsteroidSize size)
     return result;
 }
 
-function void MoveEntity(Game_Input *input, Entity *entity)
+function f32 RotateEntity(Game_Input *input, Entity entity)
 {
-    entity->pos += entity->dP * input->deltaTime;
-    entity->angle += entity->dA * input->deltaTime;
+    f32 result = entity.angle + entity.dA * input->deltaTime;
+    return result;
 }
 
-function void MoveEntityLoop(Game_Input *input, Entity *entity, v2f worldDims)
+function v2f MoveEntity(Game_Input *input, Entity entity, v2f worldDims, b32 loop)
 {
-    MoveEntity(input, entity);
+    v2f result = entity.pos + (entity.dP * input->deltaTime);
     
-    if (entity->pos.x + (entity->dims.w / 2.0f) < 0.0f)
+    if (loop)
     {
-        entity->pos.x = worldDims.w + (entity->dims.w / 2.0f);
+        if (result.x + (entity.dims.w / 2.0f) < 0.0f)
+        {
+            result.x = worldDims.w + (entity.dims.w / 2.0f);
+        }
+        if (result.x - (entity.dims.w / 2.0f) > worldDims.w)
+        {
+            result.x = 0.0f - (entity.dims.w / 2.0f);
+        }
+        if (result.y + (entity.dims.h / 2.0f) < 0.0f)
+        {
+            result.y = worldDims.h + (entity.dims.h / 2.0f);
+        }
+        if (result.y - (entity.dims.h / 2.0f) > worldDims.h)
+        {
+            result.y = 0.0f - (entity.dims.h / 2.0f);
+        }
     }
-    if (entity->pos.x - (entity->dims.w / 2.0f) > worldDims.w)
-    {
-        entity->pos.x = 0.0f - (entity->dims.w / 2.0f);
-    }
-    if (entity->pos.y + (entity->dims.h / 2.0f) < 0.0f)
-    {
-        entity->pos.y = worldDims.h + (entity->dims.h / 2.0f);
-    }
-    if (entity->pos.y - (entity->dims.h / 2.0f) > worldDims.h)
-    {
-        entity->pos.y = 0.0f - (entity->dims.h / 2.0f);
-    }
+    
+    return result;
 }
 
-#define NullEntity MakeEntity(Entity_Null, false, V2F(), V2F())
-function Entity MakeEntity(Entity_Type type, b32 startActive, v2f initialPos, v2f dims, f32 initialAngle = 0.0f)
+#define NullEntity MakeEntity(Entity_Null, {}, 0, false, V2F(), V2F(), false)
+function Entity MakeEntity(EntityType type, Collider collider, s32 index, b32 startActive, v2f initialPos, v2f dims, b32 loop, f32 initialAngle = 0.0f)
 {
     Entity result = {};
     
     result.type = type;
+    result.collider = collider;
+    result.index = index;
     result.active = startActive;
     result.angle = initialAngle;
     result.dA = 0.0f;
@@ -86,23 +93,27 @@ function Entity MakeEntity(Entity_Type type, b32 startActive, v2f initialPos, v2
     result.dP = V2F();
     result.dims = dims;
     
+    result.loop = loop;
     result.extraInfo = 0;
     
     return result;
 }
 
-function Entity MakeEntity_Asteroid(b32 startActive, v2f initialPos, v2f dP, f32 dA, AsteroidSize size, u8 bitmapIndex, PlatformAPI platform)
+function Entity MakeEntity_Asteroid(Game_State *gameState, s32 index, b32 startActive, v2f initialPos, v2f dP, f32 dA, AsteroidSize size, u8 bitmapIndex, PlatformAPI platform)
 {
     Entity result = {};
     
     result.type = Entity_Asteroids;
+    result.index = index;
     result.active = startActive;
     result.angle = 0.0f;
     result.dA = dA;
     result.pos = initialPos;
     result.dP = dP;
     result.dims = GetAsteroidDims(size);
+    result.collider = MakeCollider(gameState, ColliderType_Asteroid, result.pos, result.dims);
     
+    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Asteroid));
     EntityInfo_Asteroid *astInfo = (EntityInfo_Asteroid *)result.extraInfo;
     astInfo->size = size;
@@ -111,17 +122,20 @@ function Entity MakeEntity_Asteroid(b32 startActive, v2f initialPos, v2f dP, f32
     return result;
 }
 
-function Entity MakeEntity_Shot(v2f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
+function Entity MakeEntity_Shot(Game_State *gameState, s32 index, v2f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
 {
     Entity result = {};
     
     result.type = Entity_Shot;
+    result.index = index;
     result.active = true;
     result.angle = 0.0f;
     result.pos = initialPos;
     result.dP = dP;
     result.dims = V2F(1.0f);
+    result.collider = MakeCollider(gameState, ColliderType_Shot_Player, result.pos, result.dims);
     
+    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Shot));
     EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)result.extraInfo;
     shotInfo->timer = InitialiseTimer(0.0f, lifetime);
@@ -129,17 +143,20 @@ function Entity MakeEntity_Shot(v2f initialPos, v2f dP, f32 lifetime, PlatformAP
     return result;
 }
 
-function Entity MakeEntity_UFO(v2f initialPos, v2f dims, s32 vMoveDir, PlatformAPI platform)
+function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v2f initialPos, v2f dims, s32 vMoveDir, PlatformAPI platform)
 {
     Entity result = {};
     
     result.type = Entity_UFO;
+    result.index = index;
     result.active = true;
     result.angle = TAU * 0.25f;
     result.pos = initialPos;
     result.dP = V2F(10.0f, 0.0f);
     result.dims = dims;
+    result.collider = MakeCollider(gameState, ColliderType_UFO, result.pos, result.dims);
     
+    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_UFO));
     EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)result.extraInfo;
     ufoInfo->timer = InitialiseTimer(0.0f, 10.0f);
@@ -154,14 +171,21 @@ function void ClearEntity(Entity *entity, PlatformAPI platform)
     *entity = {};
 }
 
-function Entity *FindFirstNullEntity(Entity *entityList, s32 entityListSize)
+struct FindFirstNullEntityResult
 {
-    Entity *result = 0;
+    Entity *entity;
+    s32 index;
+};
+
+function FindFirstNullEntityResult FindFirstNullEntity(Entity *entityList, s32 entityListSize)
+{
+    FindFirstNullEntityResult result = {};
     for (s32 entityIndex = 1; entityIndex < entityListSize; ++entityIndex)
     {
         if (entityList[entityIndex].type == Entity_Null)
         {
-            result = &entityList[entityIndex];
+            result.entity = &entityList[entityIndex];
+            result.index = entityIndex;
             break;
         }
     }

@@ -13,6 +13,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Particles
+// TODO(bSalmon): Camera
+// TODO(bSalmon): Sim Regions
 // TODO(bSalmon): Better Debug outputs
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
@@ -26,7 +28,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): UFO (S: 1000)
 
 // TODO(bSalmon): Audio list
-// TODO(bSalmon): Ambient noise once every 2 seconds or so
+// TODO(bSalmon): Ambient noise once every x seconds which speeds up as wave progresses
 // TODO(bSalmon): Shot
 // TODO(bSalmon): Propulsion
 // TODO(bSalmon): Asteroid destroyed
@@ -39,7 +41,9 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_memory.cpp"
 #include "ast_asset.cpp"
 #include "ast_render.cpp"
+#include "ast_collision.cpp"
 #include "ast_entity.cpp"
+#include "ast_collision_actions.cpp"
 
 inline BitmapID GetAsteroidBitmapID(u32 index)
 {
@@ -136,34 +140,29 @@ inline b32 InputNoRepeat(Game_ButtonState buttonState)
     return result;
 }
 
-// TODO(bSalmon): Updated to proper AABB, but needs to be search in P GJK collision to prevent collision skipping through thin objects like it can do now
-inline b32 AreEntitiesColliding(Entity *a, Entity *b, Game_RenderCommands *commands, v2f worldToPixelConversion)
+#define SetCollisionRuleForPair(a, b, rule) gameState->collisionRules[a][b] = gameState->collisionRules[b][a] = (rule)
+#define SetTriggerAction(a, b, trigger) gameState->collisionActions[a][b] = {b, trigger}
+function void BuildCollisionRulesAndTriggers(Game_State *gameState)
 {
-    b32 result = false;
+    SetCollisionRuleForPair(ColliderType_Player, ColliderType_Asteroid, Collision_Trigger);
+    SetCollisionRuleForPair(ColliderType_Player, ColliderType_UFO, Collision_Trigger);
+    SetCollisionRuleForPair(ColliderType_Player, ColliderType_Shot_UFO, Collision_Trigger);
+    SetCollisionRuleForPair(ColliderType_Player, ColliderType_Debug_Wall, Collision_Solid);
     
-    v2f aMin = a->pos - (a->dims / 2.0f);
-    v2f aMax = a->pos + (a->dims / 2.0f);
-    v2f bMin = b->pos - (b->dims / 2.0f);
-    v2f bMax = b->pos + (b->dims / 2.0f);
+    SetCollisionRuleForPair(ColliderType_Asteroid, ColliderType_UFO, Collision_Trigger);
+    SetCollisionRuleForPair(ColliderType_Asteroid, ColliderType_Shot_Player, Collision_Trigger);
+    SetCollisionRuleForPair(ColliderType_Asteroid, ColliderType_Shot_UFO, Collision_Trigger);
     
-    result = ((aMin >= bMin && aMin <= bMax) ||
-              (aMax >= bMin && aMax <= bMax));
+    SetCollisionRuleForPair(ColliderType_UFO, ColliderType_Shot_Player, Collision_Trigger);
     
-#if 0    
-    PushRect(commands, worldToPixelConversion, b->pos, b->dims, 0.0f, V4F(0.5f, 0.5f, 0.5f, 1.0f));
-    PushRect(commands, worldToPixelConversion, a->pos, a->dims, 0.0f, V4F(1.0f, 0.5f, 0.5f, 1.0f));
+    SetCollisionRuleForPair(ColliderType_Debug_Wall, ColliderType_Debug_Wall, Collision_Solid);
     
-    if (result)
-    {
-        PushRect(commands, worldToPixelConversion, b->pos, b->dims, 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
-        PushRect(commands, worldToPixelConversion, a->pos, a->dims, 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-    }
-#endif
-    
-    return result;
+    SetTriggerAction(ColliderType_Shot_Player, ColliderType_Asteroid, CollisionTrigger_PlayerShot_Asteroid);
+    SetTriggerAction(ColliderType_Shot_Player, ColliderType_UFO, CollisionTrigger_PlayerShot_UFO);
 }
 
 global b32 showDebug = false;
+global b32 showColliders = false;
 
 #if AST_INTERNAL
 Game_Memory *debugGlobalMem;
@@ -190,9 +189,18 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             gameState->entities[i] = NullEntity;
         }
         
+        BuildCollisionRulesAndTriggers(gameState);
+        
         gameState->entities[0] = NullEntity;
-        gameState->entities[1] = MakeEntity(Entity_Player, true, gameState->worldDims / 2.0f, V2F(2.5f), TAU * 0.25f);
+        
+        v2f playerStartPos = gameState->worldDims / 2.0f;
+        v2f playerDims = V2F(2.5f);
+        gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), 1, true, playerStartPos, playerDims, true, TAU * 0.25f);
         gameState->playerEntity = &gameState->entities[1];
+        
+        v2f wallPos = gameState->worldDims / 4.0f;
+        v2f wallDims = V2F(10.0f);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -210,7 +218,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             while (baseDP.y == 0.0f) { baseDP.y = (f32)rnd_pcg_range(&gameState->pcg, -1, 1); }
             baseDP *= GetAsteroidBaseSpeed(AsteroidSize_Large) * (V2F(rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg)) + 0.5f);
             
-            *currAst = MakeEntity_Asteroid(true, astInitialPos, baseDP, dA, AsteroidSize_Large, astBitmapIndex, memory->platform);
+            *currAst = MakeEntity_Asteroid(gameState, 2 + i, true, astInitialPos, baseDP, dA, AsteroidSize_Large, astBitmapIndex, memory->platform);
         }
         gameState->asteroidCount = 4;
         
@@ -270,12 +278,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keySpace))
     {
-        // TODO(bSalmon): Shot needs a timer, should loop and cover around 66% of the screen
-        Entity *shot = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
-        ASSERT(shot);
+        FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
+        ASSERT(found.entity);
         
         v2f dP = playerForward * 75.0f;
-        *shot = MakeEntity_Shot(gameState->playerEntity->pos, dP, 1.0f, memory->platform);
+        *found.entity = MakeEntity_Shot(gameState, found.index, gameState->playerEntity->pos, dP, 1.0f, memory->platform);
     }
     if (InputNoRepeat(keyboard->keyEsc))
     {
@@ -284,6 +291,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     if (InputNoRepeat(keyboard->keyF1))
     {
         showDebug = !showDebug;
+    }
+    if (InputNoRepeat(keyboard->keyF2))
+    {
+        showColliders = !showColliders;
     }
     
     if (gameState->playerDDP.x != 0.0f || gameState->playerDDP.y != 0.0f)
@@ -317,11 +328,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     UpdateTimer(&gameState->ufoSpawnTimer, input->deltaTime);
     if (gameState->ufoSpawnTimer.finished && !gameState->ufoSpawned)
     {
-        Entity *slot = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
-        ASSERT(slot);
+        FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
+        ASSERT(found.entity);
         
-        *slot = MakeEntity_UFO(V2F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->worldDims.y), V2F(5.0f, 3.0f),
-                               ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
+        *found.entity = MakeEntity_UFO(gameState, found.index, V2F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->worldDims.y), V2F(5.0f, 3.0f),
+                                       ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
         gameState->ufoSpawned = true;
     }
     
@@ -330,12 +341,16 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         Entity *entity = &gameState->entities[entityIndex];
         if (entity->active)
         {
+            HandleCollisions(gameState, entity, platform);
+            
+            entity->pos = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
+            entity->angle = RotateEntity(input, *entity);
+            entity->collider.origin = entity->pos;
+            
             switch (entity->type)
             {
                 case Entity_Player:
                 {
-                    MoveEntityLoop(input, entity, gameState->worldDims);
-                    
                     PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
                     PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos + (playerForward * 2), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
                     PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
@@ -343,85 +358,20 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 
                 case Entity_Shot:
                 {
-                    for (s32 hitIndex = 0; hitIndex < ARRAY_COUNT(gameState->entities); ++hitIndex)
+                    EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)entity->extraInfo;
+                    UpdateTimer(&shotInfo->timer, input->deltaTime);
+                    if (shotInfo->timer.finished)
                     {
-                        Entity *hit = &gameState->entities[hitIndex];
-                        if (hit->type == Entity_Asteroids && hit->active)
-                        {
-                            if (AreEntitiesColliding(entity, hit, renderCommands, renderGroup->worldToPixelConversion))
-                            {
-                                v2f oldPos = hit->pos;
-                                AsteroidSize oldSize = ((EntityInfo_Asteroid *)hit->extraInfo)->size;
-                                
-                                ClearEntity(entity, memory->platform);
-                                
-                                ClearEntity(hit, memory->platform);
-                                gameState->asteroidCount--;
-                                gameState->score += GetScoreForAsteroidSize(oldSize);
-                                
-                                if (oldSize > AsteroidSize_Small)
-                                {
-                                    s32 asteroidsToCreate = 2;
-                                    for (s32 newAstIndex = 0; newAstIndex < ARRAY_COUNT(gameState->entities) && asteroidsToCreate > 0; ++newAstIndex)
-                                    {
-                                        Entity *newAst = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
-                                        if (newAst)
-                                        {
-                                            AsteroidSize newSize = (AsteroidSize)(oldSize - 1);
-                                            u8 newAstBitmapIndex = (u8)rnd_pcg_range(&gameState->pcg, 0, 3);
-                                            f32 newAstRotationDir = (f32)rnd_pcg_range(&gameState->pcg, -1, 1);
-                                            f32 astDA = newAstRotationDir * gameState->asteroidRotationRate;
-                                            
-                                            v2f astDP = {};
-                                            while (astDP.x == 0.0f) { astDP.x = (f32)rnd_pcg_range(&gameState->pcg, -1, 1); }
-                                            while (astDP.y == 0.0f) { astDP.y = (f32)rnd_pcg_range(&gameState->pcg, -1, 1); }
-                                            astDP *= GetAsteroidBaseSpeed(newSize) * (V2F(rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg)) + 0.5f);
-                                            
-                                            *newAst = MakeEntity_Asteroid(true, oldPos, astDP,
-                                                                          astDA, newSize, newAstBitmapIndex,
-                                                                          memory->platform);
-                                            --asteroidsToCreate;
-                                        }
-                                        
-                                    }
-                                }
-                                
-                                break;
-                            }
-                        }
-                        else if (hit->type == Entity_UFO && hit->active)
-                        {
-                            if (AreEntitiesColliding(entity, hit, renderCommands, renderGroup->worldToPixelConversion))
-                            {
-                                ClearEntity(entity, memory->platform);
-                                ClearEntity(hit, memory->platform);
-                                gameState->score += 200;
-                                ResetTimer(&gameState->ufoSpawnTimer);
-                                gameState->ufoSpawned = false;
-                            }
-                        }
+                        ClearEntity(entity, memory->platform);
                     }
-                    
-                    if (entity->type == Entity_Shot) // NOTE(bSalmon): To stop a shot hits something
+                    else
                     {
-                        EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)entity->extraInfo;
-                        UpdateTimer(&shotInfo->timer, input->deltaTime);
-                        if (shotInfo->timer.finished)
-                        {
-                            ClearEntity(entity, memory->platform);
-                        }
-                        else
-                        {
-                            MoveEntityLoop(input, entity, gameState->worldDims);
-                            PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
-                        }
+                        PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
-                    MoveEntityLoop(input, entity, gameState->worldDims);
-                    
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
                     PushBitmap(renderCommands, renderGroup->worldToPixelConversion, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
                     PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
@@ -448,13 +398,22 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        MoveEntityLoop(input, entity, gameState->worldDims);
                         PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
                         PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
-                default: {} break;
+                case Entity_Debug_Wall:
+                {
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(1.0f));
+                } break;
+                
+                default: { printf("Entity Type %d unhandled\n", entity->type); } break;
+            }
+            
+            if (showColliders)
+            {
+                PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, entity->collider.origin, entity->collider.dims, entity->angle, 0.15f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
         }
     }
@@ -472,6 +431,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     {
         Debug_CycleCounters(memory, renderCommands, memory->platform);
     }
+#if AST_INTERNAL
+    RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
+    PushText(renderCommands, V2F(1.0f), metricString, "Arial", V2F(renderCommands->width - 80.0f, 100.0f), 0.15f, V4F(1.0f));
+#endif
     
     FinishTempMemory(renderMemory);
     

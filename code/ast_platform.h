@@ -221,6 +221,7 @@ typedef struct
             Game_ButtonState keySpace;
             Game_ButtonState keyEsc;
             Game_ButtonState keyF1;
+            Game_ButtonState keyF2;
         };
     };
 } Game_Keyboard;

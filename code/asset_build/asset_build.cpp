@@ -254,54 +254,77 @@ function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoi
 {
     Glyph glyph = {};
     
-    v2s min = V2S();
-    v2s max = V2S();
-    
     f32 scale = stbtt_ScaleForPixelHeight(&font.font, DEFAULT_FONT_SIZE);
-    stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &min.x, &min.y, &max.x, &max.y);
     
-    --min;
-    ++max;
-    glyph.info.dims = V2S((max.x - min.x) + 1, (max.y - min.y) + 1);
-    u8 *codepointBitmap = (u8 *)calloc(1, glyph.info.dims.w * glyph.info.dims.h);
-    
-    stbtt_MakeCodepointBitmap(&font.font, codepointBitmap, glyph.info.dims.w, glyph.info.dims.h, glyph.info.dims.w,
-                              scale, scale, codepoint);
-    
-    glyph.info.align = V2F(0.0f, (f32)max.y / (f32)glyph.info.dims.h);
-    glyph.info.glyph = codepoint;
-    sprintf(glyph.info.font, "%s", font.fontName);
-    glyph.memory = calloc(1, glyph.info.dims.w * glyph.info.dims.h * BITMAP_BYTES_PER_PIXEL);
-    
-    u8 *srcRow = codepointBitmap;
-    u32 *outPixel = (u32 *)glyph.memory;
-    for (s32 y = 0; y < glyph.info.dims.h; ++y)
+    if (codepoint != ' ')
     {
-        u8 *srcPixel = srcRow;
-        for (s32 x = 0; x < glyph.info.dims.w; ++x)
-        {
-            u8 alpha = *srcPixel++;
-            v4f texel = V4F((f32)alpha);
-            
-            texel.r = Sq(texel.r / 255.0f);
-            texel.g = Sq(texel.g / 255.0f);
-            texel.b = Sq(texel.b / 255.0f);
-            texel.a = texel.a / 255.0f;
-            
-            texel.rgb *= texel.a;
-            
-            texel.r = SqRt(texel.r) * 255.0f;
-            texel.g = SqRt(texel.g) * 255.0f;
-            texel.b = SqRt(texel.b) * 255.0f;
-            texel.a = texel.a * 255.0f;
-            
-            *outPixel++ = (RoundF32ToU32(texel.a) << 24 |
-                           RoundF32ToU32(texel.r) << 16 |
-                           RoundF32ToU32(texel.g) << 8 |
-                           RoundF32ToU32(texel.b));
-        }
+        v2s min = V2S();
+        v2s max = V2S();
+        stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &min.x, &min.y, &max.x, &max.y);
         
-        srcRow += glyph.info.dims.w;
+        --min;
+        ++max;
+        glyph.info.dims = V2S((max.x - min.x) + 1, (max.y - min.y) + 1);
+        u8 *codepointBitmap = (u8 *)calloc(1, glyph.info.dims.w * glyph.info.dims.h);
+        
+        stbtt_MakeCodepointBitmap(&font.font, codepointBitmap, glyph.info.dims.w, glyph.info.dims.h, glyph.info.dims.w,
+                                  scale, scale, codepoint);
+        
+        glyph.info.align = V2F(0.0f, (f32)max.y / (f32)glyph.info.dims.h);
+        glyph.info.glyph = codepoint;
+        sprintf(glyph.info.font, "%s", font.fontName);
+        glyph.memory = calloc(1, glyph.info.dims.w * glyph.info.dims.h * BITMAP_BYTES_PER_PIXEL);
+        
+        u8 *srcRow = codepointBitmap;
+        u32 *outPixel = (u32 *)glyph.memory;
+        for (s32 y = 0; y < glyph.info.dims.h; ++y)
+        {
+            u8 *srcPixel = srcRow;
+            for (s32 x = 0; x < glyph.info.dims.w; ++x)
+            {
+                u8 alpha = *srcPixel++;
+                v4f texel = V4F((f32)alpha);
+                
+                texel.r = Sq(texel.r / 255.0f);
+                texel.g = Sq(texel.g / 255.0f);
+                texel.b = Sq(texel.b / 255.0f);
+                texel.a = texel.a / 255.0f;
+                
+                texel.rgb *= texel.a;
+                
+                texel.r = SqRt(texel.r) * 255.0f;
+                texel.g = SqRt(texel.g) * 255.0f;
+                texel.b = SqRt(texel.b) * 255.0f;
+                texel.a = texel.a * 255.0f;
+                
+                *outPixel++ = (RoundF32ToU32(texel.a) << 24 |
+                               RoundF32ToU32(texel.r) << 16 |
+                               RoundF32ToU32(texel.g) << 8 |
+                               RoundF32ToU32(texel.b));
+            }
+            
+            srcRow += glyph.info.dims.w;
+        }
+    }
+    else
+    {
+        if (font.monospace)
+        {
+            v2s min = V2S();
+            v2s max = V2S();
+            stbtt_GetCodepointBitmapBox(&font.font, 'A', scale, scale, &min.x, &min.y, &max.x, &max.y);
+            --min;
+            ++max;
+            glyph.info.dims = V2S(max.x - min.x + 1, 2);
+        }
+        else
+        {
+            glyph.info.dims = V2S(32, 2);
+        }
+        glyph.info.align = V2F();
+        glyph.info.glyph = codepoint;
+        sprintf(glyph.info.font, "%s", font.fontName);
+        glyph.memory = calloc(1, glyph.info.dims.w * glyph.info.dims.h * BITMAP_BYTES_PER_PIXEL);
     }
     
     AssetHeader assetHeader = MakeAssetHeader_Glyph((usize)(glyph.info.dims.h * glyph.info.dims.w * BITMAP_BYTES_PER_PIXEL), glyph.info);
@@ -315,9 +338,9 @@ function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font)
     KerningTable table = {};
     sprintf(table.info.font, "%s", font.fontName);
     
-    for (char codepoint0 = '!'; codepoint0 <= '~'; ++codepoint0)
+    for (char codepoint0 = ' '; codepoint0 <= '~'; ++codepoint0)
     {
-        for (char codepoint1 = '!'; codepoint1 <= '~'; ++codepoint1)
+        for (char codepoint1 = ' '; codepoint1 <= '~'; ++codepoint1)
         {
             f32 advance = scale * stbtt_GetCodepointKernAdvance(&font.font, codepoint0, codepoint1);
             if (advance != 0.0f)
@@ -330,9 +353,9 @@ function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font)
     table.table = (Kerning *)calloc(1, table.info.infoCount * sizeof(Kerning));
     
     u32 tableIndex = 0;
-    for (char codepoint0 = '!'; codepoint0 <= '~'; ++codepoint0)
+    for (char codepoint0 = ' '; codepoint0 <= '~'; ++codepoint0)
     {
-        for (char codepoint1 = '!'; codepoint1 <= '~'; ++codepoint1)
+        for (char codepoint1 = ' '; codepoint1 <= '~'; ++codepoint1)
         {
             Kerning kerning = {};
             kerning.codepoint0 = codepoint0;
@@ -440,22 +463,22 @@ s32 main(s32 argc, char **argv)
     FILE *logFile = fopen(".\\logs\\asset_build_log.txt", "wb");
     
     FontInfo fonts[2] = {};
-    GetFontInfo(&fonts[0], "Hyperspace", "HyperspaceBold.ttf", false, true);
+    GetFontInfo(&fonts[0], "Hyperspace", ".\\raw\\HyperspaceBold.ttf", false, true);
     GetFontInfo(&fonts[1], "Arial", "C:\\Windows\\Fonts\\Arial.ttf", false, false);
     
-    AddToAssets_Bitmap(&assets, "player.bmp", BitmapID_Player_NoTrail);
-    AddToAssets_Bitmap(&assets, "ast1.bmp", BitmapID_Asteroid0);
-    AddToAssets_Bitmap(&assets, "ast2.bmp", BitmapID_Asteroid1);
-    AddToAssets_Bitmap(&assets, "ast3.bmp", BitmapID_Asteroid2);
-    AddToAssets_Bitmap(&assets, "ast4.bmp", BitmapID_Asteroid3);
-    AddToAssets_Bitmap(&assets, "ufoL.bmp", BitmapID_UFO_Large);
+    AddToAssets_Bitmap(&assets, ".\\raw\\player.bmp", BitmapID_Player_NoTrail);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ast1.bmp", BitmapID_Asteroid0);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ast2.bmp", BitmapID_Asteroid1);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ast3.bmp", BitmapID_Asteroid2);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ast4.bmp", BitmapID_Asteroid3);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ufoL.bmp", BitmapID_UFO_Large);
     WriteAssetFile(assets, "graphics.aaf", logFile);
     
     ClearAssets(&assets);
     
     for (s32 fontIndex = 0; fontIndex < ARRAY_COUNT(fonts); ++fontIndex)
     {
-        for (char glyphCodepoint = '!'; glyphCodepoint <= '~'; ++glyphCodepoint)
+        for (char glyphCodepoint = ' '; glyphCodepoint <= '~'; ++glyphCodepoint)
         {
             AddToAssets_Glyph(&assets, fonts[fontIndex], glyphCodepoint);
         }

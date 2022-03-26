@@ -19,6 +19,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "rnd.h"
 
 #include "ast_timer.h"
+#include "ast_collision.h"
 #include "ast_entity.h"
 #include "ast_asset.h"
 #include "ast_render.h"
@@ -42,6 +43,9 @@ struct Game_State
     
     Timer ufoSpawnTimer;
     b32 ufoSpawned;
+    
+    u32 collisionRules[ColliderType_Count][ColliderType_Count];
+    CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];
     
     u32 score;
 };
