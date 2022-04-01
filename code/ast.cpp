@@ -5,11 +5,7 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): Start collision rework
-// TODO(bSalmon): Collision box display
-
 // TODO(bSalmon): Engine:
-// TODO(bSalmon): Minkowski Collision
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Particles
@@ -201,6 +197,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         v2f wallPos = gameState->worldDims / 4.0f;
         v2f wallDims = V2F(10.0f);
         gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, {wallPos.x, wallPos.y - 10.0f}, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, {wallPos.x, wallPos.y - 10.0f}, wallDims, false);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -341,11 +338,16 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         Entity *entity = &gameState->entities[entityIndex];
         if (entity->active)
         {
+            
+            entity->angle = RotateEntity(input, *entity);
+            
+            entity->newPos = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
+            entity->collider.origin = entity->newPos;
+            
             HandleCollisions(gameState, entity, platform);
             
-            entity->pos = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
-            entity->angle = RotateEntity(input, *entity);
-            entity->collider.origin = entity->pos;
+            entity->pos = entity->newPos;
+            entity->collider.origin = entity->newPos;
             
             switch (entity->type)
             {
@@ -408,7 +410,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(1.0f));
                 } break;
                 
-                default: { printf("Entity Type %d unhandled\n", entity->type); } break;
+                default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
             if (showColliders)

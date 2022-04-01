@@ -5,22 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): Updated to proper AABB, but needs to be search in P GJK collision to prevent collision skipping through thin objects like it can do now
-inline b32 BoundingBoxCollision(Collider a, Collider b)
-{
-    b32 result = false;
-    
-    v2f aMin = a.origin - (a.dims / 2.0f);
-    v2f aMax = a.origin + (a.dims / 2.0f);
-    v2f bMin = b.origin - (b.dims / 2.0f);
-    v2f bMax = b.origin + (b.dims / 2.0f);
-    
-    result = ((aMin >= bMin && aMin <= bMax) ||
-              (aMax >= bMin && aMax <= bMax));
-    
-    return result;
-}
-
 function Collider MakeCollider(Game_State *gameState, ColliderType type, v2f origin, v2f dims)
 {
     Collider result = {};
@@ -45,53 +29,154 @@ function Collider MakeCollider(Game_State *gameState, ColliderType type, v2f ori
     return result;
 }
 
-function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAPI platform)
+inline NearbyEntities NearbyEntitiesStart(Game_State *gameState, v2f origin, f32 distance, PlatformAPI platform)
 {
-    Collider entityCollider = entity->collider;
-    for (s32 entityIndex = 1; entityIndex < ARRAY_COUNT(gameState->entities) && entity->index != 0; ++entityIndex)
+    NearbyEntities result = {};
+    
+    for (s32 entityIndex = 0; entityIndex < ARRAY_COUNT(gameState->entities); ++entityIndex)
     {
-        if (entityIndex != entity->index)
+        Entity entity = gameState->entities[entityIndex];
+        if (entity.type != Entity_Null && entity.active)
         {
-            Entity *other = &gameState->entities[entityIndex];
-            Collider otherCollider = other->collider;
-            
-            if (BoundingBoxCollision(entityCollider, otherCollider) && entityCollider.collisions[otherCollider.type].collisionRule != 0)
+            // TODO(bSalmon): Check against closest corner of rectangles or closest point of circle
+            f32 distanceBetween = VectorDistance(entity.pos, origin);
+            if (distanceBetween <= distance)
             {
-                CollisionInfo collisionInfo = entityCollider.collisions[otherCollider.type];
+                ++result.count;
+            }
+        }
+    }
+    
+    result.list = (Entity *)platform.MemAlloc(result.count * sizeof(Entity));
+    result.triggers = (b32 *)platform.MemAlloc(result.count * sizeof(b32));
+    
+    s32 listIndex = 0;
+    for (s32 entityIndex = 0; entityIndex < ARRAY_COUNT(gameState->entities); ++entityIndex)
+    {
+        Entity entity = gameState->entities[entityIndex];
+        if (entity.type != Entity_Null && entity.active)
+        {
+            f32 distanceBetween = VectorDistance(entity.pos, origin);
+            if (distanceBetween <= distance)
+            {
+                result.list[listIndex++] = entity;
+            }
+        }
+    }
+    
+    return result;
+}
+
+inline void NearbyEntitiesFinish(NearbyEntities *nearby, PlatformAPI platform)
+{
+    platform.MemFree(nearby->list);
+    platform.MemFree(nearby->triggers);
+    nearby->count = 0;
+}
+
+inline TestCollisionResult TestCollision(CollisionInfo collisionInfo, f32 deltaMain, f32 deltaAlt, f32 collidedStart, f32 relPosMain, f32 relPosAlt, f32 minAlt, f32 maxAlt, f32 *tMin)
+{
+    TestCollisionResult result = {};
+    
+    f32 epsilon = 0.0001f;
+    if (deltaMain != 0.0f)
+    {
+        f32 tResult = (collidedStart - relPosMain) / deltaMain;
+        f32 alt = relPosAlt + tResult * deltaAlt;
+        if ((tResult >= 0.0f) && (*tMin > tResult))
+        {
+            if ((alt >= minAlt) && (alt <= maxAlt))
+            {
                 if (collisionInfo.solid)
                 {
-                    v2f reflectDir = V2F(0.0f);
-                    if (other->type == Entity_Debug_Wall)
-                    {
-                        v2f otherMin = otherCollider.origin - (otherCollider.dims / 2.0f);
-                        v2f otherMax = otherCollider.origin + (otherCollider.dims / 2.0f);
-                        
-                        // TODO(bSalmon): Figure out how to better calc reflect dir
-                        if (entity->pos.x >= otherMin.x && entity->pos.x <= otherMax.x)
-                        {
-                            reflectDir = V2F(0.0f, 1.0f);
-                        }
-                        else if (entity->pos.y >= otherMin.y && entity->pos.y <= otherMax.y)
-                        {
-                            reflectDir = V2F(1.0f, 0.0f);
-                        }
-                    }
-                    
-                    entity->dP -= Dot(entity->dP, reflectDir) * reflectDir;
+                    *tMin = MAX(0.0f, tResult - epsilon);
+                    result.collided = true;
                 }
                 if (collisionInfo.trigger)
                 {
-                    if (collisionInfo.onTrigger)
-                    {
-                        DefaultCollisionTriggerData triggerData = {};
-                        triggerData.entity = entity;
-                        triggerData.other = other;
-                        triggerData.gameState = gameState;
-                        triggerData.platform = platform;
-                        collisionInfo.onTrigger(&triggerData);
-                    }
+                    result.trigger = true;
                 }
             }
         }
     }
+    
+    return result;
+}
+
+#define COLLISION_ITERATION_COUNT 4
+function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAPI platform)
+{
+    v2f entityDelta = entity->newPos - entity->pos;
+    // TODO(bSalmon): For when entities are found via their sides/corners NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, VectorLength(entityDelta) * 2.0f, platform);
+    NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, 20.0f, platform);
+    
+    f32 tRemain = 1.0f;
+    for (s32 i = 0; i < COLLISION_ITERATION_COUNT; ++i)
+    {
+        f32 tMin = 1.0f;
+        v2f collisionNormal = V2F();
+        for (u32 entityIndex = 0; entityIndex < nearby.count; ++entityIndex)
+        {
+            Entity *other = &nearby.list[entityIndex];
+            CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
+            
+            v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
+            v2f relOriginalPos = entity->pos - other->pos;
+            v2f minCorner = -0.5f * entityMinkowskiDims;
+            v2f maxCorner = 0.5f * entityMinkowskiDims;
+            
+            TestCollisionResult left = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+            TestCollisionResult right = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+            TestCollisionResult down = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+            TestCollisionResult up = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+            
+            if (left.collided)
+            {
+                collisionNormal = V2F(-1, 0);
+            }
+            if (right.collided)
+            {
+                collisionNormal = V2F(1, 0);
+            }
+            if (down.collided)
+            {
+                collisionNormal = V2F(0, -1);
+            }
+            if (up.collided)
+            {
+                collisionNormal = V2F(0, 1);
+            }
+            
+            if (left.trigger || right.trigger || down.trigger || up.trigger)
+            {
+                nearby.triggers[entityIndex] = true;
+            }
+        }
+        
+        entity->newPos = entity->pos + (tMin * entityDelta);
+        entity->dP -= Dot(entity->dP, collisionNormal) * collisionNormal;
+        entityDelta -= Dot(entityDelta, collisionNormal) * collisionNormal;
+        tRemain -= tMin * tRemain;
+    }
+    
+    for (u32 entityIndex = 0; entityIndex < nearby.count; ++entityIndex)
+    {
+        Entity *other = &gameState->entities[nearby.list[entityIndex].index];
+        CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
+        
+        if (nearby.triggers[entityIndex])
+        {
+            DefaultCollisionTriggerData data = {};
+            data.entity = entity;
+            data.other = other;
+            data.gameState = gameState;
+            data.platform = platform;
+            if (collisionInfo.onTrigger)
+            {
+                collisionInfo.onTrigger(&data);
+            }
+        }
+    }
+    
+    NearbyEntitiesFinish(&nearby, platform);
 }

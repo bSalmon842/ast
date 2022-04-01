@@ -63,6 +63,7 @@ struct Entity
     
     v2f pos;
     v2f dP;
+    v2f newPos;
     
     v2f dims;
     

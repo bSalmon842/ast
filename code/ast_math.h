@@ -84,6 +84,12 @@ inline f32 VectorLength(v2f vec)
     return result;
 }
 
+inline f32 VectorDistance(v2f a, v2f b)
+{
+    f32 result = SqRt(Sq(a.x - b.x) + Sq(a.y - b.y));
+    return result;
+}
+
 inline s32 RoundF32ToS32(f32 value)
 {
     s32 result = (s32)(value + 0.5f);

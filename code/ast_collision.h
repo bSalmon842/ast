@@ -64,5 +64,18 @@ struct CollisionTriggerAction
     colliderAction *action;
 };
 
+struct TestCollisionResult
+{
+    b32 collided;
+    b32 trigger;
+};
+
+struct NearbyEntities
+{
+    Entity *list;
+    b32 *triggers;
+    u32 count;
+};
+
 #define AST_COLLISION_H
 #endif //AST_COLLISION_H
