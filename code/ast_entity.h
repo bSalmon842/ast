@@ -61,9 +61,9 @@ struct Entity
     f32 angle;
     f32 dA;
     
-    v2f pos;
+    v3f pos;
     v2f dP;
-    v2f newPos;
+    v3f newPos;
     
     v2f dims;
     

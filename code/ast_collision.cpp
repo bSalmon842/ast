@@ -39,7 +39,7 @@ inline NearbyEntities NearbyEntitiesStart(Game_State *gameState, v2f origin, f32
         if (entity.type != Entity_Null && entity.active)
         {
             // TODO(bSalmon): Check against closest corner of rectangles or closest point of circle
-            f32 distanceBetween = VectorDistance(entity.pos, origin);
+            f32 distanceBetween = VectorDistance(entity.pos.xy, origin);
             if (distanceBetween <= distance)
             {
                 ++result.count;
@@ -56,7 +56,7 @@ inline NearbyEntities NearbyEntitiesStart(Game_State *gameState, v2f origin, f32
         Entity entity = gameState->entities[entityIndex];
         if (entity.type != Entity_Null && entity.active)
         {
-            f32 distanceBetween = VectorDistance(entity.pos, origin);
+            f32 distanceBetween = VectorDistance(entity.pos.xy, origin);
             if (distanceBetween <= distance)
             {
                 result.list[listIndex++] = entity;
@@ -106,9 +106,9 @@ inline TestCollisionResult TestCollision(CollisionInfo collisionInfo, f32 deltaM
 #define COLLISION_ITERATION_COUNT 4
 function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAPI platform)
 {
-    v2f entityDelta = entity->newPos - entity->pos;
+    v2f entityDelta = entity->newPos.xy - entity->pos.xy;
     // TODO(bSalmon): For when entities are found via their sides/corners NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, VectorLength(entityDelta) * 2.0f, platform);
-    NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, 20.0f, platform);
+    NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos.xy, 20.0f, platform);
     
     f32 tRemain = 1.0f;
     for (s32 i = 0; i < COLLISION_ITERATION_COUNT; ++i)
@@ -121,7 +121,7 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
             CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
             
             v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
-            v2f relOriginalPos = entity->pos - other->pos;
+            v2f relOriginalPos = entity->pos.xy - other->pos.xy;
             v2f minCorner = -0.5f * entityMinkowskiDims;
             v2f maxCorner = 0.5f * entityMinkowskiDims;
             
@@ -153,7 +153,7 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
             }
         }
         
-        entity->newPos = entity->pos + (tMin * entityDelta);
+        entity->newPos.xy = entity->pos.xy + (tMin * entityDelta);
         entity->dP -= Dot(entity->dP, collisionNormal) * collisionNormal;
         entityDelta -= Dot(entityDelta, collisionNormal) * collisionNormal;
         tRemain -= tMin * tRemain;

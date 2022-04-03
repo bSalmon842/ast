@@ -12,7 +12,7 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_Asteroid)
     Entity *entity = triggerData->entity;
     Entity *other = triggerData->other;
     
-    v2f oldPos = other->pos;
+    v3f oldPos = other->pos;
     AsteroidSize oldSize = ((EntityInfo_Asteroid *)other->extraInfo)->size;
     
     ClearEntity(other, triggerData->platform);

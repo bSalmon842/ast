@@ -35,19 +35,27 @@ typedef struct
     RenderEntryType type;
 } RenderEntry_Header;
 
+struct RenderEntryPositioning
+{
+    v2f pos;
+    v2f dims;
+    b32 valid;
+};
+
 typedef struct
 {
     BitmapID bitmapID;
-    v2f offset;
-    v2f dims;
+    
+    RenderEntryPositioning positioning;
+    
     f32 angle;
     v4f colour;
 } RenderEntry_Bitmap;
 
 typedef struct
 {
-    v2f offset;
-    v2f dims;
+    RenderEntryPositioning positioning;
+    
     f32 angle;
     v4f colour;
 } RenderEntry_Rect;
@@ -64,7 +72,8 @@ typedef struct
     KerningTable kerningTable;
     FontMetadata metadata;
     
-    v2f offset;
+    RenderEntryPositioning positioning;
+    
     f32 scale;
     v4f colour;
 } RenderEntry_Text;

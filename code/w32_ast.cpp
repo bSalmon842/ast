@@ -511,34 +511,20 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
                 b32 keyIsDown = (msg.lParam & (1 << 31)) == 0;
                 if (keyWasDown != keyIsDown)
                 {
-                    if (vkCode == 'W')
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyW, keyIsDown);
-                    }
-                    if (vkCode == 'A')
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyA, keyIsDown);
-                    }
-                    if (vkCode == 'D')
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyD, keyIsDown);
-                    }
-                    if (vkCode == VK_SPACE)
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keySpace, keyIsDown);
-                    }
-                    if (vkCode == VK_ESCAPE)
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyEsc, keyIsDown);
-                    }
-                    if (vkCode == VK_F1)
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyF1, keyIsDown);
-                    }
-                    if (vkCode == VK_F2)
-                    {
-                        W32_ProcessKeyboardEvent(&keyboard->keyF2, keyIsDown);
-                    }
+#define ProcessKey(vk, key) if (vkCode == vk) { W32_ProcessKeyboardEvent(&keyboard->##key, keyIsDown); }
+                    ProcessKey('W', keyW);
+                    ProcessKey('A', keyA);
+                    ProcessKey('D', keyD);
+                    ProcessKey(VK_SPACE, keySpace);
+                    ProcessKey(VK_ESCAPE, keyEsc);
+                    ProcessKey(VK_F1, keyF1);
+                    ProcessKey(VK_F2, keyF2);
+                    ProcessKey(VK_F3, keyF3);
+                    ProcessKey(VK_F4, keyF4);
+                    ProcessKey(VK_UP, keyUp);
+                    ProcessKey(VK_DOWN, keyDown);
+                    ProcessKey(VK_LEFT, keyLeft);
+                    ProcessKey(VK_RIGHT, keyRight);
                     
                     if (keyIsDown)
                     {

@@ -6,14 +6,17 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
-// TODO(bSalmon): Audio Mixing
-// TODO(bSalmon): Animation (Sprite-sheets?)
-// TODO(bSalmon): Particles
-// TODO(bSalmon): Camera
+// TODO(bSalmon): Collision double dispatch method review
+// TODO(bSalmon): More concrete concept of a World vs a Level (should they be different, eg: World is persistent while a Level is the entities to put into the World, or should there just be Worlds?)
 // TODO(bSalmon): Sim Regions
+// TODO(bSalmon): Particles
+// TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Better Debug outputs
+// TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
+// TODO(bSalmon): Proper window sizing
+// TODO(bSalmon): Multiple resolutions
 
 // TODO(bSalmon): Game:
 // TODO(bSalmon): Death and lives
@@ -47,7 +50,7 @@ inline BitmapID GetAsteroidBitmapID(u32 index)
     return result;
 }
 
-function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, PlatformAPI platform)
+function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, v3f cameraPos, PlatformAPI platform)
 {
     char *nameTable[] = 
     {
@@ -59,9 +62,9 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
     char *font = "Hyperspace";
     
     RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, V2F(1.0f), title, font, V2F(20.0f, 100.0f), scale, V4F(1.0f));
+    PushText(commands, V2F(1.0f), title, font, cameraPos, V3F(cameraPos.xy - V2F(100.0f), 0.0f), scale, V4F(1.0f));
     
-    v2f debugLineOffset = V2F(20.0f, 182.0f);
+    v3f debugLineOffset = V3F(cameraPos.xy - V2F(100.0f), 0.0f);
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
     {
         DebugCycleCounter *counter = &memory->counters[counterIndex];
@@ -70,7 +73,7 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
         {
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, V2F(1.0f), string, font, debugLineOffset, scale, V4F(1.0f));
+            PushText(commands, V2F(1.0f), string, font, cameraPos, debugLineOffset, scale, V4F(1.0f));
             
             LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
             FontMetadata metadata = metadataHeader->metadata;
@@ -157,8 +160,10 @@ function void BuildCollisionRulesAndTriggers(Game_State *gameState)
     SetTriggerAction(ColliderType_Shot_Player, ColliderType_UFO, CollisionTrigger_PlayerShot_UFO);
 }
 
-global b32 showDebug = false;
-global b32 showColliders = false;
+global b32 debug_info = false;
+global b32 debug_colliders = false;
+global b32 debug_cam = false;
+global b32 debug_regions = false;
 
 #if AST_INTERNAL
 Game_Memory *debugGlobalMem;
@@ -187,17 +192,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         BuildCollisionRulesAndTriggers(gameState);
         
+        //gameState->gameCamera = InitialiseCamera();
+        
         gameState->entities[0] = NullEntity;
         
-        v2f playerStartPos = gameState->worldDims / 2.0f;
+        v3f playerStartPos = V3F(gameState->worldDims / 2.0f, 0.0f);
         v2f playerDims = V2F(2.5f);
-        gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), 1, true, playerStartPos, playerDims, true, TAU * 0.25f);
+        gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos.xy, playerDims), 1, true, playerStartPos, playerDims, true, TAU * 0.25f);
         gameState->playerEntity = &gameState->entities[1];
         
-        v2f wallPos = gameState->worldDims / 4.0f;
+        v3f wallPos = V3F(gameState->worldDims / 4.0f, 0.0f);
         v2f wallDims = V2F(10.0f);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, {wallPos.x, wallPos.y - 10.0f}, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, {wallPos.x, wallPos.y - 10.0f}, wallDims, false);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos.xy, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V2F(wallPos.x, wallPos.y - 10.0f), wallDims), ARRAY_COUNT(gameState->entities) - 1, true, V3F(wallPos.x, wallPos.y - 10.0f, wallPos.z), wallDims, false);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -205,7 +212,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         for (s32 i = 0; i < initialAsteroidCount; ++i)
         {
             Entity *currAst = &gameState->entities[2 + i];
-            v2f astInitialPos = RandomChoosePointInArea(gameState, 0.4f * gameState->worldDims, 0.6f * gameState->worldDims, true);
+            v3f astInitialPos = V3F(RandomChoosePointInArea(gameState, 0.4f * gameState->worldDims, 0.6f * gameState->worldDims, true), 0.0f);
             u8 astBitmapIndex = (u8)rnd_pcg_range(&gameState->pcg, 0, 3);
             f32 astRotationDir = (f32)rnd_pcg_range(&gameState->pcg, -1, 1);
             f32 dA = astRotationDir * gameState->asteroidRotationRate;
@@ -221,6 +228,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
+        
+        gameState->cameraPos = V3F(gameState->worldDims / 2.0f, 0.5f);
         
         gameState->initialised = true;
     }
@@ -287,11 +296,43 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keyF1))
     {
-        showDebug = !showDebug;
+        debug_info = !debug_info;
     }
     if (InputNoRepeat(keyboard->keyF2))
     {
-        showColliders = !showColliders;
+        debug_colliders = !debug_colliders;
+    }
+    if (InputNoRepeat(keyboard->keyF3))
+    {
+        debug_cam = !debug_cam;
+        if (debug_cam)
+        {
+            gameState->cameraPos.z += 0.5f;
+        }
+        else
+        {
+            gameState->cameraPos.z -= 0.5f;
+        }
+    }
+    if (InputNoRepeat(keyboard->keyF4))
+    {
+        debug_regions = !debug_regions;
+    }
+    if (keyboard->keyUp.endedFrameDown)
+    {
+        gameState->cameraPos.y += 5.0f * input->deltaTime;
+    }
+    if (keyboard->keyDown.endedFrameDown)
+    {
+        gameState->cameraPos.y -= 5.0f * input->deltaTime;
+    }
+    if (keyboard->keyLeft.endedFrameDown)
+    {
+        gameState->cameraPos.x -= 5.0f * input->deltaTime;
+    }
+    if (keyboard->keyRight.endedFrameDown)
+    {
+        gameState->cameraPos.x += 5.0f * input->deltaTime;
     }
     
     if (gameState->playerDDP.x != 0.0f || gameState->playerDDP.y != 0.0f)
@@ -328,7 +369,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
         ASSERT(found.entity);
         
-        *found.entity = MakeEntity_UFO(gameState, found.index, V2F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->worldDims.y), V2F(5.0f, 3.0f),
+        *found.entity = MakeEntity_UFO(gameState, found.index, V3F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->worldDims.y, 0.0f), V2F(5.0f, 3.0f),
                                        ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
         gameState->ufoSpawned = true;
     }
@@ -336,26 +377,27 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     for (s32 entityIndex = 0; entityIndex < ARRAY_COUNT(gameState->entities); ++entityIndex)
     {
         Entity *entity = &gameState->entities[entityIndex];
+        
         if (entity->active)
         {
-            
             entity->angle = RotateEntity(input, *entity);
             
-            entity->newPos = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
-            entity->collider.origin = entity->newPos;
+            entity->newPos.xy = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
+            entity->collider.origin = entity->newPos.xy;
             
             HandleCollisions(gameState, entity, platform);
             
             entity->pos = entity->newPos;
-            entity->collider.origin = entity->newPos;
+            entity->collider.origin = entity->newPos.xy;
             
             switch (entity->type)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos + (playerForward * 2), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                    gameState->cameraPos.xy = entity->pos.xy;
+                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_Player_NoTrail, gameState->cameraPos, entity->pos, entity->dims, entity->angle);
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
                 } break;
                 
                 case Entity_Shot:
@@ -368,15 +410,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
-                        PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, bitmapID, gameState->cameraPos, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
                 case Entity_UFO:
@@ -400,42 +442,61 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
-                        PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_UFO_Large, gameState->cameraPos, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Debug_Wall:
                 {
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, entity->pos, entity->dims, 0.0f, V4F(1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, entity->dims, 0.0f, V4F(1.0f));
                 } break;
                 
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
-            if (showColliders)
+            if (debug_colliders)
             {
-                PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, entity->collider.origin, entity->collider.dims, entity->angle, 0.15f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(entity->collider.origin, 0.0f), entity->collider.dims, entity->angle, 0.15f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
         }
+        
+        if (debug_regions)
+        {
+            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(gameState->worldDims / 2.0f, 0.0f), gameState->worldDims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(gameState->cameraPos.xy, 0.0f), V2F(10.0f), 0.0f, 0.5f, V4F(0.4f, 0.1f, 0.8f, 1.0f));
+        }
+        
+#if 0
+        if (entityIndex == gameState->gameCamera.linkedEntityIndex)
+        {
+            UpdateCamera(&gameState->gameCamera, entity);
+        }
+#endif
     }
     END_TIMED_BLOCK(UpdateEntities);
     
     RenderGroup *interfaceGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, "Hyperspace", V2F(15.0f, 100.0f), 0.5f, V4F(1.0f));
+    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, "Hyperspace", gameState->cameraPos, V3F(gameState->cameraPos.xy + V2F(-425.0f, 350.0f), 0.0f), 0.5f, V4F(1.0f));
     
     END_TIMED_BLOCK(GameUpdateRender);
     
-    //RenderGroup *debugGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
-    if (showDebug)
-    {
-        Debug_CycleCounters(memory, renderCommands, memory->platform);
-    }
+    
 #if AST_INTERNAL
+    //RenderGroup *debugGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
+    if (debug_info)
+    {
+        Debug_CycleCounters(memory, renderCommands, gameState->cameraPos, memory->platform);
+    }
+    if (debug_cam)
+    {
+        //ChangeCameraDistance(&gameState->gameCamera, 20.0f);
+    }
+    
     RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
-    PushText(renderCommands, V2F(1.0f), metricString, "Arial", V2F(renderCommands->width - 80.0f, 100.0f), 0.15f, V4F(1.0f));
+    PushText(renderCommands, V2F(1.0f), metricString, "Arial", gameState->cameraPos, V3F(gameState->cameraPos.xy + V2F(350.0f, 350.0f), 0.0f), 0.15f, V4F(1.0f));
 #endif
     
     FinishTempMemory(renderMemory);

@@ -166,9 +166,9 @@ inline v2s MaxElementsV2S(v2s a, v2s b)
     return result;
 }
 
-inline f32 SafeRatio(f32 num, f32 div, f32 n)
+inline f32 SafeRatio(f32 num, f32 den, f32 n)
 {
-    f32 result = (div != 0.0f) ? num / div : n;
+    f32 result = (den != 0.0f) ? num / den : n;
     return result;
 }
 

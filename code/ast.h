@@ -48,6 +48,9 @@ struct Game_State
     CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];
     
     u32 score;
+    
+    ///
+    v3f cameraPos;
 };
 
 struct Transient_State

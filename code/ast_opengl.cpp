@@ -156,8 +156,8 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     
                     glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                     
-                    v2f min = entry->offset - (entry->dims * texture.info.align);
-                    v2f max = min + entry->dims;
+                    v2f min = entry->positioning.pos - (entry->positioning.dims * texture.info.align);
+                    v2f max = min + entry->positioning.dims;
                     
                     f32 cosAngle = Cos(entry->angle);
                     f32 sinAngle = Sin(entry->angle);
@@ -168,8 +168,8 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                         cosAngle, sinAngle, 0.0f, 0.0f,
                         -sinAngle, cosAngle, 0.0f, 0.0f,
                         0.0f, 0.0f, 1.0f, 0.0f,
-                        entry->offset.x - cosAngle * entry->offset.x - -sinAngle * entry->offset.y,
-                        entry->offset.y - sinAngle * entry->offset.x - cosAngle * entry->offset.y, 0.0f, 1.0f,
+                        entry->positioning.pos.x - cosAngle * entry->positioning.pos.x - -sinAngle * entry->positioning.pos.y,
+                        entry->positioning.pos.y - sinAngle * entry->positioning.pos.x - cosAngle * entry->positioning.pos.y, 0.0f, 1.0f,
                     };
                     glLoadMatrixf(modelView);
                     
@@ -186,8 +186,8 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             {
                 RenderEntry_Rect *entry = (RenderEntry_Rect *)(commands->pushBufferBase + baseAddress);
                 
-                v2f min = entry->offset - (entry->dims / 2.0f);
-                v2f max = entry->offset + (entry->dims / 2.0f);
+                v2f min = entry->positioning.pos - (entry->positioning.dims / 2.0f);
+                v2f max = entry->positioning.pos + (entry->positioning.dims / 2.0f);
                 
                 glDisable(GL_TEXTURE_2D);
                 OpenGL_Rectangle(min, max, entry->colour);
@@ -211,15 +211,15 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 RenderEntry_Text *entry = (RenderEntry_Text *)(commands->pushBufferBase + baseAddress);
                 
                 char *c = entry->string.text;
-                f32 charPosX = entry->offset.x;
+                f32 charPosX = entry->positioning.pos.x;
                 while (*c)
                 {
                     switch (*c)
                     {
                         case '\n':
                         {
-                            entry->offset.y += entry->metadata.lineGap * entry->scale;
-                            charPosX = entry->offset.x;
+                            entry->positioning.pos.y += entry->metadata.lineGap * entry->scale;
+                            charPosX = entry->positioning.pos.x;
                         } break;
                         
                         default:
@@ -233,7 +233,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                                 
                                 glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                                 
-                                v2f min = V2F(charPosX, entry->offset.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
+                                v2f min = V2F(charPosX, entry->positioning.pos.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
                                 v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);
                                 OpenGL_Rectangle(min, max, entry->colour);
                                 

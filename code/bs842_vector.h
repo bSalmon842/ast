@@ -232,7 +232,7 @@ return a; \
 } \
 \
 
-#define Make3DStruct(type, name, capital_name) \
+#define Make3DStruct(type, name, capital_name, lower_type) \
 struct name \
 { \
 union \
@@ -241,6 +241,7 @@ type e[3]; \
 struct { type x, y, z; }; \
 struct { type w, h, d; }; \
 struct { type r, g, b; }; \
+struct { lower_type xy; type z; }; \
 }; \
 }; \
 \
@@ -250,6 +251,16 @@ name result = {};\
 \
 result.x = x; \
 result.y = y; \
+result.z = z; \
+\
+return result; \
+} \
+\
+inline name capital_name(lower_type xy, type z) \
+{ \
+name result = {};\
+\
+result.xy = xy; \
 result.z = z; \
 \
 return result; \
@@ -284,6 +295,39 @@ name result = {}; \
 result.x = a.x * b; \
 result.y = a.y * b; \
 result.z = a.z * b; \
+\
+return result; \
+} \
+\
+inline name operator*(type b, name a) \
+{ \
+name result = {}; \
+\
+result.x = b * a.x; \
+result.y = b * a.y; \
+result.z = b * a.z; \
+\
+return result; \
+} \
+\
+inline name operator/(name a, type b) \
+{ \
+name result = {}; \
+\
+result.x = a.x / b; \
+result.y = a.y / b; \
+result.z = a.z / b; \
+\
+return result; \
+} \
+\
+inline name operator/(type b, name a) \
+{ \
+name result = {}; \
+\
+result.x = b / a.x; \
+result.y = b / a.y; \
+result.z = b / a.z; \
 \
 return result; \
 } \
@@ -439,9 +483,9 @@ Make2DStruct(f32, v2f, V2F);
 Make2DStruct(u32, v2u, V2U);
 Make2DStruct(s32, v2s, V2S);
 
-Make3DStruct(f32, v3f, V3F);
-Make3DStruct(u32, v3u, V3U);
-Make3DStruct(s32, v3s, V3S);
+Make3DStruct(f32, v3f, V3F, v2f);
+Make3DStruct(u32, v3u, V3U, v2u);
+Make3DStruct(s32, v3s, V3S, v2s);
 
 Make4DStruct(f32, v4f, V4F, v3f);
 

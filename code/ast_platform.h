@@ -212,7 +212,7 @@ typedef struct
     
     union
     {
-        Game_ButtonState keys[6];
+        Game_ButtonState keys[13];
         struct
         {
             Game_ButtonState keyW;
@@ -222,6 +222,13 @@ typedef struct
             Game_ButtonState keyEsc;
             Game_ButtonState keyF1;
             Game_ButtonState keyF2;
+            Game_ButtonState keyF3;
+            Game_ButtonState keyF4;
+            
+            Game_ButtonState keyUp;
+            Game_ButtonState keyDown;
+            Game_ButtonState keyLeft;
+            Game_ButtonState keyRight;
         };
     };
 } Game_Keyboard;
