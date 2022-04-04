@@ -34,6 +34,8 @@ struct Game_State
     
     rnd_pcg_t pcg;
     
+    Camera gameCamera;
+    
     Entity entities[64];
     Entity *playerEntity;
     v2f playerDDP;
@@ -48,9 +50,6 @@ struct Game_State
     CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];
     
     u32 score;
-    
-    ///
-    v3f cameraPos;
 };
 
 struct Transient_State

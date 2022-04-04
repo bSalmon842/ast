@@ -5,8 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-#include "ast_render.h"
-
 #define PushRenderEntry(group, type) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type)
 {
@@ -25,23 +23,19 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
     return result;
 }
 
-inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, v3f cameraPos, v2f worldToPixelConversion, v3f offset, v2f dims)
+inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, Camera camera, v2f worldToPixelConversion, v3f offset, v2f dims)
 {
     RenderEntryPositioning result = {};
     
     v2f screenCenter = V2F((f32)commands->width, (f32)commands->height) / 2.0f;
-    offset.xy -= cameraPos.xy;
+    offset.xy -= camera.pos.xy;
     
-    f32 focalLength = 0.5f;
-    f32 pzDist = cameraPos.z - offset.z;
-    f32 nearClip = 0.2f;
-    //f32 farClip;
-    
+    f32 pzDist = camera.pos.z - offset.z;
     v3f rawXYZ = V3F(offset.xy, 1.0f);
     
-    if (pzDist > nearClip)
+    if (pzDist > camera.nearClip)
     {
-        v3f projXYZ = (focalLength * rawXYZ) / pzDist;
+        v3f projXYZ = (camera.focalLength * rawXYZ) / pzDist;
         
         result.pos = screenCenter + (projXYZ.xy * worldToPixelConversion);
         result.dims = (projXYZ.z * dims) * worldToPixelConversion;
@@ -51,9 +45,9 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion, BitmapID id, v3f cameraPos, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, cameraPos, worldToPixelConversion, offset, dims);
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, dims);
     RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap);
     if (entry && positioning.valid)
     {
@@ -66,9 +60,9 @@ inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, v3f cameraPos, v3f offset, v2f dims, f32 angle, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, cameraPos, worldToPixelConversion, offset, dims);
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, dims);
     RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect);
     if (entry && positioning.valid)
     {
@@ -79,12 +73,12 @@ inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, 
     }
 }
 
-inline void PushHollowRect(Game_RenderCommands *commands, v2f worldToPixelConversion, v3f cameraPos, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
+inline void PushHollowRect(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
 {
-    PushRect(commands, worldToPixelConversion, cameraPos, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
-    PushRect(commands, worldToPixelConversion, cameraPos, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
-    PushRect(commands, worldToPixelConversion, cameraPos, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
-    PushRect(commands, worldToPixelConversion, cameraPos, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
+    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
+    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
+    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
+    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
 }
 
 inline void PushClear(Game_RenderCommands *commands, v4f colour)
@@ -107,9 +101,9 @@ inline void RenderStringToUpper(RenderString *string)
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, RenderString string, char *font, v3f cameraPos, v3f offset, f32 scale, v4f colour)
+inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, RenderString string, char *font, Camera camera, v3f offset, f32 scale, v4f colour)
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, cameraPos, worldToPixelConversion, offset, V2F());
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, V2F());
     RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text);
     if (entry && positioning.valid)
     {

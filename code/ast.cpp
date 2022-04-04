@@ -6,6 +6,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
+// TODO(bSalmon): Concept of layers within the same Z coords for sorting and maybe collision
+// TODO(bSalmon): Collision based on Entity Z and maybe layers
 // TODO(bSalmon): Collision double dispatch method review
 // TODO(bSalmon): More concrete concept of a World vs a Level (should they be different, eg: World is persistent while a Level is the entities to put into the World, or should there just be Worlds?)
 // TODO(bSalmon): Sim Regions
@@ -43,6 +45,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_collision.cpp"
 #include "ast_entity.cpp"
 #include "ast_collision_actions.cpp"
+#include "ast_camera.cpp"
 
 inline BitmapID GetAsteroidBitmapID(u32 index)
 {
@@ -50,7 +53,7 @@ inline BitmapID GetAsteroidBitmapID(u32 index)
     return result;
 }
 
-function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, v3f cameraPos, PlatformAPI platform)
+function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
 {
     char *nameTable[] = 
     {
@@ -62,9 +65,9 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
     char *font = "Hyperspace";
     
     RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, V2F(1.0f), title, font, cameraPos, V3F(cameraPos.xy - V2F(100.0f), 0.0f), scale, V4F(1.0f));
+    PushText(commands, V2F(1.0f), title, font, camera, V3F(camera.pos.xy - V2F(100.0f), 0.0f), scale, V4F(1.0f));
     
-    v3f debugLineOffset = V3F(cameraPos.xy - V2F(100.0f), 0.0f);
+    v3f debugLineOffset = V3F(camera.pos.xy - V2F(100.0f), 0.0f);
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
     {
         DebugCycleCounter *counter = &memory->counters[counterIndex];
@@ -73,7 +76,7 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
         {
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, V2F(1.0f), string, font, cameraPos, debugLineOffset, scale, V4F(1.0f));
+            PushText(commands, V2F(1.0f), string, font, camera, debugLineOffset, scale, V4F(1.0f));
             
             LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
             FontMetadata metadata = metadataHeader->metadata;
@@ -192,7 +195,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         BuildCollisionRulesAndTriggers(gameState);
         
-        //gameState->gameCamera = InitialiseCamera();
+        gameState->gameCamera = InitialiseCamera(V3F(gameState->worldDims / 2.0f, 10.0f), 10.0f, 0.1f, 0.0f);
         
         gameState->entities[0] = NullEntity;
         
@@ -200,11 +203,12 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         v2f playerDims = V2F(2.5f);
         gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos.xy, playerDims), 1, true, playerStartPos, playerDims, true, TAU * 0.25f);
         gameState->playerEntity = &gameState->entities[1];
+        LinkCameraToEntity(&gameState->gameCamera, gameState->playerEntity->index);
         
-        v3f wallPos = V3F(gameState->worldDims / 4.0f, 0.0f);
+        v3f wallPos = V3F(gameState->worldDims / 4.0f, -1.0f);
         v2f wallDims = V2F(10.0f);
         gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos.xy, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V2F(wallPos.x, wallPos.y - 10.0f), wallDims), ARRAY_COUNT(gameState->entities) - 1, true, V3F(wallPos.x, wallPos.y - 10.0f, wallPos.z), wallDims, false);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V2F(wallPos.x, wallPos.y - 10.0f), wallDims), ARRAY_COUNT(gameState->entities) - 1, true, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims, false);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -228,8 +232,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
-        
-        gameState->cameraPos = V3F(gameState->worldDims / 2.0f, 0.5f);
         
         gameState->initialised = true;
     }
@@ -305,14 +307,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     if (InputNoRepeat(keyboard->keyF3))
     {
         debug_cam = !debug_cam;
-        if (debug_cam)
-        {
-            gameState->cameraPos.z += 0.5f;
-        }
-        else
-        {
-            gameState->cameraPos.z -= 0.5f;
-        }
+        
     }
     if (InputNoRepeat(keyboard->keyF4))
     {
@@ -320,19 +315,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (keyboard->keyUp.endedFrameDown)
     {
-        gameState->cameraPos.y += 5.0f * input->deltaTime;
+        gameState->gameCamera.pos.y += 5.0f * input->deltaTime;
     }
     if (keyboard->keyDown.endedFrameDown)
     {
-        gameState->cameraPos.y -= 5.0f * input->deltaTime;
+        gameState->gameCamera.pos.y -= 5.0f * input->deltaTime;
     }
     if (keyboard->keyLeft.endedFrameDown)
     {
-        gameState->cameraPos.x -= 5.0f * input->deltaTime;
+        gameState->gameCamera.pos.x -= 5.0f * input->deltaTime;
     }
     if (keyboard->keyRight.endedFrameDown)
     {
-        gameState->cameraPos.x += 5.0f * input->deltaTime;
+        gameState->gameCamera.pos.x += 5.0f * input->deltaTime;
     }
     
     if (gameState->playerDDP.x != 0.0f || gameState->playerDDP.y != 0.0f)
@@ -383,6 +378,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             entity->angle = RotateEntity(input, *entity);
             
             entity->newPos.xy = MoveEntity(input, *entity, gameState->worldDims, entity->loop);
+            entity->newPos.z = entity->pos.z;
             entity->collider.origin = entity->newPos.xy;
             
             HandleCollisions(gameState, entity, platform);
@@ -394,10 +390,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    gameState->cameraPos.xy = entity->pos.xy;
-                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_Player_NoTrail, gameState->cameraPos, entity->pos, entity->dims, entity->angle);
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
                 } break;
                 
                 case Entity_Shot:
@@ -410,15 +405,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
-                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, bitmapID, gameState->cameraPos, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
                 case Entity_UFO:
@@ -442,14 +437,14 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, renderGroup->worldToPixelConversion, BitmapID_UFO_Large, gameState->cameraPos, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
-                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Debug_Wall:
                 {
-                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, entity->pos, entity->dims, 0.0f, V4F(1.0f));
+                    PushRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, entity->pos, entity->dims, 0.0f, V4F(1.0f));
                 } break;
                 
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
@@ -457,29 +452,27 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             
             if (debug_colliders)
             {
-                PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(entity->collider.origin, 0.0f), entity->collider.dims, entity->angle, 0.15f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, V3F(entity->collider.origin, 0.0f), entity->collider.dims, entity->angle, 0.15f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
         }
         
         if (debug_regions)
         {
-            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(gameState->worldDims / 2.0f, 0.0f), gameState->worldDims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->cameraPos, V3F(gameState->cameraPos.xy, 0.0f), V2F(10.0f), 0.0f, 0.5f, V4F(0.4f, 0.1f, 0.8f, 1.0f));
+            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, V3F(gameState->worldDims / 2.0f, 0.0f), gameState->worldDims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+            PushHollowRect(renderCommands, renderGroup->worldToPixelConversion, gameState->gameCamera, V3F(gameState->gameCamera.pos.xy, 0.0f), V2F(10.0f), 0.0f, 0.5f, V4F(0.4f, 0.1f, 0.8f, 1.0f));
         }
         
-#if 0
         if (entityIndex == gameState->gameCamera.linkedEntityIndex)
         {
-            UpdateCamera(&gameState->gameCamera, entity);
+            UpdateCamera(&gameState->gameCamera, *entity);
         }
-#endif
     }
     END_TIMED_BLOCK(UpdateEntities);
     
     RenderGroup *interfaceGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, "Hyperspace", gameState->cameraPos, V3F(gameState->cameraPos.xy + V2F(-425.0f, 350.0f), 0.0f), 0.5f, V4F(1.0f));
+    PushText(renderCommands, interfaceGroup->worldToPixelConversion, scoreString, "Hyperspace", gameState->gameCamera, V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 350.0f), 0.0f), 0.5f, V4F(1.0f));
     
     END_TIMED_BLOCK(GameUpdateRender);
     
@@ -488,15 +481,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     //RenderGroup *debugGroup = AllocateRenderGroup(&transState->transRegion, gameState, memory, V2F(1.0f));
     if (debug_info)
     {
-        Debug_CycleCounters(memory, renderCommands, gameState->cameraPos, memory->platform);
+        Debug_CycleCounters(memory, renderCommands, gameState->gameCamera, memory->platform);
     }
     if (debug_cam)
     {
-        //ChangeCameraDistance(&gameState->gameCamera, 20.0f);
+        ChangeCameraDistance(&gameState->gameCamera, 20.0f);
+    }
+    else
+    {
+        ChangeCameraDistance(&gameState->gameCamera, 10.0f);
     }
     
     RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
-    PushText(renderCommands, V2F(1.0f), metricString, "Arial", gameState->cameraPos, V3F(gameState->cameraPos.xy + V2F(350.0f, 350.0f), 0.0f), 0.15f, V4F(1.0f));
+    PushText(renderCommands, V2F(1.0f), metricString, "Arial", gameState->gameCamera, V3F(gameState->gameCamera.pos.xy + V2F(350.0f, 350.0f), 0.0f), 0.15f, V4F(1.0f));
 #endif
     
     FinishTempMemory(renderMemory);

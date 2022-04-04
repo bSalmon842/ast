@@ -18,8 +18,8 @@ typedef struct
 
 typedef struct
 {
-    s32 width;
-    s32 height;
+    u32 width;
+    u32 height;
 } W32_WindowDims;
 
 typedef struct

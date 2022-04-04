@@ -490,7 +490,7 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
             case WM_QUIT:
             {
                 globalRunning = false;
-            }break;
+            } break;
             
             case WM_PAINT:
             {
@@ -499,7 +499,7 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
                 
                 W32_PresentBuffer(renderCommands, platform, deviceContext);
                 EndPaint(window, &paint);
-            }break;
+            } break;
             
             case WM_SYSKEYDOWN:
             case WM_SYSKEYUP:
@@ -621,10 +621,13 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     
     if (RegisterClassA(&windowClass))
     {
+        RECT windowRect = {0, 0, 900, 900};
+        u32 windowFlags = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+        AdjustWindowRect(&windowRect, windowFlags, FALSE);
         HWND window = CreateWindowExA(0,
                                       windowClass.lpszClassName, "Asteroids",
-                                      WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                                      CW_USEDEFAULT, CW_USEDEFAULT, 900, 900,
+                                      windowFlags,
+                                      CW_USEDEFAULT, CW_USEDEFAULT, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
                                       0, 0, instance, 0);
         
         if (window)
@@ -779,6 +782,14 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     gameAudioBuffer.samples = samples;
                     
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
+                    
+                    W32_WindowDims resizeCheck = W32_GetWindowDims(window);
+                    if (resizeCheck.width != gameRenderCommands.width ||
+                        resizeCheck.height != gameRenderCommands.height)
+                    {
+                        gameRenderCommands.width = resizeCheck.width;
+                        gameRenderCommands.height = resizeCheck.height;
+                    }
                     
                     if (programCode.UpdateRender)
                     {

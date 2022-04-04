@@ -7,6 +7,15 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_RENDER_H
 
+struct Camera
+{
+    v3f pos;
+    f32 focalLength;
+    f32 nearClip;
+    f32 verticalFOV;
+    s32 linkedEntityIndex;
+};
+
 struct RenderString
 {
     char *text;

@@ -1,0 +1,7 @@
+/////////////////////////////////////
+04APR2022
+
+- Pulled camera settings out into it's own struct and implemented relevant functions (struct Camera, ast_camera.cpp)
+- Fixed issue where the z of each entity was being reset to 0
+- Added AdjustWindowRect before CreateWindow to get proper client area size
+/////////////////////////////////////
