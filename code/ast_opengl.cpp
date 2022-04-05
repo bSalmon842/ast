@@ -156,7 +156,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     
                     glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                     
-                    v2f min = entry->positioning.pos - (entry->positioning.dims * texture.info.align);
+                    v2f min = entry->positioning.pos.xy - (entry->positioning.dims * texture.info.align);
                     v2f max = min + entry->positioning.dims;
                     
                     f32 cosAngle = Cos(entry->angle);
@@ -186,8 +186,8 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             {
                 RenderEntry_Rect *entry = (RenderEntry_Rect *)(commands->pushBufferBase + baseAddress);
                 
-                v2f min = entry->positioning.pos - (entry->positioning.dims / 2.0f);
-                v2f max = entry->positioning.pos + (entry->positioning.dims / 2.0f);
+                v2f min = entry->positioning.pos.xy - (entry->positioning.dims / 2.0f);
+                v2f max = entry->positioning.pos.xy + (entry->positioning.dims / 2.0f);
                 
                 glDisable(GL_TEXTURE_2D);
                 OpenGL_Rectangle(min, max, entry->colour);
@@ -258,4 +258,5 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
     }
     
     commands->pushBufferSize = 0;
+    commands->entryCount = 0;
 }

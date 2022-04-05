@@ -1,4 +1,17 @@
 /////////////////////////////////////
+05APR2022
+
+- Added Unprojection to camera functions
+- Added camera bounds displaying with debug_regions
+- Added debug camera movement mode
+- Made collision be ignored if entities are on different z coords
+- Added Bubble Sort for Render Entries
+- Change worldToPixelConversion to be more static and based on aspect ratio rather than calculated according to resolution
+- Added World struct with dims being replaced by rect area and concept of a configurable world border (ast_world.*)
+- Refactored everything using worldDims to use new World struct
+- Changed MoveEntity to check position in World to know when to loop or stop
+- Removed Entity::loop
+/////////////////////////////////////
 04APR2022
 
 - Pulled camera settings out into it's own struct and implemented relevant functions (struct Camera, ast_camera.cpp)

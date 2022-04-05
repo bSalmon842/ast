@@ -174,6 +174,8 @@ struct Game_RenderCommands
     usize pushBufferSize;
     usize maxPushBufferSize;
     
+    u32 entryCount;
+    
     struct Game_LoadedAssets *loadedAssets;
 };
 
@@ -187,6 +189,8 @@ inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, voi
     result.pushBufferBase = (u8 *)pushBufferBase;
     result.pushBufferSize = 0;
     result.maxPushBufferSize = maxPushBufferSize;
+    
+    result.entryCount = 0;
     
     result.loadedAssets = 0;
     
@@ -212,7 +216,7 @@ typedef struct
     
     union
     {
-        Game_ButtonState keys[13];
+        Game_ButtonState keys[14];
         struct
         {
             Game_ButtonState keyW;
@@ -224,6 +228,7 @@ typedef struct
             Game_ButtonState keyF2;
             Game_ButtonState keyF3;
             Game_ButtonState keyF4;
+            Game_ButtonState keyF5;
             
             Game_ButtonState keyUp;
             Game_ButtonState keyDown;

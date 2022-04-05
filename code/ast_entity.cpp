@@ -51,35 +51,16 @@ function f32 RotateEntity(Game_Input *input, Entity entity)
     return result;
 }
 
-function v2f MoveEntity(Game_Input *input, Entity entity, v2f worldDims, b32 loop)
+function v2f MoveEntity(Game_Input *input, Entity entity, World world)
 {
     v2f result = entity.pos.xy + (entity.dP * input->deltaTime);
-    
-    if (loop)
-    {
-        if (result.x + (entity.dims.w / 2.0f) < 0.0f)
-        {
-            result.x = worldDims.w + (entity.dims.w / 2.0f);
-        }
-        if (result.x - (entity.dims.w / 2.0f) > worldDims.w)
-        {
-            result.x = 0.0f - (entity.dims.w / 2.0f);
-        }
-        if (result.y + (entity.dims.h / 2.0f) < 0.0f)
-        {
-            result.y = worldDims.h + (entity.dims.h / 2.0f);
-        }
-        if (result.y - (entity.dims.h / 2.0f) > worldDims.h)
-        {
-            result.y = 0.0f - (entity.dims.h / 2.0f);
-        }
-    }
+    CheckWorldPosition(world, entity, &result);
     
     return result;
 }
 
 #define NullEntity MakeEntity(Entity_Null, {}, 0, false, V3F(), V2F(), false)
-function Entity MakeEntity(EntityType type, Collider collider, s32 index, b32 startActive, v3f initialPos, v2f dims, b32 loop, f32 initialAngle = 0.0f)
+function Entity MakeEntity(EntityType type, Collider collider, s32 index, b32 startActive, v3f initialPos, v2f dims, f32 initialAngle = 0.0f)
 {
     Entity result = {};
     
@@ -93,7 +74,6 @@ function Entity MakeEntity(EntityType type, Collider collider, s32 index, b32 st
     result.dP = V2F();
     result.dims = dims;
     
-    result.loop = loop;
     result.extraInfo = 0;
     
     return result;
@@ -111,9 +91,8 @@ function Entity MakeEntity_Asteroid(Game_State *gameState, s32 index, b32 startA
     result.pos = initialPos;
     result.dP = dP;
     result.dims = GetAsteroidDims(size);
-    result.collider = MakeCollider(gameState, ColliderType_Asteroid, result.pos.xy, result.dims);
+    result.collider = MakeCollider(gameState, ColliderType_Asteroid, result.pos, result.dims);
     
-    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Asteroid));
     EntityInfo_Asteroid *astInfo = (EntityInfo_Asteroid *)result.extraInfo;
     astInfo->size = size;
@@ -133,9 +112,8 @@ function Entity MakeEntity_Shot(Game_State *gameState, s32 index, v3f initialPos
     result.pos = initialPos;
     result.dP = dP;
     result.dims = V2F(1.0f);
-    result.collider = MakeCollider(gameState, ColliderType_Shot_Player, result.pos.xy, result.dims);
+    result.collider = MakeCollider(gameState, ColliderType_Shot_Player, result.pos, result.dims);
     
-    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Shot));
     EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)result.extraInfo;
     shotInfo->timer = InitialiseTimer(0.0f, lifetime);
@@ -154,9 +132,8 @@ function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v3f initialPos,
     result.pos = initialPos;
     result.dP = V2F(10.0f, 0.0f);
     result.dims = dims;
-    result.collider = MakeCollider(gameState, ColliderType_UFO, result.pos.xy, result.dims);
+    result.collider = MakeCollider(gameState, ColliderType_UFO, result.pos, result.dims);
     
-    result.loop = true;
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_UFO));
     EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)result.extraInfo;
     ufoInfo->timer = InitialiseTimer(0.0f, 10.0f);

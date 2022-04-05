@@ -382,7 +382,7 @@ function void W32_InitOpenGL(HDC deviceContext, HGLRC *glContext)
         wglGetSwapInterval = (wgl_getSwapIntervalEXT *)wglGetProcAddress("wglGetSwapIntervalEXT");
         if (wglSwapInterval && wglGetSwapInterval)
         {
-            wglSwapInterval(1);
+            wglSwapInterval(0);
         }
         else
         {
@@ -521,6 +521,7 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
                     ProcessKey(VK_F2, keyF2);
                     ProcessKey(VK_F3, keyF3);
                     ProcessKey(VK_F4, keyF4);
+                    ProcessKey(VK_F5, keyF5);
                     ProcessKey(VK_UP, keyUp);
                     ProcessKey(VK_DOWN, keyDown);
                     ProcessKey(VK_LEFT, keyLeft);

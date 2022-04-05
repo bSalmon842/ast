@@ -46,7 +46,7 @@ typedef struct
 
 struct RenderEntryPositioning
 {
-    v2f pos;
+    v3f pos;
     v2f dims;
     b32 valid;
 };

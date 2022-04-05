@@ -5,7 +5,7 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-function Collider MakeCollider(Game_State *gameState, ColliderType type, v2f origin, v2f dims)
+function Collider MakeCollider(Game_State *gameState, ColliderType type, v3f origin, v2f dims)
 {
     Collider result = {};
     
@@ -29,6 +29,7 @@ function Collider MakeCollider(Game_State *gameState, ColliderType type, v2f ori
     return result;
 }
 
+// TODO(bSalmon): Should this get entities dependent of z axis?
 inline NearbyEntities NearbyEntitiesStart(Game_State *gameState, v2f origin, f32 distance, PlatformAPI platform)
 {
     NearbyEntities result = {};
@@ -118,38 +119,41 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
         for (u32 entityIndex = 0; entityIndex < nearby.count; ++entityIndex)
         {
             Entity *other = &nearby.list[entityIndex];
-            CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
-            
-            v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
-            v2f relOriginalPos = entity->pos.xy - other->pos.xy;
-            v2f minCorner = -0.5f * entityMinkowskiDims;
-            v2f maxCorner = 0.5f * entityMinkowskiDims;
-            
-            TestCollisionResult left = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
-            TestCollisionResult right = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
-            TestCollisionResult down = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
-            TestCollisionResult up = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
-            
-            if (left.collided)
+            if (entity->collider.origin.z == other->collider.origin.z)
             {
-                collisionNormal = V2F(-1, 0);
-            }
-            if (right.collided)
-            {
-                collisionNormal = V2F(1, 0);
-            }
-            if (down.collided)
-            {
-                collisionNormal = V2F(0, -1);
-            }
-            if (up.collided)
-            {
-                collisionNormal = V2F(0, 1);
-            }
-            
-            if (left.trigger || right.trigger || down.trigger || up.trigger)
-            {
-                nearby.triggers[entityIndex] = true;
+                CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
+                
+                v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
+                v2f relOriginalPos = entity->pos.xy - other->pos.xy;
+                v2f minCorner = -0.5f * entityMinkowskiDims;
+                v2f maxCorner = 0.5f * entityMinkowskiDims;
+                
+                TestCollisionResult left = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                TestCollisionResult right = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                TestCollisionResult down = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                TestCollisionResult up = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                
+                if (left.collided)
+                {
+                    collisionNormal = V2F(-1, 0);
+                }
+                if (right.collided)
+                {
+                    collisionNormal = V2F(1, 0);
+                }
+                if (down.collided)
+                {
+                    collisionNormal = V2F(0, -1);
+                }
+                if (up.collided)
+                {
+                    collisionNormal = V2F(0, 1);
+                }
+                
+                if (left.trigger || right.trigger || down.trigger || up.trigger)
+                {
+                    nearby.triggers[entityIndex] = true;
+                }
             }
         }
         

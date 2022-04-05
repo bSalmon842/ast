@@ -67,7 +67,6 @@ struct Entity
     
     v2f dims;
     
-    b32 loop;
     void *extraInfo;
 };
 

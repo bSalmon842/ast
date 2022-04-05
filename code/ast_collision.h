@@ -41,7 +41,7 @@ struct Collider
 {
     ColliderType type;
     
-    v2f origin;
+    v3f origin;
     v2f dims;
     
     CollisionInfo collisions[ColliderType_Count];

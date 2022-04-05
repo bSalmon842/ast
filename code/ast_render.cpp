@@ -5,6 +5,84 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
+// TODO(bSalmon): Faster sorting
+inline void Bubble_SwapRenderEntries(void *first, usize firstSize, void *second, usize secondSize, PlatformAPI platform)
+{
+    void *temp = platform.MemAlloc(firstSize);
+    
+    CopyMem(temp, first, firstSize);
+    CopyMem(first, second, secondSize);
+    
+    void *newSecond = (u8 *)first + secondSize;
+    CopyMem(newSecond, temp, firstSize);
+    
+    platform.MemFree(temp);
+}
+
+inline void GetRenderEntryInfo(RenderEntry_Header *header, usize *size, f32 *z)
+{
+    switch (header->type)
+    {
+        case RenderEntryType_RenderEntry_Bitmap:
+        {
+            *size += sizeof(RenderEntry_Bitmap);
+            RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(header + 1);
+            *z = entry->positioning.pos.z;
+        } break;
+        
+        case RenderEntryType_RenderEntry_Rect:
+        {
+            *size += sizeof(RenderEntry_Rect);
+            RenderEntry_Rect *entry = (RenderEntry_Rect *)(header + 1);
+            *z = entry->positioning.pos.z;
+        } break;
+        
+        case RenderEntryType_RenderEntry_Clear:
+        {
+            *size += sizeof(RenderEntry_Clear);
+        } break;
+        
+        case RenderEntryType_RenderEntry_Text:
+        {
+            *size += sizeof(RenderEntry_Text);
+            RenderEntry_Text *entry = (RenderEntry_Text *)(header + 1);
+            *z = entry->positioning.pos.z;
+        } break;
+        
+        INVALID_DEFAULT;
+    }
+}
+
+function void SortRenderEntries(Game_RenderCommands *commands, PlatformAPI platform)
+{
+    for (u32 entryIndexA = 0; entryIndexA < commands->entryCount; ++entryIndexA)
+    {
+        u8 *baseAddress = commands->pushBufferBase;
+        for (u32 entryIndexB = 0; entryIndexB < commands->entryCount - 1; ++entryIndexB)
+        {
+            RenderEntry_Header *firstHeader = (RenderEntry_Header *)(baseAddress);
+            usize firstSize = sizeof(RenderEntry_Header);
+            f32 firstZ = 0.0f;
+            GetRenderEntryInfo(firstHeader, &firstSize, &firstZ);
+            
+            RenderEntry_Header *secondHeader = (RenderEntry_Header *)(baseAddress + firstSize);
+            usize secondSize = sizeof(RenderEntry_Header);
+            f32 secondZ = 0.0f;
+            GetRenderEntryInfo(secondHeader, &secondSize, &secondZ);
+            
+            usize advanceSize = firstSize;
+            if ((secondHeader->type == RenderEntryType_RenderEntry_Clear && firstHeader->type != RenderEntryType_RenderEntry_Clear)||
+                firstZ > secondZ)
+            {
+                Bubble_SwapRenderEntries(firstHeader, firstSize, secondHeader, secondSize, platform);
+                advanceSize = secondSize;
+            }
+            
+            baseAddress += advanceSize;
+        }
+    }
+}
+
 #define PushRenderEntry(group, type) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type)
 {
@@ -18,6 +96,7 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
         header->type = type;
         result = header + 1;
         commands->pushBufferSize += size;
+        commands->entryCount++;
     }
     
     return result;
@@ -37,7 +116,8 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     {
         v3f projXYZ = (camera.focalLength * rawXYZ) / pzDist;
         
-        result.pos = screenCenter + (projXYZ.xy * worldToPixelConversion);
+        result.pos.xy = screenCenter + (projXYZ.xy * worldToPixelConversion);
+        result.pos.z = offset.z;
         result.dims = (projXYZ.z * dims) * worldToPixelConversion;
         result.valid = true;
     }

@@ -23,6 +23,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_entity.h"
 #include "ast_asset.h"
 #include "ast_render.h"
+#include "ast_world.h"
 
 struct Game_State
 {
@@ -30,7 +31,7 @@ struct Game_State
     
     b32 paused;
     
-    v2f worldDims;
+    World world;
     
     rnd_pcg_t pcg;
     
