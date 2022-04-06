@@ -12,8 +12,8 @@ struct Camera
     v3f pos;
     f32 focalLength;
     f32 nearClip;
-    f32 verticalFOV;
     s32 linkedEntityIndex;
+    v2f worldToPixelConversion;
 };
 
 struct RenderString
@@ -86,14 +86,6 @@ typedef struct
     f32 scale;
     v4f colour;
 } RenderEntry_Text;
-
-struct RenderGroup
-{
-    struct Game_State *gameState;
-    Game_Memory *memory;
-    
-    v2f worldToPixelConversion;
-};
 
 #define AST_RENDER_H
 #endif //AST_RENDER_H

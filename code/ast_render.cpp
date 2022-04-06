@@ -40,6 +40,7 @@ inline void GetRenderEntryInfo(RenderEntry_Header *header, usize *size, f32 *z)
         case RenderEntryType_RenderEntry_Clear:
         {
             *size += sizeof(RenderEntry_Clear);
+            *z = -FLT_MAX;
         } break;
         
         case RenderEntryType_RenderEntry_Text:
@@ -55,10 +56,10 @@ inline void GetRenderEntryInfo(RenderEntry_Header *header, usize *size, f32 *z)
 
 function void SortRenderEntries(Game_RenderCommands *commands, PlatformAPI platform)
 {
-    for (u32 entryIndexA = 0; entryIndexA < commands->entryCount; ++entryIndexA)
+    for (s32 entryIndexA = commands->entryCount - 1; entryIndexA > 0; --entryIndexA)
     {
         u8 *baseAddress = commands->pushBufferBase;
-        for (u32 entryIndexB = 0; entryIndexB < commands->entryCount - 1; ++entryIndexB)
+        for (s32 entryIndexB = 0; entryIndexB < entryIndexA; ++entryIndexB)
         {
             RenderEntry_Header *firstHeader = (RenderEntry_Header *)(baseAddress);
             usize firstSize = sizeof(RenderEntry_Header);
@@ -71,7 +72,7 @@ function void SortRenderEntries(Game_RenderCommands *commands, PlatformAPI platf
             GetRenderEntryInfo(secondHeader, &secondSize, &secondZ);
             
             usize advanceSize = firstSize;
-            if ((secondHeader->type == RenderEntryType_RenderEntry_Clear && firstHeader->type != RenderEntryType_RenderEntry_Clear)||
+            if ((secondHeader->type == RenderEntryType_RenderEntry_Clear && firstHeader->type != RenderEntryType_RenderEntry_Clear) ||
                 firstZ > secondZ)
             {
                 Bubble_SwapRenderEntries(firstHeader, firstSize, secondHeader, secondSize, platform);
@@ -102,7 +103,7 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
     return result;
 }
 
-inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, Camera camera, v2f worldToPixelConversion, v3f offset, v2f dims)
+inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims)
 {
     RenderEntryPositioning result = {};
     
@@ -116,18 +117,18 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     {
         v3f projXYZ = (camera.focalLength * rawXYZ) / pzDist;
         
-        result.pos.xy = screenCenter + (projXYZ.xy * worldToPixelConversion);
+        result.pos.xy = screenCenter + (projXYZ.xy * camera.worldToPixelConversion);
         result.pos.z = offset.z;
-        result.dims = (projXYZ.z * dims) * worldToPixelConversion;
+        result.dims = (projXYZ.z * dims) * camera.worldToPixelConversion;
         result.valid = true;
     }
     
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, dims);
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
     RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap);
     if (entry && positioning.valid)
     {
@@ -140,9 +141,9 @@ inline void PushBitmap(Game_RenderCommands *commands, v2f worldToPixelConversion
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, dims);
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
     RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect);
     if (entry && positioning.valid)
     {
@@ -153,12 +154,12 @@ inline void PushRect(Game_RenderCommands *commands, v2f worldToPixelConversion, 
     }
 }
 
-inline void PushHollowRect(Game_RenderCommands *commands, v2f worldToPixelConversion, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
+inline void PushHollowRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
 {
-    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
-    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
-    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
-    PushRect(commands, worldToPixelConversion, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
+    PushRect(commands, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
+    PushRect(commands, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
+    PushRect(commands, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
+    PushRect(commands, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
 }
 
 inline void PushClear(Game_RenderCommands *commands, v4f colour)
@@ -181,9 +182,9 @@ inline void RenderStringToUpper(RenderString *string)
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, v2f worldToPixelConversion, RenderString string, char *font, Camera camera, v3f offset, f32 scale, v4f colour)
+inline void PushText(Game_RenderCommands *commands, Camera camera, RenderString string, char *font, v3f offset, f32 scale, v4f colour)
 {
-    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, worldToPixelConversion, offset, V2F());
+    RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
     RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text);
     if (entry && positioning.valid)
     {
@@ -222,17 +223,6 @@ inline RenderString MakeRenderString(PlatformAPI platform, char *fmt, ...)
     for (u8 i = 0; i < result.length; ++i) { result.text[i] = string[i]; }
     
     va_end(args);
-    
-    return result;
-}
-
-function RenderGroup *AllocateRenderGroup(MemoryRegion *memRegion, Game_State *gameState, Game_Memory *memory, v2f worldToPixelConversion)
-{
-    RenderGroup *result = PushStruct(memRegion, RenderGroup);
-    
-    result->worldToPixelConversion = worldToPixelConversion;
-    result->gameState = gameState;
-    result->memory = memory;
     
     return result;
 }

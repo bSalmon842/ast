@@ -24,6 +24,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_asset.h"
 #include "ast_render.h"
 #include "ast_world.h"
+#include "ast_particle.h"
 
 struct Game_State
 {
@@ -37,7 +38,7 @@ struct Game_State
     
     Camera gameCamera;
     
-    Entity entities[64];
+    Entity entities[256];
     Entity *playerEntity;
     v2f playerDDP;
     f32 asteroidRotationRate;
@@ -46,6 +47,9 @@ struct Game_State
     
     Timer ufoSpawnTimer;
     b32 ufoSpawned;
+    
+    Emitter testEmitter1;
+    Emitter testEmitter2;
     
     u32 collisionRules[ColliderType_Count][ColliderType_Count];
     CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];

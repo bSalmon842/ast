@@ -1,4 +1,14 @@
 /////////////////////////////////////
+06APR2022
+
+- Removed RenderGroup struct, moved worldToPixelConversion to Camera
+- worldToPixelConversion is now held and passed by the Camera to Push functions
+- Removed the render TempMemory from UpdateRender due to it not being used
+- Added Camera Mode functions for Perspective and Orthograpic rendering
+- Fixed issue in Render Entry sorting where Clears were being placed after other entries
+- Fixed Bubble Sort order
+- Added basic Particle system with Particle and Emitter structs with radial emission
+/////////////////////////////////////
 05APR2022
 
 - Added Unprojection to camera functions

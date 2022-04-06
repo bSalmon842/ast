@@ -332,6 +332,13 @@ result.z = b / a.z; \
 return result; \
 } \
 \
+inline name &operator+=(name &a, name b) \
+{ \
+a = a + b; \
+\
+return a; \
+} \
+\
 inline name &operator*=(name &a, type b) \
 { \
 a = a * b; \
