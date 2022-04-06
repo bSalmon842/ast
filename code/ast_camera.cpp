@@ -7,15 +7,27 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #define DEFAULT_CAMERA_Z 10.0f
 
-function Camera InitialiseCamera(v3f cameraPos, f32 focalLength, f32 nearClip, f32 verticalFOV, s32 linkIndex = 0)
+function void CameraMode_Perspective(Camera *camera, f32 focalLength, f32 nearClip, v2f worldToPixelConversion)
+{
+    camera->focalLength = focalLength;
+    camera->nearClip = nearClip;
+    camera->worldToPixelConversion = worldToPixelConversion;
+}
+
+function void CameraMode_Orthographic(Camera *camera)
+{
+    camera->focalLength = 1.0f;
+    camera->nearClip = 0.1f;
+    camera->worldToPixelConversion = V2F(1.0f) * camera->pos.z;
+}
+
+function Camera InitialiseCamera(v3f cameraPos, s32 linkIndex = 0)
 {
     Camera result = {};
     
     result.pos = cameraPos;
-    result.focalLength = focalLength;
-    result.nearClip = nearClip;
-    result.verticalFOV = verticalFOV;
     result.linkedEntityIndex = linkIndex;
+    CameraMode_Orthographic(&result);
     
     return result;
 }
