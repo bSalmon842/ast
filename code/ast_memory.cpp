@@ -27,6 +27,8 @@ inline usize GetAlignmentOffset(MemoryRegion *memRegion, usize alignment)
     return result;
 }
 
+#define Align16(val) (((val) + 15) & ~15)
+
 #define PushStruct(region, type, ...) (type *)PushSize(region, sizeof(type), ## __VA_ARGS__)
 #define PushArray(region, count, type, ...) (type *)PushSize(region, (count) * sizeof(type), ## __VA_ARGS__)
 #define PushSize(region, size, ...) PushSize_(region, size, ## __VA_ARGS__)
@@ -110,8 +112,9 @@ inline void CopyMem(void *dest, void *src, usize size)
 {
     u8 *destPtr = (u8 *)dest;
     u8 *srcPtr = (u8 *)src;
-    for (usize i = 0; i < size; ++i)
+    while (size)
     {
         *destPtr++ = *srcPtr++;
+        size--;
     }
 }

@@ -1,4 +1,14 @@
 /////////////////////////////////////
+07APR2022
+
+- Removed EmitterShapeType and replaced with EmitterShapeInfo, which holds any info regarding the shape of the emission
+- Added base to EmitterShapeInfo to accomodate cylinder shape emissions
+- Added initial and end colours to Emitter to allow particles to colour lerp
+- Got rid of Bubble Sort, Render Entries now sort themselves at push-time
+- Added sortZ and entrySize to RenderEntry_Header to help sorting
+- Particle Simulation is now handled by PARTICLE_SIM functions held by the emitter
+- Fixed some errors when AST_INTERNAL == 0
+/////////////////////////////////////
 06APR2022
 
 - Removed RenderGroup struct, moved worldToPixelConversion to Camera

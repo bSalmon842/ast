@@ -5,100 +5,55 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): Faster sorting
-inline void Bubble_SwapRenderEntries(void *first, usize firstSize, void *second, usize secondSize, PlatformAPI platform)
+inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *baseAddress, RenderEntryType type, f32 sortZ)
 {
-    void *temp = platform.MemAlloc(firstSize);
+    void *result = 0;
     
-    CopyMem(temp, first, firstSize);
-    CopyMem(first, second, secondSize);
+    RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
+    header->type = type;
+    header->sortZ = sortZ;
+    header->entrySize = size;
+    result = header + 1;
     
-    void *newSecond = (u8 *)first + secondSize;
-    CopyMem(newSecond, temp, firstSize);
+    commands->pushBufferSize += size;
+    commands->entryCount++;
     
-    platform.MemFree(temp);
+    return result;
 }
 
-inline void GetRenderEntryInfo(RenderEntry_Header *header, usize *size, f32 *z)
-{
-    switch (header->type)
-    {
-        case RenderEntryType_RenderEntry_Bitmap:
-        {
-            *size += sizeof(RenderEntry_Bitmap);
-            RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(header + 1);
-            *z = entry->positioning.pos.z;
-        } break;
-        
-        case RenderEntryType_RenderEntry_Rect:
-        {
-            *size += sizeof(RenderEntry_Rect);
-            RenderEntry_Rect *entry = (RenderEntry_Rect *)(header + 1);
-            *z = entry->positioning.pos.z;
-        } break;
-        
-        case RenderEntryType_RenderEntry_Clear:
-        {
-            *size += sizeof(RenderEntry_Clear);
-            *z = -FLT_MAX;
-        } break;
-        
-        case RenderEntryType_RenderEntry_Text:
-        {
-            *size += sizeof(RenderEntry_Text);
-            RenderEntry_Text *entry = (RenderEntry_Text *)(header + 1);
-            *z = entry->positioning.pos.z;
-        } break;
-        
-        INVALID_DEFAULT;
-    }
-}
-
-function void SortRenderEntries(Game_RenderCommands *commands, PlatformAPI platform)
-{
-    for (s32 entryIndexA = commands->entryCount - 1; entryIndexA > 0; --entryIndexA)
-    {
-        u8 *baseAddress = commands->pushBufferBase;
-        for (s32 entryIndexB = 0; entryIndexB < entryIndexA; ++entryIndexB)
-        {
-            RenderEntry_Header *firstHeader = (RenderEntry_Header *)(baseAddress);
-            usize firstSize = sizeof(RenderEntry_Header);
-            f32 firstZ = 0.0f;
-            GetRenderEntryInfo(firstHeader, &firstSize, &firstZ);
-            
-            RenderEntry_Header *secondHeader = (RenderEntry_Header *)(baseAddress + firstSize);
-            usize secondSize = sizeof(RenderEntry_Header);
-            f32 secondZ = 0.0f;
-            GetRenderEntryInfo(secondHeader, &secondSize, &secondZ);
-            
-            usize advanceSize = firstSize;
-            if ((secondHeader->type == RenderEntryType_RenderEntry_Clear && firstHeader->type != RenderEntryType_RenderEntry_Clear) ||
-                firstZ > secondZ)
-            {
-                Bubble_SwapRenderEntries(firstHeader, firstSize, secondHeader, secondSize, platform);
-                advanceSize = secondSize;
-            }
-            
-            baseAddress += advanceSize;
-        }
-    }
-}
-
-#define PushRenderEntry(group, type) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type)
-inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type)
+#define PushRenderEntry(group, type, sort, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, platform)
+inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 sortZ, PlatformAPI platform)
 {
     void *result = 0;
     
     size += sizeof(RenderEntry_Header);
     
+    BEGIN_TIMED_BLOCK(PushRenderEntry);
+    
     if (commands->pushBufferSize + size <= commands->maxPushBufferSize)
     {
-        RenderEntry_Header *header = (RenderEntry_Header *)(commands->pushBufferBase + commands->pushBufferSize);
-        header->type = type;
-        result = header + 1;
-        commands->pushBufferSize += size;
-        commands->entryCount++;
+        u8 *baseAddress = commands->pushBufferBase;
+        for (u32 entryIndex = 0; entryIndex <= commands->entryCount; ++entryIndex)
+        {
+            RenderEntry_Header *testHeader = (RenderEntry_Header *)baseAddress;
+            if (sortZ < testHeader->sortZ || entryIndex == commands->entryCount)
+            {
+                usize shiftSize = commands->pushBufferSize - (baseAddress - commands->pushBufferBase);
+                void *temp = platform.MemAlloc(shiftSize);
+                CopyMem(temp, baseAddress, shiftSize);
+                CopyMem(baseAddress + size, temp, shiftSize);
+                
+                result = FillRenderEntry(commands, size, baseAddress, type, sortZ);
+                
+                platform.MemFree(temp);
+                break;
+            }
+            
+            baseAddress += testHeader->entrySize;
+        }
     }
+    
+    END_TIMED_BLOCK(PushRenderEntry);
     
     return result;
 }
@@ -126,10 +81,10 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap);
+    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, platform);
     if (entry && positioning.valid)
     {
         entry->bitmapID = id;
@@ -141,10 +96,10 @@ inline void PushBitmap(Game_RenderCommands *commands, Camera camera, BitmapID id
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect);
+    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect, positioning.pos.z, platform);
     if (entry && positioning.valid)
     {
         entry->positioning = positioning;
@@ -154,17 +109,17 @@ inline void PushRect(Game_RenderCommands *commands, Camera camera, v3f offset, v
     }
 }
 
-inline void PushHollowRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
+inline void PushHollowRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
 {
-    PushRect(commands, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
-    PushRect(commands, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
-    PushRect(commands, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
-    PushRect(commands, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
+    PushRect(commands, platform, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
+    PushRect(commands, platform, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
+    PushRect(commands, platform, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
+    PushRect(commands, platform, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
 }
 
-inline void PushClear(Game_RenderCommands *commands, v4f colour)
+inline void PushClear(Game_RenderCommands *commands, PlatformAPI platform, v4f colour)
 {
-    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear);
+    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, platform);
     if (entry)
     {
         entry->colour = colour;
@@ -182,10 +137,10 @@ inline void RenderStringToUpper(RenderString *string)
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, Camera camera, RenderString string, char *font, v3f offset, f32 scale, v4f colour)
+inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, RenderString string, char *font, v3f offset, f32 scale, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
-    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text);
+    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, platform);
     if (entry && positioning.valid)
     {
         entry->string = string;

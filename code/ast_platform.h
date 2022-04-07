@@ -28,6 +28,7 @@ enum
 {
     DebugCycleCounter_GameUpdateRender,
     DebugCycleCounter_UpdateEntities,
+    DebugCycleCounter_PushRenderEntry,
     
     DebugCycleCounter_Count,
 };
@@ -37,7 +38,6 @@ struct DebugCycleCounter
     u32 hitCount;
 };
 
-#if 1
 #define BEGIN_TIMED_BLOCK(ID) u64 startCycleCount_##ID = __rdtsc();
 #define END_TIMED_BLOCK(ID) debugGlobalMem->counters[DebugCycleCounter_##ID].cycleCount += __rdtsc() - startCycleCount_##ID; ++debugGlobalMem->counters[DebugCycleCounter_##ID].hitCount;
 #define END_TIMED_BLOCK_COUNTED(ID, COUNT) debugGlobalMem->counters[DebugCycleCounter_##ID].cycleCount += __rdtsc() - startCycleCount_##ID; debugGlobalMem->counters[DebugCycleCounter_##ID].hitCount += COUNT;
@@ -45,7 +45,6 @@ struct DebugCycleCounter
 #define BEGIN_TIMED_BLOCK(ID)
 #define END_TIMED_BLOCK(ID)
 #define END_TIMED_BLOCK_COUNTED(ID, COUNT)
-#endif
 #endif // AST_INTERNAL
 
 typedef struct
@@ -142,8 +141,10 @@ inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
 
 struct PlatformAPI
 {
+#if AST_INTERNAL
     debug_platformFreeFile *Debug_FreeFile;
     debug_platformReadFile *Debug_ReadFile;
+#endif
     
     platformMemAlloc *MemAlloc;
     platformMemFree *MemFree;

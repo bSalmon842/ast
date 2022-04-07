@@ -50,6 +50,7 @@ struct Game_State
     
     Emitter testEmitter1;
     Emitter testEmitter2;
+    Emitter testEmitter3;
     
     u32 collisionRules[ColliderType_Count][ColliderType_Count];
     CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];

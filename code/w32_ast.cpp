@@ -679,8 +679,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             
             Game_Memory gameMem = {};
             PlatformAPI platform = {};
+#if AST_INTERNAL
             platform.Debug_FreeFile = Debug_W32_FreeFile;
             platform.Debug_ReadFile = Debug_W32_ReadFile;
+#endif
             platform.MemAlloc = W32_MemAlloc;
             platform.MemFree = W32_MemFree;
             platform.MicrosecondsSinceEpoch = W32_MicrosecondsSinceEpoch;
@@ -822,7 +824,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
 #endif
                     SWAP(newInput, oldInput);
                     
+                    
+#if AST_INTERNAL
                     HandleCycleCounters(&gameMem);
+#endif
                     
                     LARGE_INTEGER endCounter = BS842_Timing_GetClock();
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);

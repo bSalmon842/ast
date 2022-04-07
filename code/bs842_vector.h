@@ -195,6 +195,12 @@ inline bool operator==(name a, name b) \
 return (a.x == b.x && a.y == b.y); \
 } \
 \
+\
+inline bool operator!=(name a, name b) \
+{ \
+return (a.x != b.x || a.y != b.y); \
+} \
+\
 inline bool operator<(name a, name b) \
 { \
 return (a.x < b.x && a.y < b.y); \
@@ -429,6 +435,16 @@ result.z = a.z * b; \
 result.w = a.w * b; \
 \
 return result; \
+} \
+\
+inline bool operator==(name a, name b) \
+{ \
+return (a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w); \
+} \
+\
+inline bool operator!=(name a, name b) \
+{ \
+return (a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w); \
 } \
 \
 

@@ -7,6 +7,9 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_PARTICLE_H
 
+#define PARTICLE_SIM(funcName) void funcName(struct Emitter *emitter, struct Particle *particle, f32 deltaTime)
+typedef PARTICLE_SIM(particleSim);
+
 enum EmitterLifeType
 {
     EmitterLife_Timed,      // Emitter is deactivated at end of timer and will respawn particles if they are destroyed in the meantime
@@ -14,14 +17,6 @@ enum EmitterLifeType
     EmitterLife_Continuous, // Emitter will proceed continuously and respawn particles
 };
 
-enum EmitterShapeType
-{
-    EmitterShape_Radial,
-    EmitterShape_Cone,
-    EmitterShape_Cylinder,
-};
-
-// TODO(bSalmon): Colour lerp
 struct Particle
 {
     b32 active;
@@ -33,18 +28,30 @@ struct Particle
     Timer timer;
 };
 
+struct EmitterShapeInfo
+{
+    f32 minAngle;
+    f32 maxAngle;
+    v2f base;
+};
+
 struct Emitter
 {
     Particle particles[64];
     
+    particleSim *simFunc;
+    
     EmitterLifeType life;
-    EmitterShapeType shape;
+    EmitterShapeInfo shape;
     
     v3f pos;
     
     b32 active;
     Timer emitTimer;
     f32 maxParticleTime;
+    
+    v4f initialColour;
+    v4f endColour;
 };
 
 #define AST_PARTICLE_H

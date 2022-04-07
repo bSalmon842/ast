@@ -6,8 +6,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
-// TODO(bSalmon): Cone and Cylinder emitters
-// TODO(bSalmon): Particle sim and colour lerping
+// TODO(bSalmon): Particle collisions with objects (smoke)
 // TODO(bSalmon): Better Debug outputs
 // TODO(bSalmon): Concept of layers within the same Z coords for sorting and maybe collision
 // TODO(bSalmon): Collision double dispatch method review
@@ -52,21 +51,28 @@ inline BitmapID GetAsteroidBitmapID(u32 index)
     return result;
 }
 
+#if AST_INTERNAL
 function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
 {
     char *nameTable[] = 
     {
         "GameUpdateRender",
         "UpdateEntities",
+        "PushRenderEntry",
     };
     
-    f32 scale = 0.25f;
-    char *font = "Hyperspace";
+    f32 scale = 0.2f;
+    char *font = "Arial";
+    
+    v3f debugLineOffset = V3F(camera.pos.x - 300.0f, camera.pos.y + 300.0f, 0.0f);
+    
+    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
+    FontMetadata metadata = metadataHeader->metadata;
     
     RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, camera, title, font, V3F(camera.pos.xy - V2F(100.0f), 0.0f), scale, V4F(1.0f));
+    PushText(commands, platform, camera, title, font, debugLineOffset, scale, V4F(1.0f));
+    debugLineOffset.y -= metadata.lineGap * scale;
     
-    v3f debugLineOffset = V3F(camera.pos.xy - V2F(100.0f), 0.0f);
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
     {
         DebugCycleCounter *counter = &memory->counters[counterIndex];
@@ -75,14 +81,13 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
         {
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, camera, string, font, debugLineOffset, scale, V4F(1.0f));
+            PushText(commands, platform, camera, string, font, debugLineOffset, scale, V4F(1.0f));
             
-            LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
-            FontMetadata metadata = metadataHeader->metadata;
-            debugLineOffset.y += metadata.lineGap * scale;
+            debugLineOffset.y -= metadata.lineGap * scale;
         }
     }
 }
+#endif
 
 function void OutputTestSineWave(Game_State *gameState, Game_AudioBuffer *audioBuffer, s32 toneHz)
 {
@@ -233,11 +238,18 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
+        EmitterShapeInfo shape1 = {0.0f, 0.0f, V2F()};
+        EmitterShapeInfo shape2 = {TAU * 0.75f, TAU * 0.25f, V2F()};
+        EmitterShapeInfo shape3 = {TAU * 0.25f, TAU * 0.25f, V2F(5.0f, 0.0f)};
+        
         gameState->testEmitter1 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims / 2.0f, 0.0f), true,
-                                                    EmitterLife_Continuous, EmitterShape_Radial, 5.0f);
+                                                    EmitterLife_Continuous, shape1, 5.0f, V4F(), V4F());
         
         gameState->testEmitter2 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims / 3.0f, -5.0f), true,
-                                                    EmitterLife_Wait, EmitterShape_Radial, 5.0f);
+                                                    EmitterLife_Continuous, shape2, 5.0f, V4F(), V4F());
+        
+        gameState->testEmitter3 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims * 0.75f, -2.0f), true,
+                                                    EmitterLife_Continuous, shape3, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f));
         
         gameState->initialised = true;
     }
@@ -368,7 +380,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     v2f worldToPixelConversion = V2F(10.0f, 10.0f * widthOverHeight);
     CameraMode_Perspective(&gameState->gameCamera, 10.0f, 0.1f, worldToPixelConversion);
     
-    PushClear(renderCommands, V4F(0.0f, 0.0f, 0.0f, 1.0f));
+    PushClear(renderCommands, platform, V4F(0.0f, 0.0f, 0.0f, 1.0f));
     
     BEGIN_TIMED_BLOCK(UpdateEntities);
     UpdateTimer(&gameState->ufoSpawnTimer, input->deltaTime);
@@ -403,9 +415,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
-                    PushRect(renderCommands, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                    PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
+                    PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
                 } break;
                 
                 case Entity_Shot:
@@ -418,15 +430,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
-                        PushRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-                    PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
                 case Entity_UFO:
@@ -450,15 +462,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
-                        PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Debug_Wall:
                 {
                     v4f colour = (entity->index % 2 == 1) ? V4F(1.0f) : V4F(0.0f, 0.0f, 1.0f, 1.0f);
-                    PushRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, colour);
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, colour);
                 } break;
                 
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
@@ -466,16 +478,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             
             if (debug_colliders)
             {
-                PushHollowRect(renderCommands, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
-        }
-        
-        if (debug_regions)
-        {
-            PushHollowRect(renderCommands, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-            
-            Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, worldToPixelConversion, gameState->gameCamera.pos.xy, DEFAULT_CAMERA_Z);
-            PushHollowRect(renderCommands, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, V4F(0.0f, 1.0f, 1.0f, 1.0f));
         }
         
         if (entityIndex == gameState->gameCamera.linkedEntityIndex && !debug_camMove)
@@ -484,15 +488,24 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         }
     }
     
-    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter1);
-    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter2);
+    if (debug_regions)
+    {
+        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+        
+        Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, worldToPixelConversion, gameState->gameCamera.pos.xy, DEFAULT_CAMERA_Z);
+        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+    }
+    
+    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter1, platform);
+    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter2, platform);
+    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter3, platform);
     
     END_TIMED_BLOCK(UpdateEntities);
     
     CameraMode_Orthographic(&gameState->gameCamera);
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, V4F(1.0f));
+    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, V4F(1.0f));
     
     END_TIMED_BLOCK(GameUpdateRender);
     
@@ -511,10 +524,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     
     RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
-    PushText(renderCommands, gameState->gameCamera, metricString, "Arial", V3F(gameState->gameCamera.pos.xy + V2F(375.0f, 390.0f), 0.0f), 0.15f, V4F(1.0f));
+    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Arial", V3F(gameState->gameCamera.pos.xy + V2F(375.0f, 390.0f), 0.0f), 0.15f, V4F(1.0f));
 #endif
-    
-    SortRenderEntries(renderCommands, platform);
     
     // AUDIO
     //OutputTestSineWave(gameState, audioBuffer, 256);
