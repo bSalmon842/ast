@@ -5,13 +5,14 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *baseAddress, RenderEntryType type, f32 sortZ)
+inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *baseAddress, RenderEntryType type, f32 zPos, s32 zLayer)
 {
     void *result = 0;
     
     RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
     header->type = type;
-    header->sortZ = sortZ;
+    header->zPos = zPos;
+    header->zLayer = zLayer;
     header->entrySize = size;
     result = header + 1;
     
@@ -21,8 +22,8 @@ inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *base
     return result;
 }
 
-#define PushRenderEntry(group, type, sort, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, platform)
-inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 sortZ, PlatformAPI platform)
+#define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
+inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
     void *result = 0;
     
@@ -36,14 +37,14 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
         for (u32 entryIndex = 0; entryIndex <= commands->entryCount; ++entryIndex)
         {
             RenderEntry_Header *testHeader = (RenderEntry_Header *)baseAddress;
-            if (sortZ < testHeader->sortZ || entryIndex == commands->entryCount)
+            if (zPos < testHeader->zPos || (zPos == testHeader->zPos && zLayer < testHeader->zLayer) || entryIndex == commands->entryCount)
             {
                 usize shiftSize = commands->pushBufferSize - (baseAddress - commands->pushBufferBase);
                 void *temp = platform.MemAlloc(shiftSize);
                 CopyMem(temp, baseAddress, shiftSize);
                 CopyMem(baseAddress + size, temp, shiftSize);
                 
-                result = FillRenderEntry(commands, size, baseAddress, type, sortZ);
+                result = FillRenderEntry(commands, size, baseAddress, type, zPos, zLayer);
                 
                 platform.MemFree(temp);
                 break;
@@ -81,10 +82,10 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour = V4F(1.0f))
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, platform);
+    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
         entry->bitmapID = id;
@@ -96,10 +97,10 @@ inline void PushBitmap(Game_RenderCommands *commands, PlatformAPI platform, Came
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect, positioning.pos.z, platform);
+    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
         entry->positioning = positioning;
@@ -109,17 +110,17 @@ inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera
     }
 }
 
-inline void PushHollowRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, v4f colour)
+inline void PushHollowRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, s32 zLayer, v4f colour)
 {
-    PushRect(commands, platform, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Top
-    PushRect(commands, platform, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, colour); // Bottom
-    PushRect(commands, platform, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Left
-    PushRect(commands, platform, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, colour); // Right
+    PushRect(commands, platform, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Top
+    PushRect(commands, platform, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Bottom
+    PushRect(commands, platform, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Left
+    PushRect(commands, platform, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Right
 }
 
 inline void PushClear(Game_RenderCommands *commands, PlatformAPI platform, v4f colour)
 {
-    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, platform);
+    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, 0, platform);
     if (entry)
     {
         entry->colour = colour;
@@ -137,10 +138,10 @@ inline void RenderStringToUpper(RenderString *string)
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, RenderString string, char *font, v3f offset, f32 scale, v4f colour)
+inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, RenderString string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
-    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, platform);
+    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
         entry->string = string;

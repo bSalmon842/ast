@@ -42,7 +42,8 @@ enum RenderEntryType
 typedef struct
 {
     RenderEntryType type;
-    f32 sortZ;
+    f32 zPos;
+    s32 zLayer;
     usize entrySize;
 } RenderEntry_Header;
 

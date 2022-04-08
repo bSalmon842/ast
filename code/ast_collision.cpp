@@ -123,36 +123,39 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
             {
                 CollisionInfo collisionInfo = entity->collider.collisions[other->collider.type];
                 
-                v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
-                v2f relOriginalPos = entity->pos.xy - other->pos.xy;
-                v2f minCorner = -0.5f * entityMinkowskiDims;
-                v2f maxCorner = 0.5f * entityMinkowskiDims;
-                
-                TestCollisionResult left = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
-                TestCollisionResult right = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
-                TestCollisionResult down = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
-                TestCollisionResult up = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
-                
-                if (left.collided)
+                if (collisionInfo.collisionRule)
                 {
-                    collisionNormal = V2F(-1, 0);
-                }
-                if (right.collided)
-                {
-                    collisionNormal = V2F(1, 0);
-                }
-                if (down.collided)
-                {
-                    collisionNormal = V2F(0, -1);
-                }
-                if (up.collided)
-                {
-                    collisionNormal = V2F(0, 1);
-                }
-                
-                if (left.trigger || right.trigger || down.trigger || up.trigger)
-                {
-                    nearby.triggers[entityIndex] = true;
+                    v2f entityMinkowskiDims = entity->collider.dims + other->collider.dims;
+                    v2f relOriginalPos = entity->pos.xy - other->pos.xy;
+                    v2f minCorner = -0.5f * entityMinkowskiDims;
+                    v2f maxCorner = 0.5f * entityMinkowskiDims;
+                    
+                    TestCollisionResult left = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                    TestCollisionResult right = TestCollision(collisionInfo, entityDelta.x, entityDelta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                    TestCollisionResult down = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                    TestCollisionResult up = TestCollision(collisionInfo, entityDelta.y, entityDelta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                    
+                    if (left.collided)
+                    {
+                        collisionNormal = V2F(-1, 0);
+                    }
+                    if (right.collided)
+                    {
+                        collisionNormal = V2F(1, 0);
+                    }
+                    if (down.collided)
+                    {
+                        collisionNormal = V2F(0, -1);
+                    }
+                    if (up.collided)
+                    {
+                        collisionNormal = V2F(0, 1);
+                    }
+                    
+                    if (left.trigger || right.trigger || down.trigger || up.trigger)
+                    {
+                        nearby.triggers[entityIndex] = true;
+                    }
                 }
             }
         }
@@ -180,6 +183,67 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
                 collisionInfo.onTrigger(&data);
             }
         }
+    }
+    
+    NearbyEntitiesFinish(&nearby, platform);
+}
+
+// TODO(bSalmon): Work in eulerian particle sim to stop particle crowding
+// TODO(bSalmon): Use a ddP to let particles try and push in their intended direction
+function void HandleParticleCollisions(Game_State *gameState, Particle *particle, PlatformAPI platform)
+{
+    v2f delta = particle->newPos - particle->pos.xy;
+    // TODO(bSalmon): For when entities are found via their sides/corners NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, VectorLength(entityDelta) * 2.0f, platform);
+    NearbyEntities nearby = NearbyEntitiesStart(gameState, particle->pos.xy, 20.0f, platform);
+    
+    f32 tRemain = 1.0f;
+    for (s32 i = 0; i < COLLISION_ITERATION_COUNT; ++i)
+    {
+        f32 tMin = 1.0f;
+        v2f collisionNormal = V2F();
+        for (u32 entityIndex = 0; entityIndex < nearby.count; ++entityIndex)
+        {
+            Entity *other = &nearby.list[entityIndex];
+            if (particle->collider.origin.z == other->collider.origin.z)
+            {
+                CollisionInfo collisionInfo = particle->collider.collisions[other->collider.type];
+                
+                if (collisionInfo.collisionRule)
+                {
+                    v2f particleMinkowskiDims = particle->collider.dims + other->collider.dims;
+                    v2f relOriginalPos = particle->pos.xy - other->pos.xy;
+                    v2f minCorner = -0.5f * particleMinkowskiDims;
+                    v2f maxCorner = 0.5f * particleMinkowskiDims;
+                    
+                    TestCollisionResult left = TestCollision(collisionInfo, delta.x, delta.y, minCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                    TestCollisionResult right = TestCollision(collisionInfo, delta.x, delta.y, maxCorner.x, relOriginalPos.x, relOriginalPos.y, minCorner.y, maxCorner.y, &tMin);
+                    TestCollisionResult down = TestCollision(collisionInfo, delta.y, delta.x, minCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                    TestCollisionResult up = TestCollision(collisionInfo, delta.y, delta.x, maxCorner.y, relOriginalPos.y, relOriginalPos.x, minCorner.x, maxCorner.x, &tMin);
+                    
+                    if (left.collided)
+                    {
+                        collisionNormal = V2F(-1, 0);
+                    }
+                    if (right.collided)
+                    {
+                        collisionNormal = V2F(1, 0);
+                    }
+                    if (down.collided)
+                    {
+                        collisionNormal = V2F(0, -1);
+                    }
+                    if (up.collided)
+                    {
+                        collisionNormal = V2F(0, 1);
+                    }
+                }
+            }
+        }
+        
+        particle->newPos = particle->pos.xy + (tMin * delta);
+        particle->dP -= Dot(particle->dP, collisionNormal) * collisionNormal;
+        delta -= Dot(delta, collisionNormal) * collisionNormal;
+        tRemain -= tMin * tRemain;
     }
     
     NearbyEntitiesFinish(&nearby, platform);

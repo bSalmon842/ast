@@ -6,14 +6,14 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
-// TODO(bSalmon): Particle collisions with objects (smoke)
 // TODO(bSalmon): Better Debug outputs
-// TODO(bSalmon): Concept of layers within the same Z coords for sorting and maybe collision
-// TODO(bSalmon): Collision double dispatch method review
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
+// TODO(bSalmon): Collision double dispatch method review
+// TODO(bSalmon): Fix warping on resolution change
+// TODO(bSalmon): Sim Regions
 // TODO(bSalmon): Multiple resolutions
 
 // TODO(bSalmon): Game:
@@ -70,7 +70,7 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
     FontMetadata metadata = metadataHeader->metadata;
     
     RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, platform, camera, title, font, debugLineOffset, scale, V4F(1.0f));
+    PushText(commands, platform, camera, title, font, debugLineOffset, scale, 0, V4F(1.0f));
     debugLineOffset.y -= metadata.lineGap * scale;
     
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
@@ -81,7 +81,7 @@ function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *comm
         {
             RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
                                                    nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, platform, camera, string, font, debugLineOffset, scale, V4F(1.0f));
+            PushText(commands, platform, camera, string, font, debugLineOffset, scale, 0, V4F(1.0f));
             
             debugLineOffset.y -= metadata.lineGap * scale;
         }
@@ -162,16 +162,11 @@ function void BuildCollisionRulesAndTriggers(Game_State *gameState)
     SetCollisionRuleForPair(ColliderType_UFO, ColliderType_Shot_Player, Collision_Trigger);
     
     SetCollisionRuleForPair(ColliderType_Debug_Wall, ColliderType_Debug_Wall, Collision_Solid);
+    SetCollisionRuleForPair(ColliderType_Debug_Wall, ColliderType_Debug_Particle, Collision_Solid);
     
     SetTriggerAction(ColliderType_Shot_Player, ColliderType_Asteroid, CollisionTrigger_PlayerShot_Asteroid);
     SetTriggerAction(ColliderType_Shot_Player, ColliderType_UFO, CollisionTrigger_PlayerShot_UFO);
 }
-
-global b32 debug_info = false;
-global b32 debug_colliders = false;
-global b32 debug_cam = false;
-global b32 debug_regions = false;
-global b32 debug_camMove = false;
 
 #if AST_INTERNAL
 Game_Memory *debugGlobalMem;
@@ -214,6 +209,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         v2f wallDims = V2F(10.0f);
         gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
         gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims), ARRAY_COUNT(gameState->entities) - 2, true, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims, false);
+        gameState->entities[ARRAY_COUNT(gameState->entities) - 3] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(70.0f, 80.0f, 0.0f), wallDims), ARRAY_COUNT(gameState->entities) - 3, true, V3F(70.0f, 80.0f, 0.0f), wallDims, false);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -238,18 +234,21 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
+        EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f};
+        EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f};
+        
         EmitterShapeInfo shape1 = {0.0f, 0.0f, V2F()};
         EmitterShapeInfo shape2 = {TAU * 0.75f, TAU * 0.25f, V2F()};
         EmitterShapeInfo shape3 = {TAU * 0.25f, TAU * 0.25f, V2F(5.0f, 0.0f)};
         
-        gameState->testEmitter1 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims / 2.0f, 0.0f), true,
-                                                    EmitterLife_Continuous, shape1, 5.0f, V4F(), V4F());
+        gameState->testEmitter1 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims / 2.0f, 0.0f), true, 128,
+                                                    progress1, shape1, V2F(0.5f), false);
         
-        gameState->testEmitter2 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims / 3.0f, -5.0f), true,
-                                                    EmitterLife_Continuous, shape2, 5.0f, V4F(), V4F());
+        gameState->testEmitter2 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims / 3.0f, -5.0f), true, 128,
+                                                    progress1, shape2, V2F(0.5f), false);
         
-        gameState->testEmitter3 = InitialiseEmitter(gameState, V3F(gameState->world.area.dims * 0.75f, -2.0f), true,
-                                                    EmitterLife_Continuous, shape3, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f));
+        gameState->testEmitter3 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims * 0.75f, 0.0f), true, 128,
+                                                    progress2, shape3, V2F(0.5f), true, TestParticleSimCollision);
         
         gameState->initialised = true;
     }
@@ -415,9 +414,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle);
-                    PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                    PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
+                    PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
                 } break;
                 
                 case Entity_Shot:
@@ -430,15 +429,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
-                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, V4F(0.0f, 1.0f, 0.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
                 case Entity_UFO:
@@ -462,15 +461,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, V4F(1.0f, 1.0f, 1.0f, 1.0f));
-                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Debug_Wall:
                 {
                     v4f colour = (entity->index % 2 == 1) ? V4F(1.0f) : V4F(0.0f, 0.0f, 1.0f, 1.0f);
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, colour);
+                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, colour);
                 } break;
                 
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
@@ -478,7 +477,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             
             if (debug_colliders)
             {
-                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
         }
         
@@ -490,10 +489,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     if (debug_regions)
     {
-        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
         
         Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, worldToPixelConversion, gameState->gameCamera.pos.xy, DEFAULT_CAMERA_Z);
-        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
     }
     
     UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter1, platform);
@@ -505,7 +504,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     CameraMode_Orthographic(&gameState->gameCamera);
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, V4F(1.0f));
+    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, 0, V4F(1.0f));
     
     END_TIMED_BLOCK(GameUpdateRender);
     
@@ -524,7 +523,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     
     RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
-    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Arial", V3F(gameState->gameCamera.pos.xy + V2F(375.0f, 390.0f), 0.0f), 0.15f, V4F(1.0f));
+    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Arial", V3F(gameState->gameCamera.pos.xy + V2F(375.0f, 390.0f), 0.0f), 0.15f, 0, V4F(1.0f));
 #endif
     
     // AUDIO

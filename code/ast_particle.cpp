@@ -5,11 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-function PARTICLE_SIM(DefaultParticleSim)
-{
-    particle->pos += particle->dP * deltaTime;
-}
-
 function Particle SpawnParticle(Game_State *gameState, Emitter *emitter)
 {
     Particle result = {};
@@ -17,6 +12,8 @@ function Particle SpawnParticle(Game_State *gameState, Emitter *emitter)
     result.active = true;
     
     result.pos = emitter->pos + V3F((rnd_pcg_nextf(&gameState->pcg) * emitter->shape.base) - (emitter->shape.base / 2.0f), 0.0f);
+    result.dims = emitter->particleDims;
+    result.collider = MakeCollider(gameState, ColliderType_Debug_Particle, result.pos, result.dims);
     
     f32 angle = 0.0f;
     if (emitter->shape.minAngle == emitter->shape.maxAngle && emitter->shape.base == V2F())
@@ -42,41 +39,39 @@ function Particle SpawnParticle(Game_State *gameState, Emitter *emitter)
     angle = (angle < 0.0f) ? angle + TAU : angle;
     angle = (angle > TAU) ? angle - TAU : angle;
     
-    result.dP = V3F(V2F(Cos(angle), Sin(angle)), 0.0f) * (5.0f * rnd_pcg_nextf(&gameState->pcg));
+    result.dP = V2F(Cos(angle), Sin(angle)) * (5.0f * rnd_pcg_nextf(&gameState->pcg));
     
-    result.timer = InitialiseTimer(rnd_pcg_nextf(&gameState->pcg) * emitter->maxParticleTime, 0.0f);
+    result.timer = InitialiseTimer(rnd_pcg_nextf(&gameState->pcg) * emitter->progress.maxParticleTime, 0.0f);
     
-    if (emitter->initialColour == V4F())
+    if (emitter->progress.initialColour == V4F())
     {
         result.colour = V4F(rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg), 1.0f);
     }
     else
     {
-        result.colour = emitter->initialColour;
+        result.colour = emitter->progress.initialColour;
     }
     
     return result;
 };
 
-function Emitter InitialiseEmitter(Game_State *gameState, v3f emitterPos, b32 startActive, EmitterLifeType life, EmitterShapeInfo shape, f32 maxParticleTime, v4f initialColour, v4f endColour, particleSim *simFunc = DefaultParticleSim, f32 emitTimeLife = 0.0f)
+function Emitter InitialiseEmitter(Game_State *gameState, PlatformAPI platform, v3f emitterPos, b32 startActive, u32 particleCount, EmitterProgressionInfo progress, EmitterShapeInfo shape, v2f particleDims, b32 collide, particleSim *simFunc = 0)
 {
     Emitter result = {};
     
     result.active = startActive;
+    result.collide = collide;
     result.simFunc = simFunc;
     result.pos = emitterPos;
-    result.life = life;
+    result.progress = progress;
     result.shape = shape;
-    result.emitTimer = InitialiseTimer(emitTimeLife, 0.0f, true);
-    result.maxParticleTime = maxParticleTime;
-    result.initialColour = initialColour;
-    result.endColour = endColour;
+    result.emitTimer = InitialiseTimer(progress.emitTimeLife, 0.0f, true);
     
-    if (result.life == EmitterLife_Timed)
+    if (result.progress.life == EmitterLife_Timed)
     {
         if (result.emitTimer.startTime == 0.0f)
         {
-            result.life = EmitterLife_Wait;
+            result.progress.life = EmitterLife_Wait;
         }
         else
         {
@@ -84,7 +79,10 @@ function Emitter InitialiseEmitter(Game_State *gameState, v3f emitterPos, b32 st
         }
     }
     
-    for (s32 particleIndex = 0; particleIndex < ARRAY_COUNT(result.particles); ++particleIndex)
+    result.particleDims = particleDims;
+    result.particleCount = particleCount;
+    result.particles = (Particle *)platform.MemAlloc(result.particleCount * sizeof(Particle));
+    for (u32 particleIndex = 0; particleIndex < result.particleCount; ++particleIndex)
     {
         Particle *particle = &result.particles[particleIndex];
         *particle = SpawnParticle(gameState, &result);
@@ -100,7 +98,7 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
         UpdateTimer(&emitter->emitTimer, input->deltaTime);
         b32 areAllParticlesInactive = true;
         
-        for (s32 particleIndex = 0; particleIndex < ARRAY_COUNT(emitter->particles); ++particleIndex)
+        for (u32 particleIndex = 0; particleIndex < emitter->particleCount; ++particleIndex)
         {
             Particle *particle = &emitter->particles[particleIndex];
             
@@ -111,15 +109,28 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
                     UpdateTimer(&particle->timer, input->deltaTime);
                 }
                 
-                emitter->simFunc(emitter, particle, input->deltaTime);
-                
-                if (emitter->initialColour != emitter->endColour)
+                if (emitter->simFunc)
                 {
-                    particle->colour = Lerp(emitter->initialColour, emitter->endColour,
+                    emitter->simFunc(gameState, platform, emitter, particle, input->deltaTime);
+                }
+                else
+                {
+                    particle->pos.xy += particle->dP * input->deltaTime;
+                    particle->collider.origin.xy = particle->pos.xy;
+                }
+                
+                if (emitter->progress.initialColour != emitter->progress.endColour)
+                {
+                    particle->colour = Lerp(emitter->progress.initialColour, emitter->progress.endColour,
                                             (particle->timer.startTime - particle->timer.currTime) / particle->timer.startTime);
                 }
                 
-                PushRect(renderCommands, platform, camera, particle->pos, V2F(0.5f), 0.0f, particle->colour);
+                PushRect(renderCommands, platform, camera, particle->pos, particle->dims, 0.0f, 0, particle->colour);
+                
+                if (debug_colliders)
+                {
+                    PushHollowRect(renderCommands, platform, gameState->gameCamera, particle->collider.origin, particle->collider.dims, 0.0f, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                }
                 
                 if (particle->timer.finished)
                 {
@@ -128,7 +139,7 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
             }
             else
             {
-                if (emitter->life != EmitterLife_Wait)
+                if (emitter->progress.life != EmitterLife_Wait)
                 {
                     *particle = SpawnParticle(gameState, emitter);
                 }
@@ -137,9 +148,25 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
             areAllParticlesInactive &= !particle->active;
         }
         
-        if (areAllParticlesInactive || (emitter->life == EmitterLife_Timed && emitter->emitTimer.finished))
+        if (areAllParticlesInactive || (emitter->progress.life == EmitterLife_Timed && emitter->emitTimer.finished))
         {
             emitter->active = false;
+            platform.MemFree(emitter->particles);
         }
     }
+}
+
+// Particle Sim Functions
+function PARTICLE_SIM(TestParticleSimCollision)
+{
+    particle->newPos = particle->pos.xy + particle->dP * deltaTime;
+    particle->collider.origin.xy = particle->newPos;
+    
+    if (emitter->collide)
+    {
+        HandleParticleCollisions(gameState, particle, platform);
+    }
+    
+    particle->pos.xy = particle->newPos;
+    particle->collider.origin.xy = particle->newPos;
 }

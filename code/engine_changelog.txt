@@ -1,4 +1,11 @@
 /////////////////////////////////////
+08APR2022
+
+- Added zLayer to Push functions, which allows entries with the same z coord to be sorted in front or behind one another
+- Added particle count to Emitter and InitialiseEmitter to change how many particles an Emitter can output at once
+- Moved values in the Emitter relating to universal start and end progression out to EmitterProgressionInfo
+- Added basic particle collision with enities which is enabled through the emitter
+/////////////////////////////////////
 07APR2022
 
 - Removed EmitterShapeType and replaced with EmitterShapeInfo, which holds any info regarding the shape of the emission

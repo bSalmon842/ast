@@ -7,7 +7,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_PARTICLE_H
 
-#define PARTICLE_SIM(funcName) void funcName(struct Emitter *emitter, struct Particle *particle, f32 deltaTime)
+#define PARTICLE_SIM(funcName) void funcName(Game_State *gameState, PlatformAPI platform, struct Emitter *emitter, struct Particle *particle, f32 deltaTime)
 typedef PARTICLE_SIM(particleSim);
 
 enum EmitterLifeType
@@ -21,10 +21,15 @@ struct Particle
 {
     b32 active;
     
-    v3f pos;
-    v3f dP;
-    v4f colour;
+    Collider collider;
     
+    v3f pos;
+    v2f dP;
+    v2f newPos;
+    
+    v2f dims;
+    
+    v4f colour;
     Timer timer;
 };
 
@@ -35,23 +40,34 @@ struct EmitterShapeInfo
     v2f base;
 };
 
-struct Emitter
+struct EmitterProgressionInfo
 {
-    Particle particles[64];
-    
-    particleSim *simFunc;
-    
     EmitterLifeType life;
-    EmitterShapeInfo shape;
     
-    v3f pos;
-    
-    b32 active;
-    Timer emitTimer;
+    f32 minParticleTime;
     f32 maxParticleTime;
     
     v4f initialColour;
     v4f endColour;
+    
+    f32 emitTimeLife;
+};
+
+struct Emitter
+{
+    b32 active;
+    v3f pos;
+    b32 collide;
+    
+    Particle *particles;
+    u32 particleCount;
+    v2f particleDims;
+    particleSim *simFunc;
+    
+    EmitterProgressionInfo progress;
+    EmitterShapeInfo shape;
+    
+    Timer emitTimer;
 };
 
 #define AST_PARTICLE_H

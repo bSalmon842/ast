@@ -26,6 +26,12 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_world.h"
 #include "ast_particle.h"
 
+global b32 debug_info = false;
+global b32 debug_colliders = false;
+global b32 debug_cam = false;
+global b32 debug_regions = false;
+global b32 debug_camMove = false;
+
 struct Game_State
 {
     b32 initialised;

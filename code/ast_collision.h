@@ -22,6 +22,8 @@ enum ColliderType
     ColliderType_Shot_Player,
     ColliderType_Shot_UFO,
     ColliderType_Debug_Wall,
+    ColliderType_Debug_Particle,
+    
     ColliderType_Count,
 };
 
