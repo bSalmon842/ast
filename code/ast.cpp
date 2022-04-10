@@ -13,8 +13,15 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Loading Screens
 // TODO(bSalmon): Collision double dispatch method review
 // TODO(bSalmon): Fix warping on resolution change
-// TODO(bSalmon): Sim Regions
 // TODO(bSalmon): Multiple resolutions
+
+// Sim Region Brainstorming
+// TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
+// TODO(bSalmon): Use a bool to choose whether to full sim or have 2 separate lists?
+// TODO(bSalmon): Update Area -> Entities to be full simmed
+// TODO(bSalmon): Apron Area -> Entities to be included in the region for collision detection but not simmed at full granularity
+// TODO(bSalmon): 3 entity uses (Full Sim | Collision Sim | Dormant Sim)
+// TODO(bSalmon): Collision sim could technically live in both lists, so maybe have 2 lists and also use a bool
 
 // TODO(bSalmon): Game:
 // TODO(bSalmon): Death and lives
@@ -41,53 +48,19 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_render.cpp"
 #include "ast_collision.cpp"
 #include "ast_entity.cpp"
+#include "ast_particle.cpp"
 #include "ast_collision_actions.cpp"
 #include "ast_camera.cpp"
-#include "ast_particle.cpp"
+
+#if AST_INTERNAL
+function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform);
+#endif
 
 inline BitmapID GetAsteroidBitmapID(u32 index)
 {
     BitmapID result = (BitmapID)(BitmapID_Asteroid0 + index);
     return result;
 }
-
-#if AST_INTERNAL
-function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
-{
-    char *nameTable[] = 
-    {
-        "GameUpdateRender",
-        "UpdateEntities",
-        "PushRenderEntry",
-    };
-    
-    f32 scale = 0.2f;
-    char *font = "Arial";
-    
-    v3f debugLineOffset = V3F(camera.pos.x - 300.0f, camera.pos.y + 300.0f, 0.0f);
-    
-    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
-    FontMetadata metadata = metadataHeader->metadata;
-    
-    RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, platform, camera, title, font, debugLineOffset, scale, 0, V4F(1.0f));
-    debugLineOffset.y -= metadata.lineGap * scale;
-    
-    for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
-    {
-        DebugCycleCounter *counter = &memory->counters[counterIndex];
-        
-        if (counter->hitCount)
-        {
-            RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
-                                                   nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, platform, camera, string, font, debugLineOffset, scale, 0, V4F(1.0f));
-            
-            debugLineOffset.y -= metadata.lineGap * scale;
-        }
-    }
-}
-#endif
 
 function void OutputTestSineWave(Game_State *gameState, Game_AudioBuffer *audioBuffer, s32 toneHz)
 {
@@ -186,7 +159,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         u32 timeSeed = SafeTruncateU64(memory->platform.SecondsSinceEpoch());
         rnd_pcg_seed(&gameState->pcg, timeSeed);
         
-        gameState->world = InitialiseWorld(V2F(90.0f), WorldBorder_Loop);
+        gameState->world = InitialiseWorld(V2F(360.0f, 180.0f), WorldBorder_Loop);
         
         for (s32 i = 0; i < ARRAY_COUNT(gameState->entities); ++i)
         {
@@ -195,11 +168,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         BuildCollisionRulesAndTriggers(gameState);
         
-        gameState->gameCamera = InitialiseCamera(V3F(gameState->world.area.dims / 2.0f, DEFAULT_CAMERA_Z));
+        gameState->gameCamera = InitialiseCamera(V3F(gameState->world.area.dims / 4.0f, DEFAULT_CAMERA_Z));
         
         gameState->entities[0] = NullEntity;
         
-        v3f playerStartPos = V3F(gameState->world.area.dims / 2.0f, 0.0f);
+        v3f playerStartPos = V3F(gameState->world.area.dims / 4.0f, 0.0f);
         v2f playerDims = V2F(2.5f);
         gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), 1, true, playerStartPos, playerDims, TAU * 0.25f);
         gameState->playerEntity = &gameState->entities[1];
@@ -234,21 +207,22 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
-        EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f};
-        EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f};
+        EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f, 5.0f};
+        EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f, 5.0f};
         
         EmitterShapeInfo shape1 = {0.0f, 0.0f, V2F()};
         EmitterShapeInfo shape2 = {TAU * 0.75f, TAU * 0.25f, V2F()};
         EmitterShapeInfo shape3 = {TAU * 0.25f, TAU * 0.25f, V2F(5.0f, 0.0f)};
         
-        gameState->testEmitter1 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims / 2.0f, 0.0f), true, 128,
-                                                    progress1, shape1, V2F(0.5f), false);
+        AddEmitter(gameState, platform, V3F(gameState->world.area.dims / 2.0f, 0.0f), true, 128,
+                   progress1, shape1, V2F(0.5f), false, 0, 0);
         
-        gameState->testEmitter2 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims / 3.0f, -5.0f), true, 128,
-                                                    progress1, shape2, V2F(0.5f), false);
+        BitmapID testBitmaps[4] = {BitmapID_Player_NoTrail, BitmapID_Asteroid0, BitmapID_Asteroid1, BitmapID_UFO_Large};
+        AddEmitter(gameState, platform, V3F(gameState->world.area.dims / 3.0f, -2.0f), true, 128,
+                   progress1, shape2, V2F(1.0f), false, testBitmaps, 4);
         
-        gameState->testEmitter3 = InitialiseEmitter(gameState, platform, V3F(gameState->world.area.dims * 0.75f, 0.0f), true, 128,
-                                                    progress2, shape3, V2F(0.5f), true, TestParticleSimCollision);
+        AddEmitter(gameState, platform, V3F(65.0f, 70.0f, 0.0f), true, 128,
+                   progress2, shape3, V2F(0.5f), true, 0, 0, TestParticleSimCollision);
         
         gameState->initialised = true;
     }
@@ -495,18 +469,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
     }
     
-    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter1, platform);
-    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter2, platform);
-    UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, &gameState->testEmitter3, platform);
-    
-    END_TIMED_BLOCK(UpdateEntities);
+    for (s32 emitterIndex = 0; emitterIndex < ARRAY_COUNT(gameState->emitters); ++emitterIndex)
+    {
+        Emitter *currEmitter = &gameState->emitters[emitterIndex];
+        if (currEmitter->active)
+        {
+            UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, currEmitter, platform);
+        }
+    }
     
     CameraMode_Orthographic(&gameState->gameCamera);
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
     PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, 0, V4F(1.0f));
-    
-    END_TIMED_BLOCK(GameUpdateRender);
     
 #if AST_INTERNAL
     if (debug_info)
@@ -515,7 +490,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (debug_cam)
     {
-        ChangeCameraDistance(&gameState->gameCamera, 20.0f);
+        ChangeCameraDistance(&gameState->gameCamera, 30.0f);
     }
     else
     {
@@ -529,3 +504,43 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     // AUDIO
     //OutputTestSineWave(gameState, audioBuffer, 256);
 }
+
+DebugRecord DEBUG_RECORD_ARRAY[__COUNTER__];
+
+#if AST_INTERNAL
+function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
+{
+    char *nameTable[] = 
+    {
+        "GameUpdateRender",
+        "UpdateEntities",
+        "PushRenderEntry",
+    };
+    
+    f32 scale = 0.2f;
+    char *font = "Arial";
+    
+    v3f debugLineOffset = V3F(camera.pos.x - 300.0f, camera.pos.y + 300.0f, 0.0f);
+    
+    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
+    FontMetadata metadata = metadataHeader->metadata;
+    
+    RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
+    PushText(commands, platform, camera, title, font, debugLineOffset, scale, 0, V4F(1.0f));
+    debugLineOffset.y -= metadata.lineGap * scale;
+    
+    for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
+    {
+        DebugCycleCounter *counter = &memory->counters[counterIndex];
+        
+        if (counter->hitCount)
+        {
+            RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
+                                                   nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
+            PushText(commands, platform, camera, string, font, debugLineOffset, scale, 0, V4F(1.0f));
+            
+            debugLineOffset.y -= metadata.lineGap * scale;
+        }
+    }
+}
+#endif

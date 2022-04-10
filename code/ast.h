@@ -14,6 +14,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_intrinsics.h"
 #include "ast_memory.h"
+#include "ast_debug.h"
 
 #define RND_IMPLEMENTATION
 #include "rnd.h"
@@ -54,9 +55,7 @@ struct Game_State
     Timer ufoSpawnTimer;
     b32 ufoSpawned;
     
-    Emitter testEmitter1;
-    Emitter testEmitter2;
-    Emitter testEmitter3;
+    Emitter emitters[16];
     
     u32 collisionRules[ColliderType_Count][ColliderType_Count];
     CollisionTriggerAction collisionActions[ColliderType_Count][ColliderType_Count];

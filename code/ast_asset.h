@@ -19,6 +19,8 @@ enum BitmapID : u32
     BitmapID_Asteroid2,
     BitmapID_Asteroid3,
     BitmapID_UFO_Large,
+    
+    BitmapID_Count,
 };
 
 struct GlyphIdentifier

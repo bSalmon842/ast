@@ -25,11 +25,11 @@ inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *base
 #define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
+    DEBUG_TIMED_SCOPE();
+    
     void *result = 0;
     
     size += sizeof(RenderEntry_Header);
-    
-    BEGIN_TIMED_BLOCK(PushRenderEntry);
     
     if (commands->pushBufferSize + size <= commands->maxPushBufferSize)
     {
@@ -53,8 +53,6 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
             baseAddress += testHeader->entrySize;
         }
     }
-    
-    END_TIMED_BLOCK(PushRenderEntry);
     
     return result;
 }

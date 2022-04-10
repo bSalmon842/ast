@@ -1,10 +1,18 @@
 /////////////////////////////////////
+10APR2022
+
+- Made emitters be stored in Game_State as an array, changed InitialiseEmitter to AddEmitter
+- Added Bitmap Support to Emitters and Particles, Emitters hold a selection of BitmapIDs, one of which is passed to a particle
+- Added maxParticleSpeed to EmitterProgressionInfo
+- Removed Debug File reading functions from platform layer and PlatformAPI
+- Started work on new debugging tools (ast_debug.h)
+/////////////////////////////////////
 08APR2022
 
 - Added zLayer to Push functions, which allows entries with the same z coord to be sorted in front or behind one another
 - Added particle count to Emitter and InitialiseEmitter to change how many particles an Emitter can output at once
 - Moved values in the Emitter relating to universal start and end progression out to EmitterProgressionInfo
-- Added basic particle collision with enities which is enabled through the emitter
+- Added basic particle collision with entities which is enabled through the emitter
 /////////////////////////////////////
 07APR2022
 

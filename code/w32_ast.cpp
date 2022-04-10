@@ -33,62 +33,16 @@ global HGLRC globalGLContext;
 #include "w32_ast_thread.cpp"
 
 #if AST_INTERNAL
-DEBUG_PLATFORM_FREE_FILE(Debug_W32_FreeFile)
-{
-    if (memory)
-    {
-        VirtualFree(memory, 0, MEM_RELEASE);
-    }
-}
-
-DEBUG_PLATFORM_READ_FILE(Debug_W32_ReadFile)
-{
-    Debug_ReadFileResult result = {};
-    
-    HANDLE fileHandle = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    if (fileHandle != INVALID_HANDLE_VALUE)
-    {
-        LARGE_INTEGER fileSize;
-        if (GetFileSizeEx(fileHandle, &fileSize))
-        {
-            u32 fileSize32 = SafeTruncateU64(fileSize.QuadPart);
-            result.contents = VirtualAlloc(0, fileSize32, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-            if (result.contents)
-            {
-                DWORD bytesRead;
-                if (ReadFile(fileHandle, result.contents, fileSize32, &bytesRead, 0) && (fileSize32 == bytesRead))
-                {
-                    result.contentsSize = fileSize32;
-                }
-                else
-                {
-                    Debug_W32_FreeFile(result.contents);
-                    result.contents = 0;
-                }
-            }
-        }
-        
-        CloseHandle(fileHandle);
-    }
-    else
-    {
-        printf("FAILED TO OPEN FILE %s FOR READING: %d\n", filename, GetLastError());
-        ASSERT(false);
-    }
-    
-    return result;
-}
-
 function void HandleCycleCounters(Game_Memory *memory)
 {
     for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
     {
-        DebugCycleCounter *counter = &memory->counters[counterIndex];
+        DebugRecord *record = &memory->counters[counterIndex];
         
-        if (counter->hitCount)
+        if (record->hitCount)
         {
-            counter->hitCount = 0;
-            counter->cycleCount = 0;
+            record->hitCount = 0;
+            record->cycleCount = 0;
         }
     }
 }
@@ -679,10 +633,6 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             
             Game_Memory gameMem = {};
             PlatformAPI platform = {};
-#if AST_INTERNAL
-            platform.Debug_FreeFile = Debug_W32_FreeFile;
-            platform.Debug_ReadFile = Debug_W32_ReadFile;
-#endif
             platform.MemAlloc = W32_MemAlloc;
             platform.MemFree = W32_MemFree;
             platform.MicrosecondsSinceEpoch = W32_MicrosecondsSinceEpoch;
@@ -823,7 +773,6 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     }
 #endif
                     SWAP(newInput, oldInput);
-                    
                     
 #if AST_INTERNAL
                     HandleCycleCounters(&gameMem);

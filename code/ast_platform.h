@@ -23,28 +23,6 @@ typedef DEBUG_PLATFORM_READ_FILE(debug_platformReadFile);
 
 #define DEBUG_PLATFORM_FREE_FILE(funcName) void funcName(void *memory)
 typedef DEBUG_PLATFORM_FREE_FILE(debug_platformFreeFile);
-
-enum
-{
-    DebugCycleCounter_GameUpdateRender,
-    DebugCycleCounter_UpdateEntities,
-    DebugCycleCounter_PushRenderEntry,
-    
-    DebugCycleCounter_Count,
-};
-struct DebugCycleCounter
-{
-    u64 cycleCount;
-    u32 hitCount;
-};
-
-#define BEGIN_TIMED_BLOCK(ID) u64 startCycleCount_##ID = __rdtsc();
-#define END_TIMED_BLOCK(ID) debugGlobalMem->counters[DebugCycleCounter_##ID].cycleCount += __rdtsc() - startCycleCount_##ID; ++debugGlobalMem->counters[DebugCycleCounter_##ID].hitCount;
-#define END_TIMED_BLOCK_COUNTED(ID, COUNT) debugGlobalMem->counters[DebugCycleCounter_##ID].cycleCount += __rdtsc() - startCycleCount_##ID; debugGlobalMem->counters[DebugCycleCounter_##ID].hitCount += COUNT;
-#else
-#define BEGIN_TIMED_BLOCK(ID)
-#define END_TIMED_BLOCK(ID)
-#define END_TIMED_BLOCK_COUNTED(ID, COUNT)
 #endif // AST_INTERNAL
 
 typedef struct
@@ -131,8 +109,6 @@ struct Platform_ParallelQueue
     void *semaphore;
 };
 
-//typedef void openglRender(struct RenderGroup *renderGroup, struct Bitmap *target);
-
 inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
 {
     b32 result = (!fileHandle->errored);
@@ -141,11 +117,6 @@ inline b32 Platform_NoFileErrors(Platform_FileHandle *fileHandle)
 
 struct PlatformAPI
 {
-#if AST_INTERNAL
-    debug_platformFreeFile *Debug_FreeFile;
-    debug_platformReadFile *Debug_ReadFile;
-#endif
-    
     platformMemAlloc *MemAlloc;
     platformMemFree *MemFree;
     
@@ -265,10 +236,6 @@ typedef struct
     
     Platform_ParallelQueue *parallelQueue;
     PlatformAPI platform;
-    
-#if AST_INTERNAL
-    DebugCycleCounter counters[DebugCycleCounter_Count];
-#endif
 } Game_Memory;
 
 #if AST_INTERNAL

@@ -29,6 +29,7 @@ struct Particle
     
     v2f dims;
     
+    BitmapID bitmap;
     v4f colour;
     Timer timer;
 };
@@ -51,11 +52,12 @@ struct EmitterProgressionInfo
     v4f endColour;
     
     f32 emitTimeLife;
+    f32 maxParticleSpeed;
 };
 
 struct Emitter
 {
-    b32 active;
+    b32 active; // Won't work for pulsing emitters if we want them, as inactive emitters can be overwritten in AddEmitter
     v3f pos;
     b32 collide;
     
@@ -66,6 +68,9 @@ struct Emitter
     
     EmitterProgressionInfo progress;
     EmitterShapeInfo shape;
+    
+    BitmapID bitmaps[8];
+    u8 usableBitmapCount;
     
     Timer emitTimer;
 };

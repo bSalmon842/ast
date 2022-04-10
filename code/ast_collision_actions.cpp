@@ -9,15 +9,21 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_Asteroid)
 {
     DefaultCollisionTriggerData *triggerData = (DefaultCollisionTriggerData *)data;
     Game_State *gameState = triggerData->gameState;
+    PlatformAPI platform = triggerData->platform;
     Entity *entity = triggerData->entity;
     Entity *other = triggerData->other;
     
     v3f oldPos = other->pos;
+    v2f oldDims = other->dims;
     AsteroidSize oldSize = ((EntityInfo_Asteroid *)other->extraInfo)->size;
     
-    ClearEntity(other, triggerData->platform);
+    ClearEntity(other, platform);
     gameState->asteroidCount--;
     gameState->score += GetScoreForAsteroidSize(oldSize);
+    
+    EmitterProgressionInfo emitProgress = {EmitterLife_Wait, 0.5f, 2.0f, V4F(0.0f, 1.0f, 1.0f, 1.0f), V4F(0.0f, 1.0f, 1.0f, 1.0f), 0.0f, 10.0f};
+    BitmapID emitBitmaps[4] = {BitmapID_Asteroid0, BitmapID_Asteroid1, BitmapID_Asteroid2, BitmapID_Asteroid3};
+    AddEmitter(gameState, platform, oldPos, true, 4, emitProgress, {}, oldDims / 6.0f, false, emitBitmaps, 4);
     
     if (oldSize > AsteroidSize_Small)
     {
@@ -39,13 +45,13 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_Asteroid)
                 
                 *newAst.entity = MakeEntity_Asteroid(gameState, newAst.index, true, oldPos, astDP,
                                                      astDA, newSize, newAstBitmapIndex,
-                                                     triggerData->platform);
+                                                     platform);
                 --asteroidsToCreate;
             }
         }
     }
     
-    ClearEntity(entity, triggerData->platform);
+    ClearEntity(entity, platform);
 }
 
 function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_UFO)
