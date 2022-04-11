@@ -9,11 +9,13 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 struct Camera
 {
-    v3f pos;
+    Rect3f rect;
     f32 focalLength;
     f32 nearClip;
     s32 linkedEntityIndex;
     v2f worldToPixelConversion;
+    v2f screenCenterPixels;
+    b32 orthographic;
 };
 
 struct RenderString

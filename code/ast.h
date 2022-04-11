@@ -20,18 +20,14 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "rnd.h"
 
 #include "ast_timer.h"
+#include "ast_intrinsics.h"
+#include "ast_math.h"
 #include "ast_collision.h"
 #include "ast_entity.h"
 #include "ast_asset.h"
 #include "ast_render.h"
 #include "ast_world.h"
 #include "ast_particle.h"
-
-global b32 debug_info = false;
-global b32 debug_colliders = false;
-global b32 debug_cam = false;
-global b32 debug_regions = false;
-global b32 debug_camMove = false;
 
 struct Game_State
 {

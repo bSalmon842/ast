@@ -13,9 +13,30 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define WriteBarrier _WriteBarrier()
 #define ReadBarrier _ReadBarrier()
 #define ReadWriteBarrier _ReadWriteBarrier()
-#ifndef InterlockedCompareExchange
-#define InterlockedCompareExchange(a, b, c) _InterlockedCompareExchange(a, b, c)
-#endif
+
+inline u32 AtomicCompareExchange(u32 volatile *dest, u32 ex, u32 comp)
+{
+    u32 result = _InterlockedCompareExchange((long *)dest, ex, comp);
+    return result;
+}
+
+inline u64 AtomicExchange(u64 volatile *dest, u64 value)
+{
+    u64 result = _InterlockedExchange64((s64 *)dest, value);
+    return result;
+}
+
+inline u32 AtomicIncrement(u32 volatile *dest)
+{
+    u32 result = _InterlockedIncrement((long *)dest);
+    return result;
+}
+
+inline u64 AtomicAdd(u64 volatile *dest, u64 value)
+{
+    u64 result = _InterlockedExchangeAdd64((s64 *)dest, value);
+    return result;
+}
 
 inline u32 GetThreadID()
 {

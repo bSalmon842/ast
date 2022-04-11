@@ -5,8 +5,10 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// TODO(bSalmon): Engine:
+// Current Ongoing (10APR2022 - )
 // TODO(bSalmon): Better Debug outputs
+
+// TODO(bSalmon): Engine:
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Menues
@@ -40,8 +42,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast.h"
 #include "ast_timer.cpp"
-#include "ast_intrinsics.h"
-#include "ast_math.h"
 #include "ast_memory.cpp"
 #include "ast_world.cpp"
 #include "ast_asset.cpp"
@@ -53,7 +53,63 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_camera.cpp"
 
 #if AST_INTERNAL
-function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform);
+function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
+{
+    DebugState *debugState = (DebugState *)memory->debugStorage;
+    if (debugState)
+    {
+        f32 scale = DEBUG_TEXT_SCALE;
+        char *font = "Debug";
+        
+        v2f topLine = V2F(20.0f, (f32)commands->height - 100.0f);
+        v3f debugLineOffset = V3F(topLine, 0.0f);
+        
+        LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
+        FontMetadata metadata = metadataHeader->metadata;
+        
+        RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
+        PushText(commands, platform, camera, title, font, debugLineOffset, scale, DEBUG_LAYER, V4F(1.0f));
+        debugLineOffset.y -= metadata.lineGap * scale;
+        
+        for (u32 ctrIndex = 0; ctrIndex < debugState->counterCount; ++ctrIndex)
+        {
+            DebugCounter *counter = &debugState->counters[ctrIndex];
+            
+            DebugStat hitStat, cycleStat, cphStat;
+            StartDebugStat(&hitStat);
+            StartDebugStat(&cycleStat);
+            StartDebugStat(&cphStat);
+            for (u32 datumIndex = 0; datumIndex < DEBUG_DATUM_COUNT; ++datumIndex)
+            {
+                CalcDebugStat(&hitStat, counter->data[datumIndex].hits);
+                CalcDebugStat(&cycleStat, counter->data[datumIndex].cycles);
+                
+                f64 cyclesPerHit = 0.0f;
+                if (counter->data[datumIndex].hits)
+                {
+                    cyclesPerHit = ((f64)counter->data[datumIndex].cycles / (f64)counter->data[datumIndex].hits);
+                }
+                CalcDebugStat(&cphStat, cyclesPerHit);
+            }
+            FinishDebugStat(&hitStat);
+            FinishDebugStat(&cycleStat);
+            FinishDebugStat(&cphStat);
+            
+            if (hitStat.max > 0.0f)
+            {
+                RenderString string = MakeRenderString(platform, "%24s: %10uc | %6u hits | %10uc/hit",
+                                                       counter->functionName, (u32)cycleStat.ave, (u32)hitStat.ave, (u32)cphStat.ave);
+                PushText(commands, platform, camera, string, font, debugLineOffset, scale, DEBUG_LAYER, V4F(1.0f));
+                
+                debugLineOffset.y -= metadata.lineGap * scale;
+            }
+        }
+        
+        v2f min = V2F(10.0f, debugLineOffset.y);
+        v2f max = V2F((f32)commands->width - 10.0f, topLine.y + (metadata.lineGap * scale));
+        PushRect(commands, platform, camera, V3F(((max - min) / 2.0f) + min, 0.0f), max - min, 0.0f, DEBUG_LAYER - 1, V4F(0.05f, 0.0f, 0.1f, 0.66f));
+    }
+}
 #endif
 
 inline BitmapID GetAsteroidBitmapID(u32 index)
@@ -149,7 +205,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     debugGlobalMem = memory;
 #endif
-    BEGIN_TIMED_BLOCK(GameUpdateRender);
+    DEBUG_TIMED_SCOPE();
     
     ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
     Game_State *gameState = (Game_State *)memory->permaStorage;
@@ -308,19 +364,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         f32 debugCamMoveRate = 10.0f * input->deltaTime;
         if (keyboard->keyUp.endedFrameDown)
         {
-            gameState->gameCamera.pos.y += debugCamMoveRate;
+            gameState->gameCamera.rect.center.y += debugCamMoveRate;
         }
         if (keyboard->keyDown.endedFrameDown)
         {
-            gameState->gameCamera.pos.y -= debugCamMoveRate;
+            gameState->gameCamera.rect.center.y -= debugCamMoveRate;
         }
         if (keyboard->keyLeft.endedFrameDown)
         {
-            gameState->gameCamera.pos.x -= debugCamMoveRate;
+            gameState->gameCamera.rect.center.x -= debugCamMoveRate;
         }
         if (keyboard->keyRight.endedFrameDown)
         {
-            gameState->gameCamera.pos.x += debugCamMoveRate;
+            gameState->gameCamera.rect.center.x += debugCamMoveRate;
         }
     }
     
@@ -355,7 +411,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     
     PushClear(renderCommands, platform, V4F(0.0f, 0.0f, 0.0f, 1.0f));
     
-    BEGIN_TIMED_BLOCK(UpdateEntities);
     UpdateTimer(&gameState->ufoSpawnTimer, input->deltaTime);
     if (gameState->ufoSpawnTimer.finished && !gameState->ufoSpawned)
     {
@@ -457,7 +512,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         if (entityIndex == gameState->gameCamera.linkedEntityIndex && !debug_camMove)
         {
-            UpdateCamera(&gameState->gameCamera, *entity);
+            UpdateCamera(renderCommands, &gameState->gameCamera, *entity);
         }
     }
     
@@ -465,7 +520,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     {
         PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
         
-        Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, worldToPixelConversion, gameState->gameCamera.pos.xy, DEFAULT_CAMERA_Z);
+        Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, gameState->gameCamera.rect.center.xy, DEFAULT_CAMERA_Z);
         PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
     }
     
@@ -481,12 +536,14 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     CameraMode_Orthographic(&gameState->gameCamera);
     
     RenderString scoreString = MakeRenderString(memory->platform, "%02d", gameState->score);
-    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace", V3F(gameState->gameCamera.pos.xy + V2F(-425.0f, 390.0f), 0.0f), 0.5f, 0, V4F(1.0f));
+    v2f scorePixelOffset = V2F(25.0f, (f32)renderCommands->height - 60.0f);
+    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace",
+             V3F(scorePixelOffset, 0.0f), 0.5f, 0, V4F(1.0f));
     
 #if AST_INTERNAL
     if (debug_info)
     {
-        Debug_CycleCounters(memory, renderCommands, gameState->gameCamera, memory->platform);
+        PrintDebugRecords(memory, renderCommands, gameState->gameCamera, memory->platform);
     }
     if (debug_cam)
     {
@@ -498,7 +555,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     
     RenderString metricString = MakeRenderString(memory->platform, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
-    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Arial", V3F(gameState->gameCamera.pos.xy + V2F(375.0f, 390.0f), 0.0f), 0.15f, 0, V4F(1.0f));
+    v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
+    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
 #endif
     
     // AUDIO
@@ -507,40 +565,34 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 
 DebugRecord DEBUG_RECORD_ARRAY[__COUNTER__];
 
-#if AST_INTERNAL
-function void Debug_CycleCounters(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
+function void UpdateDebugRecords(DebugState *debugState, DebugRecord *records, u32 recordCount)
 {
-    char *nameTable[] = 
+    for (u32 recordIndex = 0; recordIndex < recordCount; ++recordIndex)
     {
-        "GameUpdateRender",
-        "UpdateEntities",
-        "PushRenderEntry",
-    };
-    
-    f32 scale = 0.2f;
-    char *font = "Arial";
-    
-    v3f debugLineOffset = V3F(camera.pos.x - 300.0f, camera.pos.y + 300.0f, 0.0f);
-    
-    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
-    FontMetadata metadata = metadataHeader->metadata;
-    
-    RenderString title = MakeRenderString(platform, "Debug Perf Metrics");
-    PushText(commands, platform, camera, title, font, debugLineOffset, scale, 0, V4F(1.0f));
-    debugLineOffset.y -= metadata.lineGap * scale;
-    
-    for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
-    {
-        DebugCycleCounter *counter = &memory->counters[counterIndex];
+        DebugRecord *srcRecord = &records[recordIndex];
+        DebugCounter *destCounter = &debugState->counters[debugState->counterCount++];
         
-        if (counter->hitCount)
+        u64 counts = AtomicExchange(&srcRecord->counts, 0);
+        destCounter->fileName = srcRecord->fileName;
+        destCounter->functionName = srcRecord->functionName;
+        destCounter->lineNumber = srcRecord->lineNumber;
+        destCounter->data[debugState->datumIndex].hits = (u32)(counts >> 32);
+        destCounter->data[debugState->datumIndex].cycles = (u32)(counts & 0xFFFFFFFF);
+    }
+}
+
+extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
+{
+    DebugState *debugState = (DebugState *)memory->debugStorage;
+    if (debugState)
+    {
+        debugState->counterCount = 0;
+        UpdateDebugRecords(debugState, DebugRecords_Main, ARRAY_COUNT(DebugRecords_Main));
+        
+        ++debugState->datumIndex;
+        if (debugState->datumIndex >= DEBUG_DATUM_COUNT)
         {
-            RenderString string = MakeRenderString(platform, "%s: %I64u cycles | %u hits | %I64u cycles/hit",
-                                                   nameTable[counterIndex], counter->cycleCount, counter->hitCount, counter->cycleCount / counter->hitCount);
-            PushText(commands, platform, camera, string, font, debugLineOffset, scale, 0, V4F(1.0f));
-            
-            debugLineOffset.y -= metadata.lineGap * scale;
+            debugState->datumIndex = 0;
         }
     }
 }
-#endif

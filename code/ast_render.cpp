@@ -61,20 +61,32 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
 {
     RenderEntryPositioning result = {};
     
-    v2f screenCenter = V2F((f32)commands->width, (f32)commands->height) / 2.0f;
-    offset.xy -= camera.pos.xy;
-    
-    f32 pzDist = camera.pos.z - offset.z;
-    v3f rawXYZ = V3F(offset.xy, 1.0f);
-    
-    if (pzDist > camera.nearClip)
+    if (camera.orthographic)
     {
-        v3f projXYZ = (camera.focalLength * rawXYZ) / pzDist;
+        f32 pzDist = camera.rect.center.z - offset.z;
+        if (pzDist > camera.nearClip)
+        {
+            result.pos = offset;
+            result.dims = dims;
+            result.valid = true;
+        }
+    }
+    else
+    {
+        offset.xy -= camera.rect.center.xy;
         
-        result.pos.xy = screenCenter + (projXYZ.xy * camera.worldToPixelConversion);
-        result.pos.z = offset.z;
-        result.dims = (projXYZ.z * dims) * camera.worldToPixelConversion;
-        result.valid = true;
+        f32 pzDist = camera.rect.center.z - offset.z;
+        v3f rawXYZ = V3F(offset.xy, 1.0f);
+        
+        if (pzDist > camera.nearClip)
+        {
+            v3f projXYZ = (camera.focalLength * rawXYZ) / pzDist;
+            
+            result.pos.xy = camera.screenCenterPixels + (projXYZ.xy * camera.worldToPixelConversion);
+            result.pos.z = offset.z;
+            result.dims = (projXYZ.z * dims) * camera.worldToPixelConversion;
+            result.valid = true;
+        }
     }
     
     return result;
@@ -166,6 +178,8 @@ inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera
 #include <stdarg.h>
 inline RenderString MakeRenderString(PlatformAPI platform, char *fmt, ...)
 {
+    DEBUG_TIMED_SCOPE();
+    
     RenderString result = {};
     
     va_list args;

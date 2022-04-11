@@ -1,4 +1,15 @@
 /////////////////////////////////////
+11APR2022
+
+- Fixed broken build from halfway-done debug refactor
+- Change Camera.pos to a Rect3f so that UI can access the Camera dims
+- Added parameter in the font packing in the asset builder to allow different font sizes
+- Made debug timed scopes thread-safe
+- Added separate path for orthographic render positioning
+- Added Rect behind debug info to see the info a bit easier
+- Cleaned up some old redundant debug code from the platform layer (Console FPS printing, HandleCycleCounter)
+- Continued work on debugging infrastructure, including specific debug memory, rolling data buffer, and min/max/ave metrics
+/////////////////////////////////////
 10APR2022
 
 - Made emitters be stored in Game_State as an array, changed InitialiseEmitter to AddEmitter

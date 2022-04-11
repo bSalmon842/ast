@@ -17,7 +17,7 @@ del *.pdb > NUL 2> NUL
 echo WAITING FOR PDB > lock.tmp
 
 echo COMPILING DLL
-cl %commonFlagsCompiler% -DDEBUG_RECORD_ARRAY=DebugRecords_Main ..\code\ast.cpp -LD /link %commonFlagsLinker% -PDB:game_%random%.pdb -EXPORT:Game_UpdateRender
+cl %commonFlagsCompiler% -DDEBUG_RECORD_ARRAY=DebugRecords_Main ..\code\ast.cpp -LD /link %commonFlagsLinker% -PDB:game_%random%.pdb -EXPORT:Game_UpdateRender -EXPORT:Game_DebugFrameEnd
 del lock.tmp
 
 echo.

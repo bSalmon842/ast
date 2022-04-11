@@ -294,6 +294,17 @@ result.z = a.z + b.z; \
 return result; \
 } \
 \
+inline name operator-(name a, name b) \
+{ \
+name result = {}; \
+\
+result.x = a.x - b.x; \
+result.y = a.y - b.y; \
+result.z = a.z - b.z; \
+\
+return result; \
+} \
+\
 inline name operator*(name a, type b) \
 { \
 name result = {}; \
@@ -515,6 +526,8 @@ Make4DStruct(f32, v4f, V4F, v3f);
 MakeRectStruct(v2f, Rect2f);
 MakeRectStruct(v2u, Rect2u);
 MakeRectStruct(v2s, Rect2s);
+
+MakeRectStruct(v3f, Rect3f);
 #pragma warning(default:4146)
 #endif //BS842_MAKE_STRUCTS
 

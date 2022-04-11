@@ -11,20 +11,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_utility.h"
 
-#if AST_INTERNAL
-struct Debug_ReadFileResult
-{
-    u64 contentsSize;
-    void *contents;
-};
-
-#define DEBUG_PLATFORM_READ_FILE(funcName) Debug_ReadFileResult funcName(char *filename)
-typedef DEBUG_PLATFORM_READ_FILE(debug_platformReadFile);
-
-#define DEBUG_PLATFORM_FREE_FILE(funcName) void funcName(void *memory)
-typedef DEBUG_PLATFORM_FREE_FILE(debug_platformFreeFile);
-#endif // AST_INTERNAL
-
 typedef struct
 {
     b32 errored;
@@ -210,13 +196,13 @@ typedef struct
     };
 } Game_Keyboard;
 
-typedef struct
+struct Game_Input
 {
     b32 exeReloaded;
     f32 deltaTime;
     
     Game_Keyboard keyboard;
-} Game_Input;
+};
 
 struct InstructionSets
 {
@@ -225,22 +211,36 @@ struct InstructionSets
     b8 avx;
 };
 
-typedef struct
+struct Game_Memory
 {
     u64 permaStorageSize;
     u64 transStorageSize;
+    u64 debugStorageSize;
     void *permaStorage;
     void *transStorage;
+    void *debugStorage;
     
     InstructionSets availableInstructionSets;
     
     Platform_ParallelQueue *parallelQueue;
     PlatformAPI platform;
-} Game_Memory;
+};
 
 #if AST_INTERNAL
 extern Game_Memory *debugGlobalMem;
 #endif
+
+struct DebugFrameInfo
+{
+    f32 dllLoad;
+    f32 input;
+    f32 audio;
+    f32 gameUpdate;
+    f32 frameComplete;
+};
+
+#define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory, DebugFrameInfo *frame)
+typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);
 
 #define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)
 typedef GAME_UPDATE_RENDER(game_updateRender);

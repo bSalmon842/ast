@@ -250,17 +250,28 @@ function void AddToAssets_Bitmap(Game_Assets *assets, char *filename, BitmapID i
     AddAsset(assets, assetHeader, bitmap.memory);
 }
 
-function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoint)
+function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoint, f32 fontSize)
 {
     Glyph glyph = {};
     
-    f32 scale = stbtt_ScaleForPixelHeight(&font.font, DEFAULT_FONT_SIZE);
+    f32 scale = stbtt_ScaleForPixelHeight(&font.font, fontSize);
     
     if (codepoint != ' ')
     {
         v2s min = V2S();
         v2s max = V2S();
-        stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &min.x, &min.y, &max.x, &max.y);
+        if (font.monospace)
+        {
+            v2s unusedMin = V2S();
+            v2s unusedMax = V2S();
+            
+            stbtt_GetCodepointBitmapBox(&font.font, '_', scale, scale, &min.x, &unusedMin.y, &max.x, &unusedMax.y);
+            stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &unusedMin.x, &min.y, &unusedMax.x, &max.y);
+        }
+        else
+        {
+            stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &min.x, &min.y, &max.x, &max.y);
+        }
         
         --min;
         ++max;
@@ -312,7 +323,7 @@ function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoi
         {
             v2s min = V2S();
             v2s max = V2S();
-            stbtt_GetCodepointBitmapBox(&font.font, 'A', scale, scale, &min.x, &min.y, &max.x, &max.y);
+            stbtt_GetCodepointBitmapBox(&font.font, 'W', scale, scale, &min.x, &min.y, &max.x, &max.y);
             --min;
             ++max;
             glyph.info.dims = V2S(max.x - min.x + 1, 2);
@@ -331,9 +342,9 @@ function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoi
     AddAsset(assets, assetHeader, glyph.memory);
 }
 
-function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font)
+function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font, f32 fontSize)
 {
-    float scale = stbtt_ScaleForPixelHeight(&font.font, DEFAULT_FONT_SIZE);
+    float scale = stbtt_ScaleForPixelHeight(&font.font, fontSize);
     
     KerningTable table = {};
     sprintf(table.info.font, "%s", font.fontName);
@@ -442,7 +453,11 @@ function void WriteAssetFile(Game_Assets assets, char *filename, FILE *logFile)
 function void GetFontInfo(FontInfo *font, char *fontName, char *fontFileName, b32 monospace, b32 allCapital)
 {
     FILE *file = fopen(fontFileName, "rb");
-    ASSERT(file);
+    if (!file)
+    {
+        printf("Failed to find: %s\n", fontFileName);
+        ASSERT(false);
+    }
     
     u8 *ttfBuffer = (u8 *)calloc(1, 1 << 25);
     fread(ttfBuffer, 1, 1 << 25, file);
@@ -464,7 +479,7 @@ s32 main(s32 argc, char **argv)
     
     FontInfo fonts[2] = {};
     GetFontInfo(&fonts[0], "Hyperspace", ".\\raw\\HyperspaceBold.ttf", false, true);
-    GetFontInfo(&fonts[1], "Arial", "C:\\Windows\\Fonts\\Arial.ttf", false, false);
+    GetFontInfo(&fonts[1], "Debug", "C:\\Windows\\Fonts\\Ltype.ttf", true, false);
     
     AddToAssets_Bitmap(&assets, ".\\raw\\player.bmp", BitmapID_Player_NoTrail);
     AddToAssets_Bitmap(&assets, ".\\raw\\ast1.bmp", BitmapID_Asteroid0);
@@ -478,12 +493,13 @@ s32 main(s32 argc, char **argv)
     
     for (s32 fontIndex = 0; fontIndex < ARRAY_COUNT(fonts); ++fontIndex)
     {
+        f32 fontSize = (strcmp(fonts[fontIndex].fontName, "Debug") == 0) ? 16.0f : DEFAULT_FONT_SIZE;
         for (char glyphCodepoint = ' '; glyphCodepoint <= '~'; ++glyphCodepoint)
         {
-            AddToAssets_Glyph(&assets, fonts[fontIndex], glyphCodepoint);
+            AddToAssets_Glyph(&assets, fonts[fontIndex], glyphCodepoint, fontSize);
         }
         
-        AddToAssets_KerningAndMetadata(&assets, fonts[fontIndex]);
+        AddToAssets_KerningAndMetadata(&assets, fonts[fontIndex], fontSize);
     }
     
     WriteAssetFile(assets, "fonts.aaf", logFile);

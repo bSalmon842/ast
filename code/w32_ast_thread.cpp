@@ -42,13 +42,13 @@ function b32 ProcessNextParallelQueueEntry(Platform_ParallelQueue *queue)
     u32 newReadEntry = (nextEntryToReadOriginal + 1) % ARRAY_COUNT(queue->entries);
     if (queue->nextEntryToRead != queue->nextEntryToWrite)
     {
-        u32 index = InterlockedCompareExchange(&queue->nextEntryToRead, newReadEntry, nextEntryToReadOriginal);
+        u32 index = AtomicCompareExchange(&queue->nextEntryToRead, newReadEntry, nextEntryToReadOriginal);
         if (index == nextEntryToReadOriginal)
         {
             ParallelWorkEntry entry = queue->entries[index];
             entry.callback(entry.data);
             
-            InterlockedIncrement(&queue->completedCount);
+            AtomicIncrement(&queue->completedCount);
         }
     }
     else

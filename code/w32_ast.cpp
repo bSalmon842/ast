@@ -32,22 +32,6 @@ global HGLRC globalGLContext;
 #include "w32_ast_opengl.cpp"
 #include "w32_ast_thread.cpp"
 
-#if AST_INTERNAL
-function void HandleCycleCounters(Game_Memory *memory)
-{
-    for (s32 counterIndex = 0; counterIndex < ARRAY_COUNT(memory->counters); ++counterIndex)
-    {
-        DebugRecord *record = &memory->counters[counterIndex];
-        
-        if (record->hitCount)
-        {
-            record->hitCount = 0;
-            record->cycleCount = 0;
-        }
-    }
-}
-#endif // AST_INTERNAL
-
 function PLATFORM_MEM_ALLOC(W32_MemAlloc)
 {
     void *result = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -566,7 +550,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     W32_BuildExePathFileName(&platformState, "lock.tmp", lockPath);
     
     W32_BackBuffer platformBackBuffer = {};
-    W32_ResizeDIBSection(&platformBackBuffer, 900, 900);
+    W32_ResizeDIBSection(&platformBackBuffer, 1000, 1000);
     
     WNDCLASSA windowClass = {};
     windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -576,7 +560,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
     
     if (RegisterClassA(&windowClass))
     {
-        RECT windowRect = {0, 0, 900, 900};
+        RECT windowRect = {0, 0, 1000, 1000};
         u32 windowFlags = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
         AdjustWindowRect(&windowRect, windowFlags, FALSE);
         HWND window = CreateWindowExA(0,
@@ -658,10 +642,12 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             
             gameMem.permaStorageSize = MEGABYTE(16);
             gameMem.transStorageSize = MEGABYTE(512);
+            gameMem.debugStorageSize = MEGABYTE(64);
             
-            u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize;
+            u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize + gameMem.debugStorageSize;
             gameMem.permaStorage = VirtualAlloc(baseAddress, totalMemSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             gameMem.transStorage = (u8 *)gameMem.permaStorage + gameMem.permaStorageSize;
+            gameMem.debugStorage = (u8 *)gameMem.transStorage + gameMem.transStorageSize;
             
             if (samples && gameMem.permaStorage && gameMem.transStorage)
             {
@@ -680,6 +666,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 f32 lastSecPerFrame = 0.16f;
                 while (globalRunning)
                 {
+                    DebugFrameInfo debugFrame = {};
 #if AST_INTERNAL
                     FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
                     if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
@@ -689,6 +676,8 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         W32_UnloadProgramCode(&programCode);
                         programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
                     }
+                    
+                    debugFrame.dllLoad = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
 #endif
                     
                     newInput->deltaTime = lastSecPerFrame;
@@ -715,6 +704,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
 #endif
                     
 #if AST_INTERNAL
+                    debugFrame.input = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
                     debugGlobalMem = &gameMem;
 #endif
                     
@@ -736,6 +726,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
+#if AST_INTERNAL
+                    debugFrame.audio = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+#endif
+                    
                     W32_WindowDims resizeCheck = W32_GetWindowDims(window);
                     if (resizeCheck.width != gameRenderCommands.width ||
                         resizeCheck.height != gameRenderCommands.height)
@@ -749,41 +743,27 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
                     }
                     
+#if AST_INTERNAL
+                    debugFrame.gameUpdate = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+#endif
+                    
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
                     
                     W32_PresentBuffer(&gameRenderCommands, platform, globalDeviceContext);
                     
-#if AST_INTERNAL
-                    {
-                        W32_DebugTimeMarker *marker = &debugTimeMarkers[debugTimeMarkerIndex++];
-                        if (debugTimeMarkerIndex >= ARRAY_COUNT(debugTimeMarkers))
-                        {
-                            debugTimeMarkerIndex = 0;
-                        }
-                        
-                        u64 positionFreq, positionUnits;
-                        
-                        IAudioClock *audioClock;
-                        audioOutput.audioClient->GetService(IID_PPV_ARGS(&audioClock));
-                        audioClock->GetFrequency(&positionFreq);
-                        audioClock->GetPosition(&positionUnits, 0);
-                        audioClock->Release();
-                        
-                        marker->playCursor = (s32)(audioOutput.samplesPerSecond * (positionUnits / positionFreq)) % audioOutput.samplesPerSecond;
-                    }
-#endif
                     SWAP(newInput, oldInput);
                     
 #if AST_INTERNAL
-                    HandleCycleCounters(&gameMem);
+                    debugFrame.frameComplete = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
 #endif
-                    
                     LARGE_INTEGER endCounter = BS842_Timing_GetClock();
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);
-                    f32 fps = 1.0f / lastSecPerFrame;
-                    f32 mspf = 1000.0f * lastSecPerFrame;
-                    //printf("%.02f / %.03f\n", fps, mspf);
                     lastCounter = endCounter;
+                    
+                    if (programCode.DebugFrameEnd)
+                    {
+                        programCode.DebugFrameEnd(&gameMem, &debugFrame);
+                    }
                 }
             }
         }

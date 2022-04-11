@@ -19,6 +19,7 @@ struct W32_ProgramCode
     FILETIME dllLastWriteTime;
     
     game_updateRender *UpdateRender;
+    game_debugFrameEnd *DebugFrameEnd;
     
     b32 isValid;
 };
@@ -70,6 +71,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
         if (result.programCodeDLL)
         {
             result.UpdateRender = (game_updateRender *)GetProcAddress(result.programCodeDLL, "Game_UpdateRender");
+            result.DebugFrameEnd = (game_debugFrameEnd *)GetProcAddress(result.programCodeDLL, "Game_DebugFrameEnd");
             
             result.isValid = (result.UpdateRender && true);
         }
@@ -78,6 +80,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
     if (!result.isValid)
     {
         result.UpdateRender = 0;
+        result.DebugFrameEnd = 0;
     }
     
     return result;
@@ -93,4 +96,5 @@ function void W32_UnloadProgramCode(W32_ProgramCode *programCode)
     programCode->programCodeDLL = 0;
     programCode->isValid = false;
     programCode->UpdateRender = 0;
+    programCode->DebugFrameEnd = 0;
 }
