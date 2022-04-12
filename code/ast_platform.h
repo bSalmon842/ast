@@ -230,14 +230,25 @@ struct Game_Memory
 extern Game_Memory *debugGlobalMem;
 #endif
 
+struct DebugFrameTimestamp
+{
+    char *name;
+    f32 time;
+};
+
 struct DebugFrameInfo
 {
-    f32 dllLoad;
-    f32 input;
-    f32 audio;
-    f32 gameUpdate;
-    f32 frameComplete;
+    u32 timestampCount;
+    DebugFrameTimestamp timestamps[64];
 };
+
+inline void DebugRecordTimestamp(DebugFrameInfo *frame, char *name, f32 time)
+{
+    ASSERT(frame->timestampCount < ARRAY_COUNT(frame->timestamps));
+    DebugFrameTimestamp *timestamp = &frame->timestamps[frame->timestampCount++];
+    timestamp->name = name;
+    timestamp->time = time;
+}
 
 #define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory, DebugFrameInfo *frame)
 typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);

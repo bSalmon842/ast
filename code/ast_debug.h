@@ -51,7 +51,9 @@ struct DebugState
 {
     u32 datumIndex;
     u32 counterCount;
+    
     DebugCounter counters[512];
+    DebugFrameInfo frames[DEBUG_DATUM_COUNT];
 };
 
 struct DebugTiming
@@ -85,44 +87,6 @@ struct DebugStat
     f64 ave;
     u32 count;
 };
-
-inline void StartDebugStat(DebugStat *stat)
-{
-    stat->min = FLT_MAX;
-    stat->max = -FLT_MAX;
-    stat->ave = 0.0;
-    stat->count = 0;
-}
-
-inline void CalcDebugStat(DebugStat *stat, f64 value)
-{
-    ++stat->count;
-    
-    if (stat->min > value)
-    {
-        stat->min = value;
-    }
-    
-    if (stat->max < value)
-    {
-        stat->max = value;
-    }
-    
-    stat->ave += value;
-}
-
-inline void FinishDebugStat(DebugStat *stat)
-{
-    if (stat->count)
-    {
-        stat->ave /= (f64)stat->count;
-    }
-    else
-    {
-        stat->min = 0.0;
-        stat->max = 0.0;
-    }
-}
 
 #define AST_DEBUG_H
 #endif //AST_DEBUG_H

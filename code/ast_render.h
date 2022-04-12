@@ -18,12 +18,6 @@ struct Camera
     b32 orthographic;
 };
 
-struct RenderString
-{
-    char *text;
-    u8 length;
-};
-
 typedef struct
 {
     u32 a;
@@ -81,7 +75,7 @@ typedef struct
 
 typedef struct
 {
-    RenderString string;
+    char string[256];
     char font[32];
     KerningTable kerningTable;
     FontMetadata metadata;

@@ -7,6 +7,12 @@ Notice: (C) Copyright 2021 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_UTILITY_H
 
+#if 0
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb_sprintf.h"
+#endif
+#define stbsp_sprintf(a, b, ...) sprintf(a, b, __VA_ARGS__)
+
 #define function static
 #define persist static
 #define global static
@@ -112,6 +118,20 @@ inline b32 IsCharWhitespace(char c)
                   c == '\r');
     
     return result;
+}
+
+inline void StringToUpper(char *string)
+{
+    char *c = string;
+    while (*c)
+    {
+        if (*c >= 'a' && *c <= 'z')
+        {
+            *c -= 32;
+        }
+        
+        c++;
+    }
 }
 
 inline u32 SafeTruncateU64(u64 value)

@@ -210,7 +210,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             {
                 RenderEntry_Text *entry = (RenderEntry_Text *)(commands->pushBufferBase + baseAddress);
                 
-                char *c = entry->string.text;
+                char *c = entry->string;
                 f32 charPosX = entry->positioning.pos.x;
                 while (*c)
                 {
@@ -249,7 +249,6 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     c++;
                 }
                 
-                platform.MemFree(entry->string.text);
                 baseAddress += sizeof(RenderEntry_Text);
             } break;
             

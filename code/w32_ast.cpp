@@ -677,7 +677,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
                     }
                     
-                    debugFrame.dllLoad = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+                    DebugRecordTimestamp(&debugFrame, "DLL Load", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
 #endif
                     
                     newInput->deltaTime = lastSecPerFrame;
@@ -704,7 +704,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
 #endif
                     
 #if AST_INTERNAL
-                    debugFrame.input = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+                    DebugRecordTimestamp(&debugFrame, "Input", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
                     debugGlobalMem = &gameMem;
 #endif
                     
@@ -727,7 +727,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
 #if AST_INTERNAL
-                    debugFrame.audio = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+                    DebugRecordTimestamp(&debugFrame, "Audio", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
 #endif
                     
                     W32_WindowDims resizeCheck = W32_GetWindowDims(window);
@@ -744,7 +744,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     }
                     
 #if AST_INTERNAL
-                    debugFrame.gameUpdate = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+                    DebugRecordTimestamp(&debugFrame, "Game Update", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
 #endif
                     
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
@@ -754,7 +754,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     SWAP(newInput, oldInput);
                     
 #if AST_INTERNAL
-                    debugFrame.frameComplete = BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock());
+                    DebugRecordTimestamp(&debugFrame, "Frame Complete", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
 #endif
                     LARGE_INTEGER endCounter = BS842_Timing_GetClock();
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);

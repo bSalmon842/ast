@@ -120,6 +120,13 @@ inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera
     }
 }
 
+inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v2f min, v2f max, f32 z, f32 angle, s32 zLayer, v4f colour)
+{
+    v3f offset = V3F(((max - min) / 2.0f) + min, z);
+    v2f dims = max - min;
+    PushRect(commands, platform, camera, offset, dims, angle, zLayer, colour);
+}
+
 inline void PushHollowRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, s32 zLayer, v4f colour)
 {
     PushRect(commands, platform, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Top
@@ -137,31 +144,20 @@ inline void PushClear(Game_RenderCommands *commands, PlatformAPI platform, v4f c
     }
 }
 
-inline void RenderStringToUpper(RenderString *string)
-{
-    for (s32 i = 0; i < string->length; ++i)
-    {
-        if (string->text[i] >= 'a' && string->text[i] <= 'z')
-        {
-            string->text[i] -= 32;
-        }
-    }
-}
-
-inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, RenderString string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
+inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
     RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
-        entry->string = string;
-        sprintf(entry->font, "%s", font);
+        stbsp_sprintf(entry->string, "%s", string);
+        stbsp_sprintf(entry->font, "%s", font);
         
         LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
         entry->metadata = metadataHeader->metadata;
         if (entry->metadata.allCapital)
         {
-            RenderStringToUpper(&entry->string);
+            StringToUpper(entry->string);
         }
         
         LoadedAssetHeader *kerningHeader = GetAsset(commands->loadedAssets, AssetType_KerningTable, font, true);
@@ -173,24 +169,4 @@ inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera
         entry->scale = scale;
         entry->colour = colour;
     }
-}
-
-#include <stdarg.h>
-inline RenderString MakeRenderString(PlatformAPI platform, char *fmt, ...)
-{
-    DEBUG_TIMED_SCOPE();
-    
-    RenderString result = {};
-    
-    va_list args;
-    va_start(args, fmt);
-    
-    char string[256] = {};
-    result.length = (u8)vsprintf(string, fmt, args);
-    result.text = (char *)platform.MemAlloc(result.length);
-    for (u8 i = 0; i < result.length; ++i) { result.text[i] = string[i]; }
-    
-    va_end(args);
-    
-    return result;
 }

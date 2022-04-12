@@ -1,4 +1,13 @@
 /////////////////////////////////////
+12APR2022
+
+- Moved debug functions out to ast_debug.cpp
+- Removed RenderString
+- Included stb_sprintf for faster sprintf and avoiding CRT
+- Added second PushRect function which takes a min and a max
+- Added graphs for each function counter
+- Setup frame timestamps, still needs vis
+/////////////////////////////////////
 11APR2022
 
 - Fixed broken build from halfway-done debug refactor
