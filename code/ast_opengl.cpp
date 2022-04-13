@@ -12,9 +12,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_asset.h"
 #include "ast_render.h"
 
-#include "ast_memory.cpp"
-#include "ast_asset.cpp"
-
 // NOTE(bSalmon): Universal GL defines
 #define GL_NUM_EXTENSIONS           0x821D
 #define GL_SHADING_LANGUAGE_VERSION 0x8B8C
@@ -148,15 +145,14 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             {
                 RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(commands->pushBufferBase + baseAddress);
                 
-                LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Bitmap, &entry->bitmapID, false);
+                LoadedAssetHeader *assetHeader = entry->assetHeader;
                 if (assetHeader->loadState == AssetLoad_Loaded)
                 {
-                    Bitmap texture = GetBitmapFromAssetHeader(assetHeader);
-                    ASSERT(texture.memory);
+                    BitmapInfo texture = assetHeader->bitmap;
                     
                     glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                     
-                    v2f min = entry->positioning.pos.xy - (entry->positioning.dims * texture.info.align);
+                    v2f min = entry->positioning.pos.xy - (entry->positioning.dims * texture.align);
                     v2f max = min + entry->positioning.dims;
                     
                     f32 cosAngle = Cos(entry->angle);
@@ -212,7 +208,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 
                 char *c = entry->string;
                 f32 charPosX = entry->positioning.pos.x;
-                while (*c)
+                for (s32 i = 0; *c; ++i)
                 {
                     switch (*c)
                     {
@@ -224,23 +220,33 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                         
                         default:
                         {
-                            GlyphIdentifier glyphID = {*c, entry->font};
-                            LoadedAssetHeader *assetHeader = GetAsset(commands->loadedAssets, AssetType_Glyph, &glyphID, false);
+                            LoadedAssetHeader *assetHeader = entry->assetHeaders[i];
                             if (assetHeader->loadState == AssetLoad_Loaded)
                             {
-                                Glyph glyph = GetGlyphFromAssetHeader(assetHeader);
-                                ASSERT(glyph.memory);
+                                GlyphInfo glyph = assetHeader->glyph;
                                 
                                 glBindTexture(GL_TEXTURE_2D, assetHeader->textureHandle);
                                 
-                                v2f min = V2F(charPosX, entry->positioning.pos.y) - ((ToV2F(glyph.info.dims) * entry->scale) * glyph.info.align);
-                                v2f max = min + (ToV2F(glyph.info.dims) * entry->scale);
+                                v2f min = V2F(charPosX, entry->positioning.pos.y) - ((ToV2F(glyph.dims) * entry->scale) * glyph.align);
+                                v2f max = min + (ToV2F(glyph.dims) * entry->scale);
                                 OpenGL_Rectangle(min, max, entry->colour);
                                 
                                 if (*(c + 1))
                                 {
-                                    Kerning kerning = GetKerningInfo(&entry->kerningTable, *c, *(c + 1));
-                                    charPosX += (glyph.info.dims.x * entry->scale) + (kerning.advance * entry->scale) + 1.0f;
+                                    Kerning kern = {};
+                                    KerningTable table = entry->kerningTable;
+                                    for (u32 index = 0; index < table.info.infoCount; ++index)
+                                    {
+                                        Kerning info = table.table[index];
+                                        if (info.codepoint0 == *c &&
+                                            info.codepoint1 == *(c + 1))
+                                        {
+                                            kern = info;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    charPosX += (glyph.dims.x * entry->scale) + (kern.advance * entry->scale) + 1.0f;
                                 }
                             }
                         } break;

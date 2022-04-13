@@ -32,9 +32,21 @@ inline u32 AtomicIncrement(u32 volatile *dest)
     return result;
 }
 
+inline u64 AtomicIncrement(u64 volatile *dest)
+{
+    u64 result = _InterlockedIncrement64((s64 *)dest);
+    return result;
+}
+
 inline u64 AtomicAdd(u64 volatile *dest, u64 value)
 {
     u64 result = _InterlockedExchangeAdd64((s64 *)dest, value);
+    return result;
+}
+
+inline u32 AtomicAdd(u32 volatile *dest, u32 value)
+{
+    u32 result = _InterlockedExchangeAdd((long *)dest, value);
     return result;
 }
 

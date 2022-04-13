@@ -14,7 +14,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_intrinsics.h"
 #include "ast_memory.h"
+
+#ifdef DEBUG_RECORD_ARRAY_INDEX
 #include "ast_debug.h"
+#endif
 
 #define RND_IMPLEMENTATION
 #include "rnd.h"

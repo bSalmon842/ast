@@ -1,4 +1,12 @@
 /////////////////////////////////////
+13APR2022
+
+- Finished frame timestamp vis
+- Moved GetAsset to push time
+- Removed some unnecessary clutter in OpenGL_Render
+- Removed GetKerningInfo due to it only being used in one place
+- Continued debug work, debug events system
+/////////////////////////////////////
 12APR2022
 
 - Moved debug functions out to ast_debug.cpp

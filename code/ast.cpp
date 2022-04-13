@@ -204,6 +204,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
+#if 0        
         EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f, 5.0f};
         EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f, 5.0f};
         
@@ -220,6 +221,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         AddEmitter(gameState, platform, V3F(65.0f, 70.0f, 0.0f), true, 128,
                    progress2, shape3, V2F(0.5f), true, 0, 0, TestParticleSimCollision);
+#endif
         
         gameState->initialised = true;
     }
@@ -384,7 +386,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
+                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
                     PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
                     PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
                 } break;
@@ -406,7 +408,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
                     PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
@@ -431,7 +433,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
                         PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
@@ -470,7 +472,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         Emitter *currEmitter = &gameState->emitters[emitterIndex];
         if (currEmitter->active)
         {
-            UpdateRenderEmitter(gameState, renderCommands, gameState->gameCamera, input, currEmitter, platform);
+            UpdateRenderEmitter(gameState, renderCommands, &transState->loadedAssets, gameState->gameCamera, input, currEmitter, platform);
         }
     }
     
@@ -479,13 +481,13 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     char scoreString[16];
     stbsp_sprintf(scoreString, "%02d", gameState->score);
     v2f scorePixelOffset = V2F(25.0f, (f32)renderCommands->height - 60.0f);
-    PushText(renderCommands, platform, gameState->gameCamera, scoreString, "Hyperspace",
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, scoreString, "Hyperspace",
              V3F(scorePixelOffset, 0.0f), 0.5f, 0, V4F(1.0f));
     
 #if AST_INTERNAL
     if (debug_info)
     {
-        PrintDebugRecords(memory, renderCommands, gameState->gameCamera, memory->platform);
+        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, gameState->gameCamera, memory->platform);
     }
     if (debug_cam)
     {
@@ -499,7 +501,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     char metricString[16];
     stbsp_sprintf(metricString, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
     v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
-    PushText(renderCommands, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
 #endif
     
     // AUDIO
@@ -510,6 +512,8 @@ DebugRecord DEBUG_RECORD_ARRAY[__COUNTER__];
 
 extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
 {
+    u64 eventIndices = AtomicExchange(&globalDebugEventIndices, 0);
+    
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {

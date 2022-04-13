@@ -5,6 +5,9 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
+u64 globalDebugEventIndices;
+DebugEvent globalDebugEventArray[2][MAX_DEBUG_EVENTS];
+
 inline void StartDebugStat(DebugStat *stat)
 {
     stat->min = FLT_MAX;
@@ -43,7 +46,7 @@ inline void FinishDebugStat(DebugStat *stat)
     }
 }
 
-function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform)
+function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Camera camera, PlatformAPI platform)
 {
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
@@ -59,7 +62,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         f32 lineHeight = metadata.lineGap * scale;
         
         char *title = "Debug Perf Metrics";
-        PushText(commands, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
+        PushText(commands, loadedAssets, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
         debugLineOffset.y -= lineHeight;
         
         for (u32 ctrIndex = 0; ctrIndex < debugState->counterCount; ++ctrIndex)
@@ -91,7 +94,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
                 char string[128];
                 stbsp_sprintf(string, "%24s: %10uc | %6u hits | %10uc/hit",
                               counter->functionName, (u32)cycleStat.ave, (u32)hitStat.ave, (u32)cphStat.ave);
-                PushText(commands, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
+                PushText(commands, loadedAssets, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
                 
                 f32 chartWidth = (f32)commands->width * 0.25f;
                 f32 datumWidth = ((1.0f / (f32)DEBUG_DATUM_COUNT) * chartWidth);
@@ -111,16 +114,56 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
             }
         }
         
+        v4f colourTable[] =
+        {
+            V4F(1.0f, 0.0f, 0.0f, 1.0f),
+            V4F(0.0f, 1.0f, 0.0f, 1.0f),
+            V4F(0.0f, 0.0f, 1.0f, 1.0f),
+            V4F(1.0f, 1.0f, 0.0f, 1.0f),
+            V4F(1.0f, 0.0f, 1.0f, 1.0f),
+            V4F(0.0f, 1.0f, 1.0f, 1.0f),
+            V4F(1.0f, 0.5f, 0.0f, 1.0f),
+            V4F(0.5f, 0.0f, 1.0f, 1.0f),
+            V4F(0.0f, 0.5f, 1.0f, 1.0f),
+        };
+        
+        f32 targetTime = 0.01666f;
+        v2f barBaseMin = V2F(15.0f, 10.0f);
+        f32 barWidth = 3.0f;
+        f32 barGap = 1.0f;
+        f32 chartHeight = 50.0f;
+        f32 textY = (f32)commands->height - 20.0f;
+        PushRect(commands, platform, camera, barBaseMin + V2F(-5.0f, chartHeight), barBaseMin + V2F(((barWidth + barGap) * DEBUG_DATUM_COUNT), chartHeight + 1), 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
+        
         for (u32 frameIndex = 0; frameIndex < DEBUG_DATUM_COUNT; ++frameIndex)
         {
             DebugFrameInfo *frame = &debugState->frames[frameIndex];
             f32 prevTime = 0.0f;
+            
+            v2f barSegmentMin = barBaseMin;
             for (u32 timestampIndex = 0; timestampIndex < frame->timestampCount; ++timestampIndex)
             {
                 DebugFrameTimestamp *timestamp = &frame->timestamps[timestampIndex];
                 f32 timeElapsed = timestamp->time - prevTime;
                 prevTime = timestamp->time;
+                
+                f32 barSegmentHeight = (timestamp->time / targetTime) * chartHeight;
+                v2f barSegmentMax = barSegmentMin + V2F(barWidth, barSegmentHeight);
+                
+                v4f segmentColour = colourTable[timestampIndex % ARRAY_COUNT(colourTable)];
+                PushRect(commands, platform, camera, barSegmentMin, barSegmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                
+                if (frameIndex == 0)
+                {
+                    PushText(commands, loadedAssets, platform, camera, timestamp->name, "Debug", V3F(100.0f, textY, 0.0f), 0.75f, DEBUG_LAYER - 3, segmentColour);
+                    textY -= 10.0f;
+                }
+                
+                barSegmentMin.y += barSegmentHeight;
+                
             }
+            
+            barBaseMin.x += (barWidth + barGap);
         }
         
         v2f min = V2F(10.0f, debugLineOffset.y);

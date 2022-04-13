@@ -46,6 +46,8 @@ function PARALLEL_WORK_CALLBACK(ParallelLoadAsset)
 
 function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType type, void *identifier, b32 immediate)
 {
+    DEBUG_TIMED_SCOPE();
+    
     LoadedAssetHeader *result = 0;
     
     for (u32 assetIndex = 0; assetIndex < loadedAssets->assetCount; ++assetIndex)
@@ -164,50 +166,12 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
     return result;
 }
 
-inline Bitmap GetBitmapFromAssetHeader(LoadedAssetHeader *assetHeader)
-{
-    Bitmap result = {};
-    
-    result.info = assetHeader->bitmap;
-    result.memory = assetHeader->asset;
-    
-    return result;
-}
-
-inline Glyph GetGlyphFromAssetHeader(LoadedAssetHeader *assetHeader)
-{
-    Glyph result = {};
-    
-    result.info = assetHeader->glyph;
-    result.memory = assetHeader->asset;
-    
-    return result;
-}
-
 inline KerningTable GetKerningTableFromAssetHeader(LoadedAssetHeader *assetHeader)
 {
     KerningTable result = {};
     
     result.info = assetHeader->kerning;
     result.table = (Kerning *)assetHeader->asset;
-    
-    return result;
-}
-
-function Kerning GetKerningInfo(KerningTable *kerningTable, char searchChar0, char searchChar1)
-{
-    Kerning result = {};
-    
-    for (u32 index = 0; index < kerningTable->info.infoCount; ++index)
-    {
-        Kerning info = kerningTable->table[index];
-        if (info.codepoint0 == searchChar0 &&
-            info.codepoint1 == searchChar1)
-        {
-            result = info;
-            break;
-        }
-    }
     
     return result;
 }

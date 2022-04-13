@@ -18,14 +18,6 @@ struct Camera
     b32 orthographic;
 };
 
-typedef struct
-{
-    u32 a;
-    u32 b;
-    u32 c;
-    u32 d;
-} BilinearSampleResult;
-
 enum RenderEntryType
 {
     RenderEntryType_RenderEntry_Null,
@@ -35,13 +27,13 @@ enum RenderEntryType
     RenderEntryType_RenderEntry_Text,
 };
 
-typedef struct
+struct RenderEntry_Header
 {
     RenderEntryType type;
     f32 zPos;
     s32 zLayer;
     usize entrySize;
-} RenderEntry_Header;
+};
 
 struct RenderEntryPositioning
 {
@@ -50,33 +42,34 @@ struct RenderEntryPositioning
     b32 valid;
 };
 
-typedef struct
+struct RenderEntry_Bitmap
 {
-    BitmapID bitmapID;
+    LoadedAssetHeader *assetHeader;
     
     RenderEntryPositioning positioning;
     
     f32 angle;
     v4f colour;
-} RenderEntry_Bitmap;
+};
 
-typedef struct
+struct RenderEntry_Rect
 {
     RenderEntryPositioning positioning;
     
     f32 angle;
     v4f colour;
-} RenderEntry_Rect;
+};
 
-typedef struct
+struct RenderEntry_Clear
 {
     v4f colour;
-} RenderEntry_Clear;
+};
 
-typedef struct
+struct RenderEntry_Text
 {
-    char string[256];
-    char font[32];
+    LoadedAssetHeader *assetHeaders[128];
+    
+    char string[128];
     KerningTable kerningTable;
     FontMetadata metadata;
     
@@ -84,7 +77,7 @@ typedef struct
     
     f32 scale;
     v4f colour;
-} RenderEntry_Text;
+};
 
 #define AST_RENDER_H
 #endif //AST_RENDER_H

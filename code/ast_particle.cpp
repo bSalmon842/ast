@@ -120,7 +120,7 @@ function Emitter *AddEmitter(Game_State *gameState, PlatformAPI platform, v3f em
     return result;
 }
 
-function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *renderCommands, Camera camera, Game_Input *input, Emitter *emitter, PlatformAPI platform)
+function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *renderCommands, Game_LoadedAssets *loadedAssets, Camera camera, Game_Input *input, Emitter *emitter, PlatformAPI platform)
 {
     if (emitter->active)
     {
@@ -161,7 +161,7 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
                 }
                 else
                 {
-                    PushBitmap(renderCommands, platform, camera, particle->bitmap, particle->pos, particle->dims, 0.0f, 0, particle->colour);
+                    PushBitmap(renderCommands, loadedAssets, platform, camera, particle->bitmap, particle->pos, particle->dims, 0.0f, 0, particle->colour);
                 }
                 
                 if (debug_colliders)

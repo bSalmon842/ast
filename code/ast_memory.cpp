@@ -108,8 +108,13 @@ inline void FinishParallelMemory(ParallelMemory *mem)
     mem->inUse = false;
 }
 
+
+#include <string.h>
 inline void CopyMem(void *dest, void *src, usize size)
 {
+    DEBUG_TIMED_SCOPE();
+    
+#if 0    
     u8 *destPtr = (u8 *)dest;
     u8 *srcPtr = (u8 *)src;
     while (size)
@@ -117,4 +122,7 @@ inline void CopyMem(void *dest, void *src, usize size)
         *destPtr++ = *srcPtr++;
         size--;
     }
+#else
+    memcpy(dest, src, size);
+#endif
 }

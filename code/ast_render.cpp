@@ -5,23 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-inline void *FillRenderEntry(Game_RenderCommands *commands, usize size, u8 *baseAddress, RenderEntryType type, f32 zPos, s32 zLayer)
-{
-    void *result = 0;
-    
-    RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
-    header->type = type;
-    header->zPos = zPos;
-    header->zLayer = zLayer;
-    header->entrySize = size;
-    result = header + 1;
-    
-    commands->pushBufferSize += size;
-    commands->entryCount++;
-    
-    return result;
-}
-
 #define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
@@ -37,16 +20,24 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
         for (u32 entryIndex = 0; entryIndex <= commands->entryCount; ++entryIndex)
         {
             RenderEntry_Header *testHeader = (RenderEntry_Header *)baseAddress;
-            if (zPos < testHeader->zPos || (zPos == testHeader->zPos && zLayer < testHeader->zLayer) || entryIndex == commands->entryCount)
+            if (entryIndex == commands->entryCount || zPos < testHeader->zPos || (zPos == testHeader->zPos && zLayer < testHeader->zLayer))
             {
                 usize shiftSize = commands->pushBufferSize - (baseAddress - commands->pushBufferBase);
                 void *temp = platform.MemAlloc(shiftSize);
                 CopyMem(temp, baseAddress, shiftSize);
                 CopyMem(baseAddress + size, temp, shiftSize);
-                
-                result = FillRenderEntry(commands, size, baseAddress, type, zPos, zLayer);
-                
                 platform.MemFree(temp);
+                
+                RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
+                header->type = type;
+                header->zPos = zPos;
+                header->zLayer = zLayer;
+                header->entrySize = size;
+                result = header + 1;
+                
+                commands->pushBufferSize += size;
+                commands->entryCount++;
+                
                 break;
             }
             
@@ -92,13 +83,13 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour = V4F(1.0f))
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
     RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
-        entry->bitmapID = id;
+        entry->assetHeader = GetAsset(loadedAssets, AssetType_Bitmap, &id, false);
         
         entry->positioning = positioning;
         
@@ -144,14 +135,24 @@ inline void PushClear(Game_RenderCommands *commands, PlatformAPI platform, v4f c
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
+inline void PushText(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
     RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, zLayer, platform);
     if (entry && positioning.valid)
     {
         stbsp_sprintf(entry->string, "%s", string);
-        stbsp_sprintf(entry->font, "%s", font);
+        
+        char *c = entry->string;
+        for (s32 i = 0; *c; ++i)
+        {
+            if (*c != '\n')
+            {
+                GlyphIdentifier id = {*c, font};
+                entry->assetHeaders[i] = GetAsset(loadedAssets, AssetType_Glyph, &id, false);
+            }
+            c++;
+        }
         
         LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
         entry->metadata = metadataHeader->metadata;
