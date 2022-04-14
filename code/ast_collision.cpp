@@ -32,7 +32,7 @@ function Collider MakeCollider(Game_State *gameState, ColliderType type, v3f ori
 // TODO(bSalmon): Should this get entities dependent of z axis?
 inline NearbyEntities NearbyEntitiesStart(Game_State *gameState, v2f origin, f32 distance, PlatformAPI platform)
 {
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     NearbyEntities result = {};
     
@@ -79,7 +79,7 @@ inline void NearbyEntitiesFinish(NearbyEntities *nearby, PlatformAPI platform)
 
 inline TestCollisionResult TestCollision(CollisionInfo collisionInfo, f32 deltaMain, f32 deltaAlt, f32 collidedStart, f32 relPosMain, f32 relPosAlt, f32 minAlt, f32 maxAlt, f32 *tMin)
 {
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     TestCollisionResult result = {};
     
@@ -111,7 +111,7 @@ inline TestCollisionResult TestCollision(CollisionInfo collisionInfo, f32 deltaM
 #define COLLISION_ITERATION_COUNT 4
 function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAPI platform)
 {
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     v2f entityDelta = entity->newPos.xy - entity->pos.xy;
     // TODO(bSalmon): For when entities are found via their sides/corners NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, VectorLength(entityDelta) * 2.0f, platform);
@@ -198,7 +198,7 @@ function void HandleCollisions(Game_State *gameState, Entity *entity, PlatformAP
 // TODO(bSalmon): Use a ddP to let particles try and push in their intended direction
 function void HandleParticleCollisions(Game_State *gameState, Particle *particle, PlatformAPI platform)
 {
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     v2f delta = particle->newPos - particle->pos.xy;
     // TODO(bSalmon): For when entities are found via their sides/corners NearbyEntities nearby = NearbyEntitiesStart(gameState, entity->pos, VectorLength(entityDelta) * 2.0f, platform);

@@ -146,7 +146,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     debugGlobalMem = memory;
 #endif
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
     Game_State *gameState = (Game_State *)memory->permaStorage;
@@ -508,17 +508,64 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     //OutputTestSineWave(gameState, audioBuffer, 256);
 }
 
-DebugRecord DEBUG_RECORD_ARRAY[__COUNTER__];
+////////// DEBUG STUFF FROM HERE ON OUT ////////////
+/////// ABANDON ALL HOPE, YE WHO ENTER HERE ////////
+
+#define DEBUG_RECORDS_COUNT_DLL __COUNTER__
+#define debugRecordsCount_Platform 0
+DebugTable globalDebugTable;
+
+function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEvent *events)
+{
+    debugState->counterCount = DEBUG_RECORDS_COUNT_DLL + debugRecordsCount_Platform;
+    for (u32 counterIndex = 0; counterIndex < debugState->counterCount; ++counterIndex)
+    {
+        DebugCounter *counter = &debugState->counters[counterIndex];
+        counter->data[debugState->datumIndex].hits = 0;
+        counter->data[debugState->datumIndex].cycles = 0;
+    }
+    
+    DebugCounter *counters[DEBUG_TRANSLATION_UNITS]
+    {
+        debugState->counters,
+        debugState->counters + DEBUG_RECORDS_COUNT_DLL,
+    };
+    for (u32 eventIndex = 0; eventIndex < eventCount; ++eventIndex)
+    {
+        DebugEvent *event = &events[eventIndex];
+        DebugRecord *srcRecord = &globalDebugTable.records[TRANSLATION_UNIT_INDEX][event->recordIndex];
+        DebugCounter *destCounter = &counters[event->translationUnit][event->recordIndex];
+        
+        destCounter->fileName = srcRecord->fileName;
+        destCounter->functionName = srcRecord->functionName;
+        destCounter->lineNumber = srcRecord->lineNumber;
+        
+        if (event->type == DebugEvent_Start)
+        {
+            ++destCounter->data[debugState->datumIndex].hits;
+            destCounter->data[debugState->datumIndex].cycles -= event->clock;
+        }
+        else
+        {
+            ASSERT(event->type == DebugEvent_Finish);
+            destCounter->data[debugState->datumIndex].cycles += event->clock;
+        }
+    }
+}
 
 extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
 {
-    u64 eventIndices = AtomicExchange(&globalDebugEventIndices, 0);
+    globalDebugTable.currentEventArrayIndex = !globalDebugTable.currentEventArrayIndex;
+    u64 eventIndices = AtomicExchange(&globalDebugTable.eventIndices, (u64)globalDebugTable.currentEventArrayIndex << 32);
+    
+    u32 eventArrayIndex = (u32)(eventIndices >> 32);
+    u32 lastEventIndex = (u32)(eventIndices & 0xFFFFFFFF);
     
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {
         debugState->counterCount = 0;
-        UpdateDebugRecords(debugState, DebugRecords_Main, ARRAY_COUNT(DebugRecords_Main));
+        CollectDebugEvents(debugState, lastEventIndex, globalDebugTable.events[eventArrayIndex]);
         debugState->frames[debugState->datumIndex] = *frame;
         
         ++debugState->datumIndex;

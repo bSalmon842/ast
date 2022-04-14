@@ -5,9 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-u64 globalDebugEventIndices;
-DebugEvent globalDebugEventArray[2][MAX_DEBUG_EVENTS];
-
 inline void StartDebugStat(DebugStat *stat)
 {
     stat->min = FLT_MAX;
@@ -76,7 +73,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
             for (u32 datumIndex = 0; datumIndex < DEBUG_DATUM_COUNT; ++datumIndex)
             {
                 CalcDebugStat(&hitStat, counter->data[datumIndex].hits);
-                CalcDebugStat(&cycleStat, counter->data[datumIndex].cycles);
+                CalcDebugStat(&cycleStat, (u32)counter->data[datumIndex].cycles);
                 
                 f64 cyclesPerHit = 0.0f;
                 if (counter->data[datumIndex].hits)
@@ -169,21 +166,5 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         v2f min = V2F(10.0f, debugLineOffset.y);
         v2f max = V2F((f32)commands->width - 10.0f, topLine.y + (metadata.lineGap * scale));
         PushRect(commands, platform, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(0.05f, 0.0f, 0.1f, 0.66f));
-    }
-}
-
-function void UpdateDebugRecords(DebugState *debugState, DebugRecord *records, u32 recordCount)
-{
-    for (u32 recordIndex = 0; recordIndex < recordCount; ++recordIndex)
-    {
-        DebugRecord *srcRecord = &records[recordIndex];
-        DebugCounter *destCounter = &debugState->counters[debugState->counterCount++];
-        
-        u64 counts = AtomicExchange(&srcRecord->counts, 0);
-        destCounter->fileName = srcRecord->fileName;
-        destCounter->functionName = srcRecord->functionName;
-        destCounter->lineNumber = srcRecord->lineNumber;
-        destCounter->data[debugState->datumIndex].hits = (u32)(counts >> 32);
-        destCounter->data[debugState->datumIndex].cycles = (u32)(counts & 0xFFFFFFFF);
     }
 }

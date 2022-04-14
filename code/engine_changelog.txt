@@ -1,4 +1,9 @@
 /////////////////////////////////////
+14APR2022
+
+- Continued debug overhaul, setup for platform layer inclusion into new debug system
+- Identified significant slowdown is in PushRenderEntry when it does the entry insertion sorting
+/////////////////////////////////////
 13APR2022
 
 - Finished frame timestamp vis

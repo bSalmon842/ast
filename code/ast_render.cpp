@@ -8,7 +8,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
-    DEBUG_TIMED_SCOPE();
+    DEBUG_AUTO_TIMER();
     
     void *result = 0;
     
@@ -16,6 +16,7 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
     
     if (commands->pushBufferSize + size <= commands->maxPushBufferSize)
     {
+#if 1
         u8 *baseAddress = commands->pushBufferBase;
         for (u32 entryIndex = 0; entryIndex <= commands->entryCount; ++entryIndex)
         {
@@ -43,9 +44,27 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
             
             baseAddress += testHeader->entrySize;
         }
+#else
+        u8 *baseAddress = commands->pushBufferBase + commands->pushBufferSize;
+        
+        RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
+        header->type = type;
+        header->zPos = zPos;
+        header->zLayer = zLayer;
+        header->entrySize = size;
+        result = header + 1;
+        
+        commands->pushBufferSize += size;
+        commands->entryCount++;
+#endif
     }
     
     return result;
+}
+
+inline void SortRenderEntries(Game_RenderCommands *commands)
+{
+    
 }
 
 inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims)

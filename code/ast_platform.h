@@ -228,7 +228,12 @@ struct Game_Memory
 
 #if AST_INTERNAL
 extern Game_Memory *debugGlobalMem;
-#endif
+
+#include "ast_intrinsics.h"
+
+#define DEBUG_TEXT_SCALE 0.75f
+#define DEBUG_LAYER 200
+#define DEBUG_DATUM_COUNT 240
 
 struct DebugFrameTimestamp
 {
@@ -249,6 +254,83 @@ inline void DebugRecordTimestamp(DebugFrameInfo *frame, char *name, f32 time)
     timestamp->name = name;
     timestamp->time = time;
 }
+
+struct DebugRecord
+{
+    char *fileName;
+    char *functionName;
+    u32 lineNumber;
+    
+    u64 counts;
+};
+
+enum DebugEventType
+{
+    DebugEvent_Start,
+    DebugEvent_Finish,
+};
+
+struct DebugEvent
+{
+    u64 clock;
+    u16 thread;
+    u16 core;
+    u32 recordIndex;
+    u8 type;
+    u8 translationUnit;
+};
+
+#define DEBUG_TRANSLATION_UNITS 2
+#define MAX_DEBUG_EVENTS 65536
+#define MAX_DEBUG_RECORDS 65536
+
+struct DebugTable
+{
+    u32 currentEventArrayIndex;
+    u64 volatile eventIndices; // Array Index | Event Index
+    DebugEvent events[2][MAX_DEBUG_EVENTS];
+    DebugRecord records[DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORDS];
+};
+
+extern DebugTable globalDebugTable;
+
+#define RecordDebugEvent(c, t) \
+u64 eventIndices = AtomicAdd(&globalDebugTable.eventIndices, 1); \
+u32 eventIndex = (u32)(eventIndices & 0xFFFFFFFF); \
+ASSERT(eventIndex < MAX_DEBUG_EVENTS); \
+DebugEvent *event = &globalDebugTable.events[(u32)(eventIndices >> 32)][eventIndex]; \
+event->thread = (u16)GetThreadID(); \
+event->core = 0; \
+event->recordIndex = (u16)(c); \
+event->type = t; \
+event->clock = __rdtsc(); \
+event->translationUnit = TRANSLATION_UNIT_INDEX; \
+
+#define DEBUG_AUTO_TIMER__(lineNo, ...) DebugTiming _debugBlock_##lineNo(__COUNTER__, __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
+#define DEBUG_AUTO_TIMER_(lineNo, ...) DEBUG_AUTO_TIMER__(lineNo, ## __VA_ARGS__)
+#define DEBUG_AUTO_TIMER(...) DEBUG_AUTO_TIMER_(__LINE__, ## __VA_ARGS__)
+struct DebugTiming
+{
+    u32 counter;
+    
+    DebugTiming(u32 counter, char *file, s32 line, char *func, u32 hits = 1)
+    {
+        DebugRecord *record = &globalDebugTable.records[TRANSLATION_UNIT_INDEX][counter];
+        record->fileName = file;
+        record->functionName = func;
+        record->lineNumber = line;
+        this->counter = counter;
+        
+        RecordDebugEvent(this->counter, DebugEvent_Start);
+    }
+    
+    ~DebugTiming()
+    {
+        RecordDebugEvent(this->counter, DebugEvent_Finish);
+    }
+};
+
+#endif
 
 #define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory, DebugFrameInfo *frame)
 typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);
