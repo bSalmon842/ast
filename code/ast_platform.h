@@ -133,6 +133,7 @@ struct Game_RenderCommands
     usize maxPushBufferSize;
     
     u32 entryCount;
+    struct RenderEntry_Header *headers[10000];
     
     struct Game_LoadedAssets *loadedAssets;
 };
@@ -258,7 +259,7 @@ inline void DebugRecordTimestamp(DebugFrameInfo *frame, char *name, f32 time)
 struct DebugRecord
 {
     char *fileName;
-    char *functionName;
+    char *blockName;
     u32 lineNumber;
     
     u64 counts;
@@ -268,6 +269,7 @@ enum DebugEventType
 {
     DebugEvent_Start,
     DebugEvent_Finish,
+    DebugEvent_FrameBound,
 };
 
 struct DebugEvent
@@ -288,51 +290,76 @@ struct DebugTable
 {
     u32 currentEventArrayIndex;
     u64 volatile eventIndices; // Array Index | Event Index
-    DebugEvent events[2][MAX_DEBUG_EVENTS];
+    DebugEvent events[64][MAX_DEBUG_EVENTS];
+    
+    u32 recordCounts[DEBUG_TRANSLATION_UNITS];
     DebugRecord records[DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORDS];
 };
 
-extern DebugTable globalDebugTable;
+extern DebugTable *globalDebugTable;
 
-#define RecordDebugEvent(c, t) \
-u64 eventIndices = AtomicAdd(&globalDebugTable.eventIndices, 1); \
-u32 eventIndex = (u32)(eventIndices & 0xFFFFFFFF); \
-ASSERT(eventIndex < MAX_DEBUG_EVENTS); \
-DebugEvent *event = &globalDebugTable.events[(u32)(eventIndices >> 32)][eventIndex]; \
-event->thread = (u16)GetThreadID(); \
-event->core = 0; \
-event->recordIndex = (u16)(c); \
-event->type = t; \
-event->clock = __rdtsc(); \
-event->translationUnit = TRANSLATION_UNIT_INDEX; \
+inline void RecordDebugEvent(u32 counter, u8 type)
+{
+    u64 eventIndices = AtomicAdd(&globalDebugTable->eventIndices, 1);
+    u32 eventIndex = (u32)(eventIndices & 0xFFFFFFFF);
+    ASSERT(eventIndex < MAX_DEBUG_EVENTS);
+    DebugEvent *event = &globalDebugTable->events[(u32)(eventIndices >> 32)][eventIndex];
+    event->thread = (u16)GetThreadID();
+    event->core = 0;
+    event->recordIndex = (u16)counter;
+    event->type = type;
+    event->clock = __rdtsc();
+    event->translationUnit = TRANSLATION_UNIT_INDEX;
+}
 
-#define DEBUG_AUTO_TIMER__(lineNo, ...) DebugTiming _debugBlock_##lineNo(__COUNTER__, __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
-#define DEBUG_AUTO_TIMER_(lineNo, ...) DEBUG_AUTO_TIMER__(lineNo, ## __VA_ARGS__)
-#define DEBUG_AUTO_TIMER(...) DEBUG_AUTO_TIMER_(__LINE__, ## __VA_ARGS__)
+#define DEBUG_FRAME_BOUND \
+{ \
+s32 ctr = __COUNTER__; \
+RecordDebugEvent(ctr, DebugEvent_FrameBound); \
+DebugRecord *record = &globalDebugTable->records[TRANSLATION_UNIT_INDEX][ctr]; \
+record->fileName = __FILE__; \
+record->lineNumber = __LINE__; \
+record->blockName = "Frame Bound"; \
+} \
+
+#define DEBUG_TIMER_SCOPE__(name, lineNo, ...) DebugTiming _debugBlock_##lineNo(__COUNTER__, __FILE__, __LINE__, name)
+#define DEBUG_TIMER_SCOPE_(name, lineNo, ...) DEBUG_TIMER_SCOPE__(name, lineNo)
+#define DEBUG_TIMER_SCOPE(name, ...) DEBUG_TIMER_SCOPE_(#name, __LINE__)
+#define DEBUG_TIMER_FUNC(...) DEBUG_TIMER_SCOPE_(__FUNCTION__, __LINE__)
+
+#define DEBUG_TIMER_START_(ctr, file, line, name) \
+{ \
+DebugRecord *record = &globalDebugTable->records[TRANSLATION_UNIT_INDEX][ctr]; \
+record->fileName = file; \
+record->lineNumber = line; \
+record->blockName = name; \
+RecordDebugEvent(ctr, DebugEvent_Start); \
+} \
+
+#define DEBUG_TIMER_START(name) s32 ctr_##name = __COUNTER__; DEBUG_TIMER_START_(ctr_##name, __FILE__, __LINE__, #name)
+
+#define DEBUG_TIMER_FINISH_(ctr) { RecordDebugEvent(ctr, DebugEvent_Finish); }
+#define DEBUG_TIMER_FINISH(name) DEBUG_TIMER_FINISH_(ctr_##name)
+
 struct DebugTiming
 {
     u32 counter;
     
-    DebugTiming(u32 counter, char *file, s32 line, char *func, u32 hits = 1)
+    DebugTiming(u32 ctr, char *file, s32 line, char *func)
     {
-        DebugRecord *record = &globalDebugTable.records[TRANSLATION_UNIT_INDEX][counter];
-        record->fileName = file;
-        record->functionName = func;
-        record->lineNumber = line;
-        this->counter = counter;
-        
-        RecordDebugEvent(this->counter, DebugEvent_Start);
+        this->counter = ctr;
+        DEBUG_TIMER_START_(ctr, file, line, func);
     }
     
     ~DebugTiming()
     {
-        RecordDebugEvent(this->counter, DebugEvent_Finish);
+        DEBUG_TIMER_FINISH_(counter);
     }
 };
 
 #endif
 
-#define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory, DebugFrameInfo *frame)
+#define GAME_DEBUG_FRAME_END(funcName) DebugTable *funcName(Game_Memory *memory)
 typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);
 
 #define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)

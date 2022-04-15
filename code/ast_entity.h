@@ -23,7 +23,8 @@ enum EntityType
     Entity_Null,
     
     Entity_Player,
-    Entity_Shot,
+    Entity_Shot_Player,
+    Entity_Shot_UFO,
     Entity_Asteroids,
     Entity_UFO,
     
@@ -46,6 +47,7 @@ struct EntityInfo_Shot
 struct EntityInfo_UFO
 {
     Timer timer;
+    Timer shotTimer;
     s32 vMoveDir;
     f32 nextShotAngle;
 };

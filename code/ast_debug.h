@@ -22,7 +22,7 @@ struct DebugCounterDatum
 struct DebugCounter
 {
     char *fileName;
-    char *functionName;
+    char *blockName;
     u32 lineNumber;
     
     DebugCounterDatum data[DEBUG_DATUM_COUNT];

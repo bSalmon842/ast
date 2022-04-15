@@ -27,7 +27,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 // TODO(bSalmon): Game:
 // TODO(bSalmon): Death and lives
-// TODO(bSalmon): UFO Shots
 
 // TODO(bSalmon): Bitmap list
 // TODO(bSalmon): Ship (w/ rocket trail)
@@ -38,7 +37,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Shot
 // TODO(bSalmon): Propulsion
 // TODO(bSalmon): Asteroid destroyed
-// TODO(bSalmon): Ambient UFO active
+// TODO(bSalmon): Ambient UFO activet
 
 #include "ast.h"
 #include "ast_timer.cpp"
@@ -134,8 +133,9 @@ function void BuildCollisionRulesAndTriggers(Game_State *gameState)
     SetCollisionRuleForPair(ColliderType_Debug_Wall, ColliderType_Debug_Wall, Collision_Solid);
     SetCollisionRuleForPair(ColliderType_Debug_Wall, ColliderType_Debug_Particle, Collision_Solid);
     
-    SetTriggerAction(ColliderType_Shot_Player, ColliderType_Asteroid, CollisionTrigger_PlayerShot_Asteroid);
+    SetTriggerAction(ColliderType_Shot_Player, ColliderType_Asteroid, CollisionTrigger_Shot_Asteroid);
     SetTriggerAction(ColliderType_Shot_Player, ColliderType_UFO, CollisionTrigger_PlayerShot_UFO);
+    SetTriggerAction(ColliderType_Shot_UFO, ColliderType_Asteroid, CollisionTrigger_Shot_Asteroid);
 }
 
 #if AST_INTERNAL
@@ -146,7 +146,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     debugGlobalMem = memory;
 #endif
-    DEBUG_AUTO_TIMER();
+    DEBUG_TIMER_FUNC();
     
     ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
     Game_State *gameState = (Game_State *)memory->permaStorage;
@@ -156,7 +156,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         u32 timeSeed = SafeTruncateU64(memory->platform.SecondsSinceEpoch());
         rnd_pcg_seed(&gameState->pcg, timeSeed);
         
-        gameState->world = InitialiseWorld(V2F(360.0f, 180.0f), WorldBorder_Loop);
+        //gameState->world = InitialiseWorld(V2F(360.0f, 180.0f), WorldBorder_Loop);
+        gameState->world = InitialiseWorld(V2F(100.0f, 100.0f), WorldBorder_Loop);
         
         for (s32 i = 0; i < ARRAY_COUNT(gameState->entities); ++i)
         {
@@ -165,11 +166,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         BuildCollisionRulesAndTriggers(gameState);
         
-        gameState->gameCamera = InitialiseCamera(V3F(gameState->world.area.dims / 4.0f, DEFAULT_CAMERA_Z));
+        gameState->gameCamera = InitialiseCamera(V3F(gameState->world.area.dims / 2.0f, DEFAULT_CAMERA_Z));
         
         gameState->entities[0] = NullEntity;
         
-        v3f playerStartPos = V3F(gameState->world.area.dims / 4.0f, 0.0f);
+        v3f playerStartPos = V3F(gameState->world.area.dims / 2.0f, 0.0f);
         v2f playerDims = V2F(2.5f);
         gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), 1, true, playerStartPos, playerDims, TAU * 0.25f);
         gameState->playerEntity = &gameState->entities[1];
@@ -276,7 +277,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         ASSERT(found.entity);
         
         v2f dP = playerForward * 75.0f;
-        *found.entity = MakeEntity_Shot(gameState, found.index, gameState->playerEntity->pos, dP, 1.0f, memory->platform);
+        *found.entity = MakeEntity_Shot_Player(gameState, found.index, gameState->playerEntity->pos, dP, 1.0f, memory->platform);
     }
     if (InputNoRepeat(keyboard->keyEsc))
     {
@@ -391,7 +392,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
                 } break;
                 
-                case Entity_Shot:
+                case Entity_Shot_UFO:
+                case Entity_Shot_Player:
                 {
                     EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)entity->extraInfo;
                     UpdateTimer(&shotInfo->timer, input->deltaTime);
@@ -401,7 +403,13 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
-                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                        v4f shotColour = V4F(0.0f, 1.0f, 0.0f, 1.0f);
+                        if (entity->type == Entity_Shot_UFO)
+                        {
+                            shotColour = V4F(1.0f, 0.5f, 0.0f, 1.0f);
+                        }
+                        
+                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, shotColour);
                     }
                 } break;
                 
@@ -416,6 +424,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 {
                     EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)entity->extraInfo;
                     UpdateTimer(&ufoInfo->timer, input->deltaTime);
+                    UpdateTimer(&ufoInfo->shotTimer, input->deltaTime);
                     if (ufoInfo->timer.finished)
                     {
                         ClearEntity(entity, memory->platform);
@@ -424,6 +433,18 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                     }
                     else
                     {
+                        if (ufoInfo->shotTimer.finished)
+                        {
+                            FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
+                            ASSERT(found.entity);
+                            
+                            // TODO(bSalmon): Make this target nearby asteroids occasionally
+                            v2f dP = V2F((rnd_pcg_nextf(&gameState->pcg) * 2.0f) - 1.0f, (rnd_pcg_nextf(&gameState->pcg) * 2.0f) - 1.0f) * 75.0f;
+                            *found.entity = MakeEntity_Shot_UFO(gameState, found.index, entity->pos, dP, 1.0f, memory->platform);
+                            
+                            ResetTimer(&ufoInfo->shotTimer);
+                        }
+                        
                         if (entity->pos.x > (0.45f * gameState->world.area.dims.x) && entity->pos.x < (0.55f * gameState->world.area.dims.x))
                         {
                             entity->dP.y = 10.0f * (f32)ufoInfo->vMoveDir;
@@ -511,13 +532,21 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 ////////// DEBUG STUFF FROM HERE ON OUT ////////////
 /////// ABANDON ALL HOPE, YE WHO ENTER HERE ////////
 
-#define DEBUG_RECORDS_COUNT_DLL __COUNTER__
-#define debugRecordsCount_Platform 0
-DebugTable globalDebugTable;
+#define debugRecordsCount_Game __COUNTER__
+
+global DebugTable globalDebugTable_;
+DebugTable *globalDebugTable = &globalDebugTable_;
 
 function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEvent *events)
 {
-    debugState->counterCount = DEBUG_RECORDS_COUNT_DLL + debugRecordsCount_Platform;
+    DebugCounter *counters[DEBUG_TRANSLATION_UNITS] = {};
+    debugState->counterCount = 0;
+    for (s32 i = 0; i < DEBUG_TRANSLATION_UNITS; ++i)
+    {
+        counters[i] = debugState->counters + debugState->counterCount;
+        debugState->counterCount += globalDebugTable->recordCounts[i];
+    }
+    
     for (u32 counterIndex = 0; counterIndex < debugState->counterCount; ++counterIndex)
     {
         DebugCounter *counter = &debugState->counters[counterIndex];
@@ -525,19 +554,14 @@ function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEv
         counter->data[debugState->datumIndex].cycles = 0;
     }
     
-    DebugCounter *counters[DEBUG_TRANSLATION_UNITS]
-    {
-        debugState->counters,
-        debugState->counters + DEBUG_RECORDS_COUNT_DLL,
-    };
     for (u32 eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
         DebugEvent *event = &events[eventIndex];
-        DebugRecord *srcRecord = &globalDebugTable.records[TRANSLATION_UNIT_INDEX][event->recordIndex];
+        DebugRecord *srcRecord = &globalDebugTable->records[event->translationUnit][event->recordIndex];
         DebugCounter *destCounter = &counters[event->translationUnit][event->recordIndex];
         
         destCounter->fileName = srcRecord->fileName;
-        destCounter->functionName = srcRecord->functionName;
+        destCounter->blockName = srcRecord->blockName;
         destCounter->lineNumber = srcRecord->lineNumber;
         
         if (event->type == DebugEvent_Start)
@@ -545,9 +569,8 @@ function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEv
             ++destCounter->data[debugState->datumIndex].hits;
             destCounter->data[debugState->datumIndex].cycles -= event->clock;
         }
-        else
+        else if (event->type == DebugEvent_Finish)
         {
-            ASSERT(event->type == DebugEvent_Finish);
             destCounter->data[debugState->datumIndex].cycles += event->clock;
         }
     }
@@ -555,8 +578,15 @@ function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEv
 
 extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
 {
-    globalDebugTable.currentEventArrayIndex = !globalDebugTable.currentEventArrayIndex;
-    u64 eventIndices = AtomicExchange(&globalDebugTable.eventIndices, (u64)globalDebugTable.currentEventArrayIndex << 32);
+    globalDebugTable->recordCounts[0] = debugRecordsCount_Game;
+    
+    ++globalDebugTable->currentEventArrayIndex;
+    if (globalDebugTable->currentEventArrayIndex >= ARRAY_COUNT(globalDebugTable->events))
+    {
+        globalDebugTable->currentEventArrayIndex = 0;
+    }
+    
+    u64 eventIndices = AtomicExchange(&globalDebugTable->eventIndices, (u64)globalDebugTable->currentEventArrayIndex << 32);
     
     u32 eventArrayIndex = (u32)(eventIndices >> 32);
     u32 lastEventIndex = (u32)(eventIndices & 0xFFFFFFFF);
@@ -564,9 +594,7 @@ extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {
-        debugState->counterCount = 0;
-        CollectDebugEvents(debugState, lastEventIndex, globalDebugTable.events[eventArrayIndex]);
-        debugState->frames[debugState->datumIndex] = *frame;
+        CollectDebugEvents(debugState, lastEventIndex, globalDebugTable->events[eventArrayIndex]);
         
         ++debugState->datumIndex;
         if (debugState->datumIndex >= DEBUG_DATUM_COUNT)
@@ -574,4 +602,7 @@ extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
             debugState->datumIndex = 0;
         }
     }
+    
+    DebugTable *result = globalDebugTable;
+    return result;
 }

@@ -5,7 +5,7 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_Asteroid)
+function COLLIDER_TRIGGER_ACTION(CollisionTrigger_Shot_Asteroid)
 {
     DefaultCollisionTriggerData *triggerData = (DefaultCollisionTriggerData *)data;
     Game_State *gameState = triggerData->gameState;
@@ -19,7 +19,11 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_Asteroid)
     
     ClearEntity(other, platform);
     gameState->asteroidCount--;
-    gameState->score += GetScoreForAsteroidSize(oldSize);
+    
+    if (entity->type != Entity_Shot_UFO)
+    {
+        gameState->score += GetScoreForAsteroidSize(oldSize);
+    }
     
     EmitterProgressionInfo emitProgress = {EmitterLife_Wait, 0.5f, 2.0f, V4F(0.0f, 1.0f, 1.0f, 1.0f), V4F(0.0f, 1.0f, 1.0f, 1.0f), 0.0f, 10.0f};
     BitmapID emitBitmaps[4] = {BitmapID_Asteroid0, BitmapID_Asteroid1, BitmapID_Asteroid2, BitmapID_Asteroid3};

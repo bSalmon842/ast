@@ -101,11 +101,32 @@ function Entity MakeEntity_Asteroid(Game_State *gameState, s32 index, b32 startA
     return result;
 }
 
-function Entity MakeEntity_Shot(Game_State *gameState, s32 index, v3f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
+// TODO(bSalmon): Compress the 2 shot functions, similar enough
+function Entity MakeEntity_Shot_UFO(Game_State *gameState, s32 index, v3f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
 {
     Entity result = {};
     
-    result.type = Entity_Shot;
+    result.type = Entity_Shot_UFO;
+    result.index = index;
+    result.active = true;
+    result.angle = 0.0f;
+    result.pos = initialPos;
+    result.dP = dP;
+    result.dims = V2F(1.0f);
+    result.collider = MakeCollider(gameState, ColliderType_Shot_UFO, result.pos, result.dims);
+    
+    result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_Shot));
+    EntityInfo_Shot *shotInfo = (EntityInfo_Shot *)result.extraInfo;
+    shotInfo->timer = InitialiseTimer(0.0f, lifetime);
+    
+    return result;
+}
+
+function Entity MakeEntity_Shot_Player(Game_State *gameState, s32 index, v3f initialPos, v2f dP, f32 lifetime, PlatformAPI platform)
+{
+    Entity result = {};
+    
+    result.type = Entity_Shot_Player;
     result.index = index;
     result.active = true;
     result.angle = 0.0f;
@@ -137,6 +158,7 @@ function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v3f initialPos,
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_UFO));
     EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)result.extraInfo;
     ufoInfo->timer = InitialiseTimer(0.0f, 10.0f);
+    ufoInfo->shotTimer = InitialiseTimer(0.0f, 1.5f);
     ufoInfo->vMoveDir = vMoveDir;
     
     return result;

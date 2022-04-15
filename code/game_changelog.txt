@@ -1,3 +1,5 @@
 /////////////////////////////////////
+15APR2022
 
+- Implemented UFO shooting, currently just shoots in a random direction every 1.5 seconds
 /////////////////////////////////////

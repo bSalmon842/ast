@@ -8,7 +8,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
-    DEBUG_AUTO_TIMER();
+    DEBUG_TIMER_FUNC();
     
     void *result = 0;
     
@@ -16,38 +16,7 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
     
     if (commands->pushBufferSize + size <= commands->maxPushBufferSize)
     {
-#if 1
-        u8 *baseAddress = commands->pushBufferBase;
-        for (u32 entryIndex = 0; entryIndex <= commands->entryCount; ++entryIndex)
-        {
-            RenderEntry_Header *testHeader = (RenderEntry_Header *)baseAddress;
-            if (entryIndex == commands->entryCount || zPos < testHeader->zPos || (zPos == testHeader->zPos && zLayer < testHeader->zLayer))
-            {
-                usize shiftSize = commands->pushBufferSize - (baseAddress - commands->pushBufferBase);
-                void *temp = platform.MemAlloc(shiftSize);
-                CopyMem(temp, baseAddress, shiftSize);
-                CopyMem(baseAddress + size, temp, shiftSize);
-                platform.MemFree(temp);
-                
-                RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
-                header->type = type;
-                header->zPos = zPos;
-                header->zLayer = zLayer;
-                header->entrySize = size;
-                result = header + 1;
-                
-                commands->pushBufferSize += size;
-                commands->entryCount++;
-                
-                break;
-            }
-            
-            baseAddress += testHeader->entrySize;
-        }
-#else
-        u8 *baseAddress = commands->pushBufferBase + commands->pushBufferSize;
-        
-        RenderEntry_Header *header = (RenderEntry_Header *)baseAddress;
+        RenderEntry_Header *header = (RenderEntry_Header *)(commands->pushBufferBase + commands->pushBufferSize);
         header->type = type;
         header->zPos = zPos;
         header->zLayer = zLayer;
@@ -55,16 +24,29 @@ inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderE
         result = header + 1;
         
         commands->pushBufferSize += size;
-        commands->entryCount++;
-#endif
+        commands->headers[commands->entryCount++] = header;
+        
+        for (s32 entryIndex = commands->entryCount - 1; entryIndex >= 0; --entryIndex)
+        {
+            RenderEntry_Header *a = commands->headers[entryIndex];
+            if ((entryIndex - 1) >= 0)
+            {
+                RenderEntry_Header *b = commands->headers[entryIndex - 1];
+                if (a->zPos < b->zPos || (a->zPos == b->zPos && a->zLayer < b->zLayer))
+                {
+                    RenderEntry_Header *temp = commands->headers[entryIndex];
+                    commands->headers[entryIndex] = commands->headers[entryIndex - 1];
+                    commands->headers[entryIndex - 1] = temp;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
     }
     
     return result;
-}
-
-inline void SortRenderEntries(Game_RenderCommands *commands)
-{
-    
 }
 
 inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims)

@@ -134,16 +134,15 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
-    for (usize baseAddress = 0; baseAddress < commands->pushBufferSize;)
+    for (u32 entryIndex = 0; entryIndex < commands->entryCount; ++entryIndex)
     {
-        RenderEntry_Header *header = (RenderEntry_Header *)(commands->pushBufferBase + baseAddress);
-        baseAddress += sizeof(RenderEntry_Header);
+        RenderEntry_Header *header = commands->headers[entryIndex];
         
         switch (header->type)
         {
             case RenderEntryType_RenderEntry_Bitmap:
             {
-                RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(commands->pushBufferBase + baseAddress);
+                RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(header + 1);
                 
                 LoadedAssetHeader *assetHeader = entry->assetHeader;
                 if (assetHeader->loadState == AssetLoad_Loaded)
@@ -174,13 +173,11 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     glMatrixMode(GL_MODELVIEW);
                     glLoadIdentity();
                 }
-                
-                baseAddress += sizeof(RenderEntry_Bitmap);
             } break;
             
             case RenderEntryType_RenderEntry_Rect:
             {
-                RenderEntry_Rect *entry = (RenderEntry_Rect *)(commands->pushBufferBase + baseAddress);
+                RenderEntry_Rect *entry = (RenderEntry_Rect *)(header + 1);
                 
                 v2f min = entry->positioning.pos.xy - (entry->positioning.dims / 2.0f);
                 v2f max = entry->positioning.pos.xy + (entry->positioning.dims / 2.0f);
@@ -188,23 +185,19 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                 glDisable(GL_TEXTURE_2D);
                 OpenGL_Rectangle(min, max, entry->colour);
                 glEnable(GL_TEXTURE_2D);
-                
-                baseAddress += sizeof(RenderEntry_Rect);
             } break;
             
             case RenderEntryType_RenderEntry_Clear:
             {
-                RenderEntry_Clear *entry = (RenderEntry_Clear *)(commands->pushBufferBase + baseAddress);
+                RenderEntry_Clear *entry = (RenderEntry_Clear *)(header + 1);
                 
                 glClearColor(entry->colour.r, entry->colour.g, entry->colour.b, entry->colour.a);
                 glClear(GL_COLOR_BUFFER_BIT);
-                
-                baseAddress += sizeof(RenderEntry_Clear);
             } break;
             
             case RenderEntryType_RenderEntry_Text:
             {
-                RenderEntry_Text *entry = (RenderEntry_Text *)(commands->pushBufferBase + baseAddress);
+                RenderEntry_Text *entry = (RenderEntry_Text *)(header + 1);
                 
                 char *c = entry->string;
                 f32 charPosX = entry->positioning.pos.x;
@@ -254,8 +247,6 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     
                     c++;
                 }
-                
-                baseAddress += sizeof(RenderEntry_Text);
             } break;
             
             INVALID_DEFAULT;

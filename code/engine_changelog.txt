@@ -1,4 +1,9 @@
 /////////////////////////////////////
+15APR2022
+
+- Reworked Render Entry sorting again, now sorts an array of RenderEntry_Headers which is then used in the renderer instead of the pushbuffer memory
+- Continued debug overhaul, now includes the platform layer, frame segment bars are currently broken
+/////////////////////////////////////
 14APR2022
 
 - Continued debug overhaul, setup for platform layer inclusion into new debug system

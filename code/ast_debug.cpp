@@ -90,7 +90,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
             {
                 char string[128];
                 stbsp_sprintf(string, "%24s: %10uc | %6u hits | %10uc/hit",
-                              counter->functionName, (u32)cycleStat.ave, (u32)hitStat.ave, (u32)cphStat.ave);
+                              counter->blockName, (u32)cycleStat.ave, (u32)hitStat.ave, (u32)cphStat.ave);
                 PushText(commands, loadedAssets, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
                 
                 f32 chartWidth = (f32)commands->width * 0.25f;
@@ -128,7 +128,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         v2f barBaseMin = V2F(15.0f, 10.0f);
         f32 barWidth = 3.0f;
         f32 barGap = 1.0f;
-        f32 chartHeight = 50.0f;
+        f32 chartHeight = (f32)commands->height / 4.0f;
         f32 textY = (f32)commands->height - 20.0f;
         PushRect(commands, platform, camera, barBaseMin + V2F(-5.0f, chartHeight), barBaseMin + V2F(((barWidth + barGap) * DEBUG_DATUM_COUNT), chartHeight + 1), 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
         

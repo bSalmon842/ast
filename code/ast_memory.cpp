@@ -112,7 +112,7 @@ inline void FinishParallelMemory(ParallelMemory *mem)
 #include <string.h>
 inline void CopyMem(void *dest, void *src, usize size)
 {
-    DEBUG_AUTO_TIMER();
+    DEBUG_TIMER_FUNC();
     
 #if 0    
     u8 *destPtr = (u8 *)dest;

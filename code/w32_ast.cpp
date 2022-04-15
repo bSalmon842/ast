@@ -522,6 +522,9 @@ function LRESULT CALLBACK W32_WndProc(HWND window, UINT msg, WPARAM wParam, LPAR
 
 #if AST_INTERNAL
 Game_Memory *debugGlobalMem;
+
+global DebugTable globalDebugTable_;
+DebugTable *globalDebugTable = &globalDebugTable_;
 #endif
 s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s32 showCode)
 {
@@ -666,8 +669,9 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 f32 lastSecPerFrame = 0.16f;
                 while (globalRunning)
                 {
-                    DebugFrameInfo debugFrame = {};
+                    DEBUG_FRAME_BOUND;
 #if AST_INTERNAL
+                    DEBUG_TIMER_START(DLLLoad);
                     FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
                     if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
                     {
@@ -676,10 +680,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         W32_UnloadProgramCode(&programCode);
                         programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
                     }
+                    DEBUG_TIMER_FINISH(DLLLoad);
                     
-                    DebugRecordTimestamp(&debugFrame, "DLL Load", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
+                    DEBUG_TIMER_START(Input);
 #endif
-                    
                     newInput->deltaTime = lastSecPerFrame;
                     newInput->exeReloaded = false;
                     
@@ -704,10 +708,11 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
 #endif
                     
 #if AST_INTERNAL
-                    DebugRecordTimestamp(&debugFrame, "Input", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
                     debugGlobalMem = &gameMem;
-#endif
+                    DEBUG_TIMER_FINISH(Input);
                     
+                    DEBUG_TIMER_START(Audio);
+#endif
                     s32 samplesToWrite = 0;
                     u32 audioPadding;
                     if (SUCCEEDED(audioOutput.audioClient->GetCurrentPadding(&audioPadding)))
@@ -727,7 +732,9 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
 #if AST_INTERNAL
-                    DebugRecordTimestamp(&debugFrame, "Audio", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
+                    DEBUG_TIMER_FINISH(Audio);
+                    
+                    DEBUG_TIMER_START(GameUpdate);
 #endif
                     
                     W32_WindowDims resizeCheck = W32_GetWindowDims(window);
@@ -744,7 +751,9 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     }
                     
 #if AST_INTERNAL
-                    DebugRecordTimestamp(&debugFrame, "Game Update", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
+                    DEBUG_TIMER_FINISH(GameUpdate);
+                    
+                    DEBUG_TIMER_START(FrameComplete);
 #endif
                     
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
@@ -754,7 +763,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     SWAP(newInput, oldInput);
                     
 #if AST_INTERNAL
-                    DebugRecordTimestamp(&debugFrame, "Frame Complete", BS842_Timing_GetSecondsElapsed(lastCounter, BS842_Timing_GetClock()));
+                    DEBUG_TIMER_FINISH(FrameComplete);
 #endif
                     LARGE_INTEGER endCounter = BS842_Timing_GetClock();
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);
@@ -762,8 +771,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
                     if (programCode.DebugFrameEnd)
                     {
-                        programCode.DebugFrameEnd(&gameMem, &debugFrame);
+                        globalDebugTable = programCode.DebugFrameEnd(&gameMem);
+                        globalDebugTable->recordCounts[TRANSLATION_UNIT_INDEX] = __COUNTER__;
                     }
+                    globalDebugTable_.eventIndices = 0;
                 }
             }
         }
