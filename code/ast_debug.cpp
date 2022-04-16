@@ -62,6 +62,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         PushText(commands, loadedAssets, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
         debugLineOffset.y -= lineHeight;
         
+#if 0        
         for (u32 ctrIndex = 0; ctrIndex < debugState->counterCount; ++ctrIndex)
         {
             DebugCounter *counter = &debugState->counters[ctrIndex];
@@ -110,6 +111,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
                 debugLineOffset.y -= lineHeight;
             }
         }
+#endif
         
         v4f colourTable[] =
         {
@@ -126,41 +128,41 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         
         f32 targetTime = 0.01666f;
         v2f barBaseMin = V2F(15.0f, 10.0f);
-        f32 barWidth = 3.0f;
-        f32 barGap = 1.0f;
+        f32 barLaneWidth = 2.0f;
+        f32 barWidth = (f32)debugState->visBarLaneCount * barLaneWidth;
+        f32 barFootprint = barWidth + 1.0f;
         f32 chartHeight = (f32)commands->height / 4.0f;
         f32 textY = (f32)commands->height - 20.0f;
-        PushRect(commands, platform, camera, barBaseMin + V2F(-5.0f, chartHeight), barBaseMin + V2F(((barWidth + barGap) * DEBUG_DATUM_COUNT), chartHeight + 1), 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
+        PushRect(commands, platform, camera, barBaseMin + V2F(-5.0f, chartHeight), barBaseMin + V2F((barFootprint * debugState->frameCount), chartHeight + 1), 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
         
-        for (u32 frameIndex = 0; frameIndex < DEBUG_DATUM_COUNT; ++frameIndex)
+        for (u32 frameIndex = 0; frameIndex < debugState->frameCount; ++frameIndex)
         {
-            DebugFrameInfo *frame = &debugState->frames[frameIndex];
-            f32 prevTime = 0.0f;
+            DebugFrame *frame = &debugState->frames[frameIndex];
             
             v2f barSegmentMin = barBaseMin;
-            for (u32 timestampIndex = 0; timestampIndex < frame->timestampCount; ++timestampIndex)
+            for (u32 segmentIndex = 0; segmentIndex < frame->segmentCount; ++segmentIndex)
             {
-                DebugFrameTimestamp *timestamp = &frame->timestamps[timestampIndex];
-                f32 timeElapsed = timestamp->time - prevTime;
-                prevTime = timestamp->time;
+                DebugFrameSegment *segment = &frame->segments[segmentIndex];
                 
-                f32 barSegmentHeight = (timestamp->time / targetTime) * chartHeight;
+                f32 barSegmentHeight = (segment->minT / targetTime) * chartHeight;
                 v2f barSegmentMax = barSegmentMin + V2F(barWidth, barSegmentHeight);
                 
-                v4f segmentColour = colourTable[timestampIndex % ARRAY_COUNT(colourTable)];
+                v4f segmentColour = colourTable[segmentIndex % ARRAY_COUNT(colourTable)];
                 PushRect(commands, platform, camera, barSegmentMin, barSegmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
                 
+#if 0                
                 if (frameIndex == 0)
                 {
                     PushText(commands, loadedAssets, platform, camera, timestamp->name, "Debug", V3F(100.0f, textY, 0.0f), 0.75f, DEBUG_LAYER - 3, segmentColour);
                     textY -= 10.0f;
                 }
+#endif
                 
                 barSegmentMin.y += barSegmentHeight;
                 
             }
             
-            barBaseMin.x += (barWidth + barGap);
+            barBaseMin.x += barFootprint;
         }
         
         v2f min = V2F(10.0f, debugLineOffset.y);

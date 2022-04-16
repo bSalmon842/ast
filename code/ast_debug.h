@@ -24,17 +24,40 @@ struct DebugCounter
     char *fileName;
     char *blockName;
     u32 lineNumber;
-    
-    DebugCounterDatum data[DEBUG_DATUM_COUNT];
+};
+
+struct DebugFrameSegment
+{
+    u32 laneIndex;
+    f32 minT;
+    f32 maxT;
+};
+
+struct DebugFrame
+{
+    u64 startClock;
+    u64 finishClock;
+    u32 segmentCount;
+    DebugFrameSegment *segments;
 };
 
 struct DebugState
 {
-    u32 datumIndex;
-    u32 counterCount;
     
+#if 0    
+    u32 counterCount;
     DebugCounter counters[512];
-    DebugFrameInfo frames[DEBUG_DATUM_COUNT];
+#endif
+    
+    u32 frameCount;
+    DebugFrame *frames;
+    
+    u32 visBarLaneCount;
+    f32 visBarScale;
+    
+    MemoryRegion dataRegion;
+    TempMemory dataTemp;
+    b32 initialised;
 };
 
 struct DebugStat

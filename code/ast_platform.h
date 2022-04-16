@@ -234,35 +234,12 @@ extern Game_Memory *debugGlobalMem;
 
 #define DEBUG_TEXT_SCALE 0.75f
 #define DEBUG_LAYER 200
-#define DEBUG_DATUM_COUNT 240
-
-struct DebugFrameTimestamp
-{
-    char *name;
-    f32 time;
-};
-
-struct DebugFrameInfo
-{
-    u32 timestampCount;
-    DebugFrameTimestamp timestamps[64];
-};
-
-inline void DebugRecordTimestamp(DebugFrameInfo *frame, char *name, f32 time)
-{
-    ASSERT(frame->timestampCount < ARRAY_COUNT(frame->timestamps));
-    DebugFrameTimestamp *timestamp = &frame->timestamps[frame->timestampCount++];
-    timestamp->name = name;
-    timestamp->time = time;
-}
 
 struct DebugRecord
 {
     char *fileName;
     char *blockName;
     u32 lineNumber;
-    
-    u64 counts;
 };
 
 enum DebugEventType
@@ -285,12 +262,14 @@ struct DebugEvent
 #define DEBUG_TRANSLATION_UNITS 2
 #define MAX_DEBUG_EVENTS 65536
 #define MAX_DEBUG_RECORDS 65536
+#define MAX_DEBUG_EVENT_ARRAYS 64
 
 struct DebugTable
 {
     u32 currentEventArrayIndex;
     u64 volatile eventIndices; // Array Index | Event Index
-    DebugEvent events[64][MAX_DEBUG_EVENTS];
+    u32 eventCounts[MAX_DEBUG_EVENT_ARRAYS];
+    DebugEvent events[MAX_DEBUG_EVENT_ARRAYS][MAX_DEBUG_EVENTS];
     
     u32 recordCounts[DEBUG_TRANSLATION_UNITS];
     DebugRecord records[DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORDS];

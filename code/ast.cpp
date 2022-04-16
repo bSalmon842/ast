@@ -529,7 +529,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     //OutputTestSineWave(gameState, audioBuffer, 256);
 }
 
-////////// DEBUG STUFF FROM HERE ON OUT ////////////
+////////// DEBUG STUFF FROM HERE ON OUT /////////////*
 /////// ABANDON ALL HOPE, YE WHO ENTER HERE ////////
 
 #define debugRecordsCount_Game __COUNTER__
@@ -537,8 +537,71 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 global DebugTable globalDebugTable_;
 DebugTable *globalDebugTable = &globalDebugTable_;
 
-function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEvent *events)
+inline u32 GetLaneFromThread(u16 threadIndex)
 {
+    u32 result = 0;
+    return result;
+}
+
+function void CollectDebugEvents(DebugState *debugState, u32 nextEventArrayIndex)
+{
+    debugState->frames = PushArray(&debugState->dataRegion, MAX_DEBUG_EVENT_ARRAYS * 4, DebugFrame);
+    
+    debugState->visBarLaneCount = 0;
+    debugState->visBarScale = 1.0f;
+    
+    DebugFrame *frame = 0;
+    
+    for (u32 eventArrayIndex = nextEventArrayIndex + 1; eventArrayIndex != nextEventArrayIndex; ++eventArrayIndex)
+    {
+        if (eventArrayIndex == MAX_DEBUG_EVENT_ARRAYS)
+        {
+            eventArrayIndex = 0;
+            if (eventArrayIndex == nextEventArrayIndex)
+            {
+                break;
+            }
+        }
+        
+        for (u32 eventIndex = 0; eventIndex < globalDebugTable->eventCounts[eventArrayIndex]; ++eventIndex)
+        {
+            DebugEvent *event = &globalDebugTable->events[eventArrayIndex][eventIndex];
+            DebugRecord *record = &globalDebugTable->records[event->translationUnit][event->recordIndex];
+            
+            if (event->type == DebugEvent_FrameBound)
+            {
+                if (frame)
+                {
+                    frame->finishClock = event->clock;
+                }
+                
+                frame = &debugState->frames[debugState->frameCount++];
+                frame->startClock = event->clock;
+                frame->finishClock = 0;
+                frame->segmentCount = 0;
+                frame->segments = PushArray(&debugState->dataRegion, MAX_DEBUG_EVENTS, DebugFrameSegment);
+            }
+            else if (frame)
+            {
+                u64 relativeClock = event->clock - frame->startClock;
+                u32 laneIndex = GetLaneFromThread(event->thread);
+                if (event->type == DebugEvent_Start)
+                {
+                    
+                }
+                else if (event->type == DebugEvent_Finish)
+                {
+                    
+                }
+                else
+                {
+                    INVALID_CODE_PATH;
+                }
+            }
+        }
+    }
+    
+#if 0
     DebugCounter *counters[DEBUG_TRANSLATION_UNITS] = {};
     debugState->counterCount = 0;
     for (s32 i = 0; i < DEBUG_TRANSLATION_UNITS; ++i)
@@ -574,6 +637,7 @@ function void CollectDebugEvents(DebugState *debugState, u32 eventCount, DebugEv
             destCounter->data[debugState->datumIndex].cycles += event->clock;
         }
     }
+#endif
 }
 
 extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
@@ -591,16 +655,24 @@ extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
     u32 eventArrayIndex = (u32)(eventIndices >> 32);
     u32 lastEventIndex = (u32)(eventIndices & 0xFFFFFFFF);
     
+    globalDebugTable->eventCounts[eventArrayIndex] = lastEventIndex;
+    
+    ASSERT(sizeof(DebugState) <= memory->debugStorageSize);
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {
-        CollectDebugEvents(debugState, lastEventIndex, globalDebugTable->events[eventArrayIndex]);
-        
-        ++debugState->datumIndex;
-        if (debugState->datumIndex >= DEBUG_DATUM_COUNT)
+        if (!debugState->initialised)
         {
-            debugState->datumIndex = 0;
+            InitMemRegion(&debugState->dataRegion, memory->debugStorageSize - sizeof(DebugState), (u8 *)memory->debugStorage + sizeof(DebugState));
+            debugState->dataTemp = StartTempMemory(&debugState->dataRegion);
+            
+            debugState->initialised = true;
         }
+        
+        FinishTempMemory(debugState->dataTemp);
+        debugState->dataTemp = StartTempMemory(&debugState->dataRegion);
+        
+        CollectDebugEvents(debugState, globalDebugTable->currentEventArrayIndex);
     }
     
     DebugTable *result = globalDebugTable;

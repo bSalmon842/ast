@@ -1,4 +1,8 @@
 /////////////////////////////////////
+16APR2022
+
+- All debug vis is now broken as we are in the middle of a debug restructure
+/////////////////////////////////////
 15APR2022
 
 - Reworked Render Entry sorting again, now sorts an array of RenderEntry_Headers which is then used in the renderer instead of the pushbuffer memory
