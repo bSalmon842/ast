@@ -74,10 +74,14 @@ inline void FinishTempMemory(TempMemory tempMem)
     --memRegion->tempCount;
 }
 
-inline void CreateMemorySubRegion(MemoryRegion *result, MemoryRegion *baseRegion, usize size, usize alignment = 16)
+inline MemoryRegion CreateMemorySubRegion(MemoryRegion *baseRegion, usize size, usize alignment = 16)
 {
-    result->size = size;
-    result->base = (u8 *)PushSize(baseRegion, size, alignment);
+    MemoryRegion result = {};
+    
+    result.size = size;
+    result.base = (u8 *)PushSize(baseRegion, size, alignment);
+    
+    return result;
 }
 
 inline ParallelMemory *StartParallelMemory(Transient_State *transState)
@@ -112,7 +116,7 @@ inline void FinishParallelMemory(ParallelMemory *mem)
 #include <string.h>
 inline void CopyMem(void *dest, void *src, usize size)
 {
-    DEBUG_TIMER_FUNC();
+    DEBUG_BLOCK_FUNC;
     
 #if 0    
     u8 *destPtr = (u8 *)dest;

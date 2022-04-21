@@ -46,7 +46,7 @@ function PARALLEL_WORK_CALLBACK(ParallelLoadAsset)
 
 function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType type, void *identifier, b32 immediate)
 {
-    DEBUG_TIMER_FUNC();
+    DEBUG_BLOCK_FUNC;
     
     LoadedAssetHeader *result = 0;
     

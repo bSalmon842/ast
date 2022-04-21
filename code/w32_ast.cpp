@@ -522,9 +522,6 @@ function LRESULT CALLBACK W32_WndProc(HWND window, UINT msg, WPARAM wParam, LPAR
 
 #if AST_INTERNAL
 Game_Memory *debugGlobalMem;
-
-global DebugTable globalDebugTable_;
-DebugTable *globalDebugTable = &globalDebugTable_;
 #endif
 s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s32 showCode)
 {
@@ -646,11 +643,18 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             gameMem.permaStorageSize = MEGABYTE(16);
             gameMem.transStorageSize = MEGABYTE(512);
             gameMem.debugStorageSize = MEGABYTE(64);
+            ASSERT(sizeof(DebugState) <= gameMem.debugStorageSize);
             
             u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize + gameMem.debugStorageSize;
             gameMem.permaStorage = VirtualAlloc(baseAddress, totalMemSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             gameMem.transStorage = (u8 *)gameMem.permaStorage + gameMem.permaStorageSize;
             gameMem.debugStorage = (u8 *)gameMem.transStorage + gameMem.transStorageSize;
+            
+            globalDebugState = (DebugState *)gameMem.debugStorage;
+            if (programCode.InitialiseDebugState)
+            {
+                programCode.InitialiseDebugState(&gameMem);
+            }
             
             if (samples && gameMem.permaStorage && gameMem.transStorage)
             {
@@ -669,9 +673,10 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 f32 lastSecPerFrame = 0.16f;
                 while (globalRunning)
                 {
-                    DEBUG_FRAME_BOUND;
+                    LARGE_INTEGER frameStartCounter = BS842_Timing_GetClock();
+                    DEBUG_FRAME_START;
+                    DEBUG_BLOCK_OPEN(MainLoop);
 #if AST_INTERNAL
-                    DEBUG_TIMER_START(DLLLoad);
                     FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
                     if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
                     {
@@ -680,9 +685,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         W32_UnloadProgramCode(&programCode);
                         programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
                     }
-                    DEBUG_TIMER_FINISH(DLLLoad);
-                    
-                    DEBUG_TIMER_START(Input);
+                    DEBUG_FRAME_MARKER(DLLLoad);
 #endif
                     newInput->deltaTime = lastSecPerFrame;
                     newInput->exeReloaded = false;
@@ -702,6 +705,8 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     POINT mouseLoc;
                     GetCursorPos(&mouseLoc);
                     ScreenToClient(window, &mouseLoc);
+                    newInput->mouseX = mouseLoc.x;
+                    newInput->mouseY = gameRenderCommands.height - mouseLoc.y;
 #if 0
                     b32 mouseLeftDown = (GetKeyState(VK_LBUTTON) & (1 << 15));
                     b32 mouseRightDown = (GetKeyState(VK_RBUTTON) & (1 << 15));
@@ -709,9 +714,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
 #if AST_INTERNAL
                     debugGlobalMem = &gameMem;
-                    DEBUG_TIMER_FINISH(Input);
-                    
-                    DEBUG_TIMER_START(Audio);
+                    DEBUG_FRAME_MARKER(Input);
 #endif
                     s32 samplesToWrite = 0;
                     u32 audioPadding;
@@ -732,9 +735,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
                     
 #if AST_INTERNAL
-                    DEBUG_TIMER_FINISH(Audio);
-                    
-                    DEBUG_TIMER_START(GameUpdate);
+                    DEBUG_FRAME_MARKER(Audio);
 #endif
                     
                     W32_WindowDims resizeCheck = W32_GetWindowDims(window);
@@ -751,9 +752,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     }
                     
 #if AST_INTERNAL
-                    DEBUG_TIMER_FINISH(GameUpdate);
-                    
-                    DEBUG_TIMER_START(FrameComplete);
+                    DEBUG_FRAME_MARKER(GameUpdate);
 #endif
                     
                     //W32_RenderAudioSyncDisplay(&platformBackBuffer, ARRAY_COUNT(debugTimeMarkers), debugTimeMarkers, &audioOutput, BS842_Timing_GetTargetSecondsPerFrame());
@@ -763,18 +762,23 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     SWAP(newInput, oldInput);
                     
 #if AST_INTERNAL
-                    DEBUG_TIMER_FINISH(FrameComplete);
+                    DEBUG_FRAME_MARKER(FrameComplete);
+                    DEBUG_BLOCK_CLOSE(MainLoop);
 #endif
+                    
                     LARGE_INTEGER endCounter = BS842_Timing_GetClock();
                     lastSecPerFrame = BS842_Timing_GetSecondsElapsed(lastCounter, endCounter);
+                    
+#if AST_INTERNAL
+                    DEBUG_FRAME_END(BS842_Timing_GetSecondsElapsed(frameStartCounter, endCounter));
+#endif
                     lastCounter = endCounter;
+                    
                     
                     if (programCode.DebugFrameEnd)
                     {
-                        globalDebugTable = programCode.DebugFrameEnd(&gameMem);
-                        globalDebugTable->recordCounts[TRANSLATION_UNIT_INDEX] = __COUNTER__;
+                        programCode.DebugFrameEnd(&gameMem);
                     }
-                    globalDebugTable_.eventIndices = 0;
                 }
             }
         }

@@ -1,4 +1,11 @@
 /////////////////////////////////////
+21APR2022
+
+- Complete restructure of the debug restructure, did away with a lot of the complexity for my own sanity
+- Added mouse point tracking to Game_Input as well as a point readout next to the fps
+- Fixed issue where '\n' was advancing text lines in the wrong direction
+- Implemented hover tooltip for debug lines
+/////////////////////////////////////
 16APR2022
 
 - All debug vis is now broken as we are in the middle of a debug restructure

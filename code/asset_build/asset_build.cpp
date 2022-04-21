@@ -482,6 +482,7 @@ s32 main(s32 argc, char **argv)
     GetFontInfo(&fonts[1], "Debug", "C:\\Windows\\Fonts\\Ltype.ttf", true, false);
     
     AddToAssets_Bitmap(&assets, ".\\raw\\player.bmp", BitmapID_Player_NoTrail);
+    AddToAssets_Bitmap(&assets, ".\\raw\\player_trail.bmp", BitmapID_Player_Trail);
     AddToAssets_Bitmap(&assets, ".\\raw\\ast1.bmp", BitmapID_Asteroid0);
     AddToAssets_Bitmap(&assets, ".\\raw\\ast2.bmp", BitmapID_Asteroid1);
     AddToAssets_Bitmap(&assets, ".\\raw\\ast3.bmp", BitmapID_Asteroid2);

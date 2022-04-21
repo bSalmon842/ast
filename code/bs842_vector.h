@@ -372,6 +372,7 @@ union \
 type e[4]; \
 struct { type x, y, z, w; }; \
 struct { type r, g, b, a; }; \
+struct { lower_type xyz; type w; }; \
 struct { lower_type rgb; type a; }; \
 }; \
 }; \
@@ -383,6 +384,16 @@ name result = {};\
 result.x = x; \
 result.y = y; \
 result.z = z; \
+result.w = w; \
+\
+return result; \
+} \
+\
+inline name capital_name(lower_type xyz, type w) \
+{ \
+name result = {};\
+\
+result.xyz = xyz; \
 result.w = w; \
 \
 return result; \

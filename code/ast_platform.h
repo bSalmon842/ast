@@ -156,20 +156,20 @@ inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, voi
     return result;
 }
 
-typedef struct
+struct Game_AudioBuffer
 {
     s32 samplesPerSecond;
     s32 sampleCount;
     s16 *samples;
-} Game_AudioBuffer;
+};
 
-typedef struct
+struct Game_ButtonState
 {
     b32 endedFrameDown;
     s32 halfTransitionCount;
-} Game_ButtonState;
+};
 
-typedef struct
+struct Game_Keyboard
 {
     b32 isConnected;
     
@@ -195,12 +195,15 @@ typedef struct
             Game_ButtonState keyRight;
         };
     };
-} Game_Keyboard;
+};
 
 struct Game_Input
 {
     b32 exeReloaded;
     f32 deltaTime;
+    
+    s32 mouseX;
+    s32 mouseY;
     
     Game_Keyboard keyboard;
 };
@@ -235,110 +238,66 @@ extern Game_Memory *debugGlobalMem;
 #define DEBUG_TEXT_SCALE 0.75f
 #define DEBUG_LAYER 200
 
-struct DebugRecord
-{
-    char *fileName;
-    char *blockName;
-    u32 lineNumber;
-};
+struct DebugState;
+global DebugState *globalDebugState;
 
-enum DebugEventType
-{
-    DebugEvent_Start,
-    DebugEvent_Finish,
-    DebugEvent_FrameBound,
-};
+// NOTE(bSalmon): Platform Layer Only
+#define DEBUG_FRAME_START \
+ASSERT(TRANSLATION_UNIT_INDEX == 1); \
+globalDebugState->inFrame = true; \
+u32 frameIndex = (globalDebugState->table->frameIndex + 1 >= MAX_DEBUG_FRAMES) ? 0 : ++globalDebugState->table->frameIndex; \
+DebugFrame *currentFrame = &globalDebugState->table->frames[frameIndex]; \
+currentFrame->startClock = __rdtsc(); \
+currentFrame->totalClock = currentFrame->startClock; 
 
-struct DebugEvent
-{
-    u64 clock;
-    u16 thread;
-    u16 core;
-    u32 recordIndex;
-    u8 type;
-    u8 translationUnit;
-};
+#define DEBUG_FRAME_END(time) \
+ASSERT(TRANSLATION_UNIT_INDEX == 1 && globalDebugState->inFrame); \
+currentFrame->totalClock = __rdtsc() - currentFrame->startClock; \
+currentFrame->frameTime = time; \
+globalDebugState->inFrame = false
 
-#define DEBUG_TRANSLATION_UNITS 2
-#define MAX_DEBUG_EVENTS 65536
-#define MAX_DEBUG_RECORDS 65536
-#define MAX_DEBUG_EVENT_ARRAYS 64
-
-struct DebugTable
-{
-    u32 currentEventArrayIndex;
-    u64 volatile eventIndices; // Array Index | Event Index
-    u32 eventCounts[MAX_DEBUG_EVENT_ARRAYS];
-    DebugEvent events[MAX_DEBUG_EVENT_ARRAYS][MAX_DEBUG_EVENTS];
-    
-    u32 recordCounts[DEBUG_TRANSLATION_UNITS];
-    DebugRecord records[DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORDS];
-};
-
-extern DebugTable *globalDebugTable;
-
-inline void RecordDebugEvent(u32 counter, u8 type)
-{
-    u64 eventIndices = AtomicAdd(&globalDebugTable->eventIndices, 1);
-    u32 eventIndex = (u32)(eventIndices & 0xFFFFFFFF);
-    ASSERT(eventIndex < MAX_DEBUG_EVENTS);
-    DebugEvent *event = &globalDebugTable->events[(u32)(eventIndices >> 32)][eventIndex];
-    event->thread = (u16)GetThreadID();
-    event->core = 0;
-    event->recordIndex = (u16)counter;
-    event->type = type;
-    event->clock = __rdtsc();
-    event->translationUnit = TRANSLATION_UNIT_INDEX;
+// NOTE(bSalmon): All Layers
+#define DEBUG_BLOCK_OPEN_(blockName, block) \
+if (globalDebugState->inFrame) \
+{ \
+DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[TRANSLATION_UNIT_INDEX][block]; \
+blockInfo->cycles -= __rdtsc(); \
+blockInfo->hits++; \
+blockInfo->name = blockName; \
 }
 
-#define DEBUG_FRAME_BOUND \
+#define DEBUG_BLOCK_OPEN(blockName) u8 block_##blockName = __COUNTER__; DEBUG_BLOCK_OPEN_(#blockName, block_##blockName)
+
+#define DEBUG_FRAME_MARKER(markerName) \
+if (globalDebugState->inFrame) \
 { \
-s32 ctr = __COUNTER__; \
-RecordDebugEvent(ctr, DebugEvent_FrameBound); \
-DebugRecord *record = &globalDebugTable->records[TRANSLATION_UNIT_INDEX][ctr]; \
-record->fileName = __FILE__; \
-record->lineNumber = __LINE__; \
-record->blockName = "Frame Bound"; \
-} \
+DebugFrame *frame = &globalDebugState->table->frames[globalDebugState->table->frameIndex]; \
+DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[TRANSLATION_UNIT_INDEX][__COUNTER__]; \
+blockInfo->cycles = __rdtsc() - frame->totalClock; \
+frame->totalClock += blockInfo->cycles; \
+blockInfo->hits++; \
+blockInfo->name = #markerName; \
+}
 
-#define DEBUG_TIMER_SCOPE__(name, lineNo, ...) DebugTiming _debugBlock_##lineNo(__COUNTER__, __FILE__, __LINE__, name)
-#define DEBUG_TIMER_SCOPE_(name, lineNo, ...) DEBUG_TIMER_SCOPE__(name, lineNo)
-#define DEBUG_TIMER_SCOPE(name, ...) DEBUG_TIMER_SCOPE_(#name, __LINE__)
-#define DEBUG_TIMER_FUNC(...) DEBUG_TIMER_SCOPE_(__FUNCTION__, __LINE__)
-
-#define DEBUG_TIMER_START_(ctr, file, line, name) \
+#define DEBUG_BLOCK_CLOSE_(block) \
+if (globalDebugState->inFrame) \
 { \
-DebugRecord *record = &globalDebugTable->records[TRANSLATION_UNIT_INDEX][ctr]; \
-record->fileName = file; \
-record->lineNumber = line; \
-record->blockName = name; \
-RecordDebugEvent(ctr, DebugEvent_Start); \
-} \
+DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[TRANSLATION_UNIT_INDEX][block]; \
+blockInfo->cycles += __rdtsc(); \
+}
 
-#define DEBUG_TIMER_START(name) s32 ctr_##name = __COUNTER__; DEBUG_TIMER_START_(ctr_##name, __FILE__, __LINE__, #name)
+#define DEBUG_BLOCK_CLOSE(blockName) DEBUG_BLOCK_CLOSE_(block_##blockName)
 
-#define DEBUG_TIMER_FINISH_(ctr) { RecordDebugEvent(ctr, DebugEvent_Finish); }
-#define DEBUG_TIMER_FINISH(name) DEBUG_TIMER_FINISH_(ctr_##name)
-
-struct DebugTiming
-{
-    u32 counter;
-    
-    DebugTiming(u32 ctr, char *file, s32 line, char *func)
-    {
-        this->counter = ctr;
-        DEBUG_TIMER_START_(ctr, file, line, func);
-    }
-    
-    ~DebugTiming()
-    {
-        DEBUG_TIMER_FINISH_(counter);
-    }
-};
-
+#define DEBUG_BLOCK_AUTO__(name, line) DebugAutoBlock autoBlock_##line(__COUNTER__, name)
+#define DEBUG_BLOCK_AUTO_(name, line) DEBUG_BLOCK_AUTO__(name, line)
+#define DEBUG_BLOCK_AUTO(name) DEBUG_BLOCK_AUTO_(#name, __LINE__)
+#define DEBUG_BLOCK_FUNC DEBUG_BLOCK_AUTO_(__FUNCTION__, __LINE__)
 #endif
 
-#define GAME_DEBUG_FRAME_END(funcName) DebugTable *funcName(Game_Memory *memory)
+#define GAME_INITIALISE_DEBUG_STATE(funcName) void funcName(Game_Memory *memory)
+typedef GAME_INITIALISE_DEBUG_STATE(game_initialiseDebugState);
+
+#define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory)
 typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);
 
 #define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)

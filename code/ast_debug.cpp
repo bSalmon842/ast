@@ -5,45 +5,7 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-inline void StartDebugStat(DebugStat *stat)
-{
-    stat->min = FLT_MAX;
-    stat->max = -FLT_MAX;
-    stat->ave = 0.0;
-    stat->count = 0;
-}
-
-inline void CalcDebugStat(DebugStat *stat, f64 value)
-{
-    ++stat->count;
-    
-    if (stat->min > value)
-    {
-        stat->min = value;
-    }
-    
-    if (stat->max < value)
-    {
-        stat->max = value;
-    }
-    
-    stat->ave += value;
-}
-
-inline void FinishDebugStat(DebugStat *stat)
-{
-    if (stat->count)
-    {
-        stat->ave /= (f64)stat->count;
-    }
-    else
-    {
-        stat->min = 0.0;
-        stat->max = 0.0;
-    }
-}
-
-function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Camera camera, PlatformAPI platform)
+function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
 {
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
@@ -62,107 +24,58 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         PushText(commands, loadedAssets, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
         debugLineOffset.y -= lineHeight;
         
-#if 0        
-        for (u32 ctrIndex = 0; ctrIndex < debugState->counterCount; ++ctrIndex)
+        v2f mousePos = V2F((f32)input->mouseX, (f32)input->mouseY);
+        s16 hoveredTIndex = -1;
+        s16 hoveredBIndex = -1;
+        for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
         {
-            DebugCounter *counter = &debugState->counters[ctrIndex];
-            
-            DebugStat hitStat, cycleStat, cphStat;
-            StartDebugStat(&hitStat);
-            StartDebugStat(&cycleStat);
-            StartDebugStat(&cphStat);
-            for (u32 datumIndex = 0; datumIndex < DEBUG_DATUM_COUNT; ++datumIndex)
+            for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
             {
-                CalcDebugStat(&hitStat, counter->data[datumIndex].hits);
-                CalcDebugStat(&cycleStat, (u32)counter->data[datumIndex].cycles);
-                
-                f64 cyclesPerHit = 0.0f;
-                if (counter->data[datumIndex].hits)
+                DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[translationIndex][blockIndex];
+                if (lastBlockInfo->hits)
                 {
-                    cyclesPerHit = ((f64)counter->data[datumIndex].cycles / (f64)counter->data[datumIndex].hits);
-                }
-                CalcDebugStat(&cphStat, cyclesPerHit);
-            }
-            FinishDebugStat(&hitStat);
-            FinishDebugStat(&cycleStat);
-            FinishDebugStat(&cphStat);
-            
-            if (hitStat.max > 0.0f)
-            {
-                char string[128];
-                stbsp_sprintf(string, "%24s: %10uc | %6u hits | %10uc/hit",
-                              counter->blockName, (u32)cycleStat.ave, (u32)hitStat.ave, (u32)cphStat.ave);
-                PushText(commands, loadedAssets, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
-                
-                f32 chartWidth = (f32)commands->width * 0.25f;
-                f32 datumWidth = ((1.0f / (f32)DEBUG_DATUM_COUNT) * chartWidth);
-                for (u32 datumIndex = 0; datumIndex < DEBUG_DATUM_COUNT; ++datumIndex)
-                {
-                    f32 minX = ((f32)commands->width * 0.725f) + (datumWidth * datumIndex);
-                    f32 maxX = minX + datumWidth;
-                    f32 chartScale = (f32)counter->data[datumIndex].cycles / (f32)cycleStat.max;
+                    v2f lineMin = V2F(10.0f, debugLineOffset.y);
+                    v2f lineMax = V2F((f32)commands->width - 10.0f, debugLineOffset.y + lineHeight);
+                    if (mousePos > lineMin && mousePos < lineMax)
+                    {
+                        hoveredTIndex = (s16)translationIndex;
+                        hoveredBIndex = (s16)blockIndex;
+                    }
                     
-                    v2f chartMin = V2F(minX, debugLineOffset.y);
-                    v2f chartMax = V2F(maxX, chartMin.y + (lineHeight * chartScale));
-                    v4f datumColour = V4F(chartScale, 1.0f - chartScale, 0.0f, 1.0f);
-                    PushRect(commands, platform, camera, chartMin, chartMax, 0.0f, 0.0f, DEBUG_LAYER - 1, datumColour);
+                    char string[128];
+                    stbsp_sprintf(string, "%24s(%u): %10lluc | %6u hits | %10lluc/hit",
+                                  lastBlockInfo->name, translationIndex, lastBlockInfo->cycles, lastBlockInfo->hits, lastBlockInfo->cycles / lastBlockInfo->hits);
+                    PushText(commands, loadedAssets, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
+                    debugLineOffset.y -= lineHeight;
                 }
-                
-                debugLineOffset.y -= lineHeight;
             }
         }
-#endif
         
-        v4f colourTable[] =
+        if (hoveredTIndex != -1 && hoveredBIndex != -1)
         {
-            V4F(1.0f, 0.0f, 0.0f, 1.0f),
-            V4F(0.0f, 1.0f, 0.0f, 1.0f),
-            V4F(0.0f, 0.0f, 1.0f, 1.0f),
-            V4F(1.0f, 1.0f, 0.0f, 1.0f),
-            V4F(1.0f, 0.0f, 1.0f, 1.0f),
-            V4F(0.0f, 1.0f, 1.0f, 1.0f),
-            V4F(1.0f, 0.5f, 0.0f, 1.0f),
-            V4F(0.5f, 0.0f, 1.0f, 1.0f),
-            V4F(0.0f, 0.5f, 1.0f, 1.0f),
-        };
-        
-        f32 targetTime = 0.01666f;
-        v2f barBaseMin = V2F(15.0f, 10.0f);
-        f32 barLaneWidth = 2.0f;
-        f32 barWidth = (f32)debugState->visBarLaneCount * barLaneWidth;
-        f32 barFootprint = barWidth + 1.0f;
-        f32 chartHeight = (f32)commands->height / 4.0f;
-        f32 textY = (f32)commands->height - 20.0f;
-        PushRect(commands, platform, camera, barBaseMin + V2F(-5.0f, chartHeight), barBaseMin + V2F((barFootprint * debugState->frameCount), chartHeight + 1), 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
-        
-        for (u32 frameIndex = 0; frameIndex < debugState->frameCount; ++frameIndex)
-        {
-            DebugFrame *frame = &debugState->frames[frameIndex];
+            v2f hoverDims = V2F(450.0f, 40.0f);
             
-            v2f barSegmentMin = barBaseMin;
-            for (u32 segmentIndex = 0; segmentIndex < frame->segmentCount; ++segmentIndex)
+            v2f hoverMax = V2F();(mousePos - V2F(10.0f));
+            v2f hoverMin = V2F();hoverMax - hoverDims;
+            if (mousePos.x <= commands->width / 2)
             {
-                DebugFrameSegment *segment = &frame->segments[segmentIndex];
-                
-                f32 barSegmentHeight = (segment->minT / targetTime) * chartHeight;
-                v2f barSegmentMax = barSegmentMin + V2F(barWidth, barSegmentHeight);
-                
-                v4f segmentColour = colourTable[segmentIndex % ARRAY_COUNT(colourTable)];
-                PushRect(commands, platform, camera, barSegmentMin, barSegmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
-                
-#if 0                
-                if (frameIndex == 0)
-                {
-                    PushText(commands, loadedAssets, platform, camera, timestamp->name, "Debug", V3F(100.0f, textY, 0.0f), 0.75f, DEBUG_LAYER - 3, segmentColour);
-                    textY -= 10.0f;
-                }
-#endif
-                
-                barSegmentMin.y += barSegmentHeight;
-                
+                hoverMin = V2F(mousePos.x + 10.0f, mousePos.y - hoverDims.y);
+                hoverMax = hoverMin + hoverDims;
             }
+            else
+            {
+                hoverMax = (mousePos - V2F(10.0f));
+                hoverMin = hoverMax - hoverDims;
+            }
+            PushRect(commands, platform, camera, hoverMin, hoverMax, 0.0f, 0.0f, DEBUG_LAYER + 1, V4F(V3F(0.1f), 0.66f));
+            DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[hoveredTIndex][hoveredBIndex];
+            DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[hoveredTIndex][hoveredBIndex];
             
-            barBaseMin.x += barFootprint;
+            v2f hoverLineOffset = V2F(hoverMin.x + 10.0f, hoverMax.y - lineHeight);
+            char string[128];
+            stbsp_sprintf(string, "%s:\nMin: %10lluc | Max: %10lluc\nMin: %10uh | Max: %10uh",
+                          lastBlockInfo->name, lastBlockStat->minCycles, lastBlockStat->maxCycles, lastBlockStat->minHits, lastBlockStat->maxHits);
+            PushText(commands, loadedAssets, platform, camera, string, font, V3F(hoverLineOffset, 0.0f), scale, DEBUG_LAYER + 2, V4F(1.0f));
         }
         
         v2f min = V2F(10.0f, debugLineOffset.y);

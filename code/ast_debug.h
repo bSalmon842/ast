@@ -13,59 +13,68 @@ global b32 debug_cam = false;
 global b32 debug_regions = false;
 global b32 debug_camMove = false;
 
-struct DebugCounterDatum
-{
-    u32 hits;
-    u64 cycles;
-};
-
-struct DebugCounter
-{
-    char *fileName;
-    char *blockName;
-    u32 lineNumber;
-};
-
-struct DebugFrameSegment
-{
-    u32 laneIndex;
-    f32 minT;
-    f32 maxT;
-};
+#define TRANSLATION_UNIT_COUNT 2
+#define MAX_DEBUG_TRANSLATION_UNIT_INFOS 256
+#define MAX_DEBUG_FRAMES 64
 
 struct DebugFrame
 {
     u64 startClock;
-    u64 finishClock;
-    u32 segmentCount;
-    DebugFrameSegment *segments;
+    u64 totalClock;
+    f32 frameTime;
+};
+
+struct DebugBlockInfo
+{
+    u64 cycles;
+    u32 hits;
+    
+    char *name;
+};
+
+struct DebugBlockStats
+{
+    u64 minCycles;
+    u64 maxCycles;
+    
+    u32 minHits;
+    u32 maxHits;
+};
+
+struct DebugTable
+{
+    u32 frameIndex;
+    DebugFrame frames[MAX_DEBUG_FRAMES];
+    
+    DebugBlockInfo blockInfos[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
+    DebugBlockInfo lastBlockInfos[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
+    DebugBlockStats lastBlockStats[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
 };
 
 struct DebugState
 {
-    
-#if 0    
-    u32 counterCount;
-    DebugCounter counters[512];
-#endif
-    
-    u32 frameCount;
-    DebugFrame *frames;
-    
-    u32 visBarLaneCount;
-    f32 visBarScale;
+    b32 inFrame;
     
     MemoryRegion dataRegion;
-    TempMemory dataTemp;
-    b32 initialised;
+    DebugTable *table;
+    
+    b32 memInitialised;
 };
 
-struct DebugStat
+struct DebugAutoBlock
 {
-    f64 min;
-    f64 max;
-    f64 ave;
-    u32 count;
+    u32 counter;
+    
+    DebugAutoBlock(u32 ctr, char *blockName)
+    {
+        this->counter = ctr;
+        DEBUG_BLOCK_OPEN_(blockName, this->counter);
+    }
+    
+    ~DebugAutoBlock()
+    {
+        DEBUG_BLOCK_CLOSE_(this->counter);
+    }
 };
 
 #define AST_DEBUG_H

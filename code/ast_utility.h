@@ -37,7 +37,7 @@ typedef s64 ssize;
 typedef u64 usize;
 
 #if AST_SLOW
-#define ASSERT(check) if(!(check)) {*(s32 *)0 = 0;}
+#define ASSERT(check) {(!(check)) ? *(s32 *)0 = 0 : 0;}
 #define INVALID_CODE_PATH ASSERT(false)
 #define INVALID_DEFAULT default: { INVALID_CODE_PATH; } break;
 #else
@@ -53,6 +53,8 @@ typedef u64 usize;
 #define MIN(a, b) ((a < b) ? a : b)
 
 #define FLT_MAX 340282346638528859811704183484516925440.0000000000000000
+#define U64_MAX 18446744073709551615
+#define U32_MAX 4294967295
 
 #define Align8(value) ((value + 7) & ~7)
 

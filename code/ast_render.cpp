@@ -8,7 +8,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
 inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
 {
-    DEBUG_TIMER_FUNC();
+    DEBUG_BLOCK_FUNC;
     
     void *result = 0;
     

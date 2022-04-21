@@ -207,7 +207,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                     {
                         case '\n':
                         {
-                            entry->positioning.pos.y += entry->metadata.lineGap * entry->scale;
+                            entry->positioning.pos.y -= entry->metadata.lineGap * entry->scale;
                             charPosX = entry->positioning.pos.x;
                         } break;
                         

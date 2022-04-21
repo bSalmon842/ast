@@ -20,6 +20,7 @@ struct W32_ProgramCode
     
     game_updateRender *UpdateRender;
     game_debugFrameEnd *DebugFrameEnd;
+    game_initialiseDebugState *InitialiseDebugState;
     
     b32 isValid;
 };
@@ -72,6 +73,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
         {
             result.UpdateRender = (game_updateRender *)GetProcAddress(result.programCodeDLL, "Game_UpdateRender");
             result.DebugFrameEnd = (game_debugFrameEnd *)GetProcAddress(result.programCodeDLL, "Game_DebugFrameEnd");
+            result.InitialiseDebugState = (game_initialiseDebugState *)GetProcAddress(result.programCodeDLL, "Game_InitialiseDebugState");
             
             result.isValid = (result.UpdateRender && true);
         }
@@ -81,6 +83,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
     {
         result.UpdateRender = 0;
         result.DebugFrameEnd = 0;
+        result.InitialiseDebugState = 0;
     }
     
     return result;
@@ -97,4 +100,5 @@ function void W32_UnloadProgramCode(W32_ProgramCode *programCode)
     programCode->isValid = false;
     programCode->UpdateRender = 0;
     programCode->DebugFrameEnd = 0;
+    programCode->InitialiseDebugState = 0;
 }

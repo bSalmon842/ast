@@ -9,6 +9,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Debug output work
 
 // TODO(bSalmon): Engine:
+// TODO(bSalmon): More OpenGL work
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Menues
@@ -16,6 +17,14 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Collision double dispatch method review
 // TODO(bSalmon): Fix warping on resolution change
 // TODO(bSalmon): Multiple resolutions
+// TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
+
+// New Debug Infrastructure
+// NOTE(bSalmon): I hate this new debug infrastructure, this version was done as a learning exercise from Handmade Hero and I am really frustrated with it
+// so I might try and dumb it down a little for my use
+// TODO(bSalmon): Allow segmenting of a block (So I can set markers through the W32 Loop)
+// TODO(bSalmon): Only measure while in frame bounds
+// TODO(bSalmon): Record last 256 frames
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -29,7 +38,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Death and lives
 
 // TODO(bSalmon): Bitmap list
-// TODO(bSalmon): Ship (w/ rocket trail)
 // TODO(bSalmon): UFO (S: 1000)
 
 // TODO(bSalmon): Audio list
@@ -37,7 +45,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Shot
 // TODO(bSalmon): Propulsion
 // TODO(bSalmon): Asteroid destroyed
-// TODO(bSalmon): Ambient UFO activet
+// TODO(bSalmon): Ambient UFO active
 
 #include "ast.h"
 #include "ast_timer.cpp"
@@ -146,7 +154,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     debugGlobalMem = memory;
 #endif
-    DEBUG_TIMER_FUNC();
+    DEBUG_BLOCK_FUNC;
     
     ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
     Game_State *gameState = (Game_State *)memory->permaStorage;
@@ -238,7 +246,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             ParallelMemory *mem = &transState->parallelMems[memIndex];
             
             mem->inUse = false;
-            CreateMemorySubRegion(&mem->memRegion, &transState->transRegion, MEGABYTE(1));
+            mem->memRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1));
         }
         
         transState->loadedAssets = InitialiseLoadedAssets(platform, memory->parallelQueue);
@@ -254,6 +262,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         input->deltaTime = 0.0f;
     }
     
+    b32 trail = false;
     Game_Keyboard *keyboard = &input->keyboard;
     f32 playerRotateSpeed = 5.0f * input->deltaTime;
     v2f playerForward = V2F(Cos(gameState->playerEntity->angle), Sin(gameState->playerEntity->angle));
@@ -262,6 +271,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     if (keyboard->keyW.endedFrameDown)
     {
         gameState->playerDDP = V2F(50.0f) * playerForward;
+        trail = true;
     }
     if (keyboard->keyA.endedFrameDown)
     {
@@ -387,7 +397,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
+                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, trail ? BitmapID_Player_Trail : BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
                     PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
                     PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
                 } break;
@@ -508,7 +518,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     if (debug_info)
     {
-        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, gameState->gameCamera, memory->platform);
+        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, memory->platform);
     }
     if (debug_cam)
     {
@@ -523,6 +533,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     stbsp_sprintf(metricString, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
     v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    
+    char mouseString[16];
+    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouseX, input->mouseY);
+    v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
 #endif
     
     // AUDIO
@@ -532,149 +547,53 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 ////////// DEBUG STUFF FROM HERE ON OUT /////////////*
 /////// ABANDON ALL HOPE, YE WHO ENTER HERE ////////
 
-#define debugRecordsCount_Game __COUNTER__
-
-global DebugTable globalDebugTable_;
-DebugTable *globalDebugTable = &globalDebugTable_;
-
-inline u32 GetLaneFromThread(u16 threadIndex)
+extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
 {
-    u32 result = 0;
-    return result;
-}
-
-function void CollectDebugEvents(DebugState *debugState, u32 nextEventArrayIndex)
-{
-    debugState->frames = PushArray(&debugState->dataRegion, MAX_DEBUG_EVENT_ARRAYS * 4, DebugFrame);
-    
-    debugState->visBarLaneCount = 0;
-    debugState->visBarScale = 1.0f;
-    
-    DebugFrame *frame = 0;
-    
-    for (u32 eventArrayIndex = nextEventArrayIndex + 1; eventArrayIndex != nextEventArrayIndex; ++eventArrayIndex)
+    if (!globalDebugState)
     {
-        if (eventArrayIndex == MAX_DEBUG_EVENT_ARRAYS)
+        globalDebugState = (DebugState *)memory->debugStorage;
+        if (!globalDebugState->memInitialised)
         {
-            eventArrayIndex = 0;
-            if (eventArrayIndex == nextEventArrayIndex)
-            {
-                break;
-            }
-        }
-        
-        for (u32 eventIndex = 0; eventIndex < globalDebugTable->eventCounts[eventArrayIndex]; ++eventIndex)
-        {
-            DebugEvent *event = &globalDebugTable->events[eventArrayIndex][eventIndex];
-            DebugRecord *record = &globalDebugTable->records[event->translationUnit][event->recordIndex];
+            InitMemRegion(&globalDebugState->dataRegion, memory->debugStorageSize - sizeof(DebugState), (u8 *)memory->debugStorage + sizeof(DebugState));
+            globalDebugState->table = PushStruct(&globalDebugState->dataRegion, DebugTable);
             
-            if (event->type == DebugEvent_FrameBound)
+            for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
             {
-                if (frame)
+                for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
                 {
-                    frame->finishClock = event->clock;
-                }
-                
-                frame = &debugState->frames[debugState->frameCount++];
-                frame->startClock = event->clock;
-                frame->finishClock = 0;
-                frame->segmentCount = 0;
-                frame->segments = PushArray(&debugState->dataRegion, MAX_DEBUG_EVENTS, DebugFrameSegment);
-            }
-            else if (frame)
-            {
-                u64 relativeClock = event->clock - frame->startClock;
-                u32 laneIndex = GetLaneFromThread(event->thread);
-                if (event->type == DebugEvent_Start)
-                {
-                    
-                }
-                else if (event->type == DebugEvent_Finish)
-                {
-                    
-                }
-                else
-                {
-                    INVALID_CODE_PATH;
+                    DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[translationIndex][blockIndex];
+                    lastBlockStat->minCycles = U64_MAX;
+                    lastBlockStat->maxCycles = 0;
+                    lastBlockStat->minHits = U32_MAX;
+                    lastBlockStat->maxHits = 0;
                 }
             }
+            
+            globalDebugState->memInitialised = true;
         }
     }
-    
-#if 0
-    DebugCounter *counters[DEBUG_TRANSLATION_UNITS] = {};
-    debugState->counterCount = 0;
-    for (s32 i = 0; i < DEBUG_TRANSLATION_UNITS; ++i)
-    {
-        counters[i] = debugState->counters + debugState->counterCount;
-        debugState->counterCount += globalDebugTable->recordCounts[i];
-    }
-    
-    for (u32 counterIndex = 0; counterIndex < debugState->counterCount; ++counterIndex)
-    {
-        DebugCounter *counter = &debugState->counters[counterIndex];
-        counter->data[debugState->datumIndex].hits = 0;
-        counter->data[debugState->datumIndex].cycles = 0;
-    }
-    
-    for (u32 eventIndex = 0; eventIndex < eventCount; ++eventIndex)
-    {
-        DebugEvent *event = &events[eventIndex];
-        DebugRecord *srcRecord = &globalDebugTable->records[event->translationUnit][event->recordIndex];
-        DebugCounter *destCounter = &counters[event->translationUnit][event->recordIndex];
-        
-        destCounter->fileName = srcRecord->fileName;
-        destCounter->blockName = srcRecord->blockName;
-        destCounter->lineNumber = srcRecord->lineNumber;
-        
-        if (event->type == DebugEvent_Start)
-        {
-            ++destCounter->data[debugState->datumIndex].hits;
-            destCounter->data[debugState->datumIndex].cycles -= event->clock;
-        }
-        else if (event->type == DebugEvent_Finish)
-        {
-            destCounter->data[debugState->datumIndex].cycles += event->clock;
-        }
-    }
-#endif
 }
 
 extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
 {
-    globalDebugTable->recordCounts[0] = debugRecordsCount_Game;
+    ASSERT(!globalDebugState->inFrame);
     
-    ++globalDebugTable->currentEventArrayIndex;
-    if (globalDebugTable->currentEventArrayIndex >= ARRAY_COUNT(globalDebugTable->events))
+    for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
     {
-        globalDebugTable->currentEventArrayIndex = 0;
-    }
-    
-    u64 eventIndices = AtomicExchange(&globalDebugTable->eventIndices, (u64)globalDebugTable->currentEventArrayIndex << 32);
-    
-    u32 eventArrayIndex = (u32)(eventIndices >> 32);
-    u32 lastEventIndex = (u32)(eventIndices & 0xFFFFFFFF);
-    
-    globalDebugTable->eventCounts[eventArrayIndex] = lastEventIndex;
-    
-    ASSERT(sizeof(DebugState) <= memory->debugStorageSize);
-    DebugState *debugState = (DebugState *)memory->debugStorage;
-    if (debugState)
-    {
-        if (!debugState->initialised)
+        for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
         {
-            InitMemRegion(&debugState->dataRegion, memory->debugStorageSize - sizeof(DebugState), (u8 *)memory->debugStorage + sizeof(DebugState));
-            debugState->dataTemp = StartTempMemory(&debugState->dataRegion);
+            DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[translationIndex][blockIndex];
+            DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[translationIndex][blockIndex];
+            DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[translationIndex][blockIndex];
             
-            debugState->initialised = true;
+            *lastBlockInfo = *blockInfo;
+            blockInfo->cycles = 0;
+            blockInfo->hits = 0;
+            
+            if (lastBlockInfo->cycles > lastBlockStat->maxCycles) { lastBlockStat->maxCycles = lastBlockInfo->cycles; }
+            if (lastBlockInfo->cycles < lastBlockStat->minCycles) { lastBlockStat->minCycles = lastBlockInfo->cycles; }
+            if (lastBlockInfo->hits > lastBlockStat->maxHits) { lastBlockStat->maxHits = lastBlockInfo->hits; }
+            if (lastBlockInfo->hits < lastBlockStat->minHits) { lastBlockStat->minHits = lastBlockInfo->hits; }
         }
-        
-        FinishTempMemory(debugState->dataTemp);
-        debugState->dataTemp = StartTempMemory(&debugState->dataRegion);
-        
-        CollectDebugEvents(debugState, globalDebugTable->currentEventArrayIndex);
     }
-    
-    DebugTable *result = globalDebugTable;
-    return result;
 }

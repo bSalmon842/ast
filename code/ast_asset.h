@@ -14,6 +14,7 @@ enum BitmapID : u32
     BitmapID_Null,
     
     BitmapID_Player_NoTrail,
+    BitmapID_Player_Trail,
     BitmapID_Asteroid0,
     BitmapID_Asteroid1,
     BitmapID_Asteroid2,
