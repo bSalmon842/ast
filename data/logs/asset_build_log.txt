@@ -1,9 +1,11 @@
 Saving Bitmap 1 to File "graphics.aaf", Asset Size: 25594, Total Size: 25594
-Saving Bitmap 2 to File "graphics.aaf", Asset Size: 25642, Total Size: 51236
-Saving Bitmap 3 to File "graphics.aaf", Asset Size: 33546, Total Size: 84782
-Saving Bitmap 4 to File "graphics.aaf", Asset Size: 33082, Total Size: 117864
-Saving Bitmap 5 to File "graphics.aaf", Asset Size: 27610, Total Size: 145474
-Saving Bitmap 6 to File "graphics.aaf", Asset Size: 11958, Total Size: 157432
+Saving Bitmap 2 to File "graphics.aaf", Asset Size: 27274, Total Size: 52868
+Saving Bitmap 3 to File "graphics.aaf", Asset Size: 25642, Total Size: 78510
+Saving Bitmap 4 to File "graphics.aaf", Asset Size: 33546, Total Size: 112056
+Saving Bitmap 5 to File "graphics.aaf", Asset Size: 33082, Total Size: 145138
+Saving Bitmap 6 to File "graphics.aaf", Asset Size: 27610, Total Size: 172748
+Saving Bitmap 7 to File "graphics.aaf", Asset Size: 11958, Total Size: 184706
+Saving Bitmap 8 to File "graphics.aaf", Asset Size: 5218, Total Size: 189924
 Saving Glyph   of Hyperspace to File "fonts.aaf", Asset Size: 314, Total Size: 314
 Saving Glyph ! of Hyperspace to File "fonts.aaf", Asset Size: 3046, Total Size: 3360
 Saving Glyph " of Hyperspace to File "fonts.aaf", Asset Size: 2234, Total Size: 5594
@@ -198,3 +200,100 @@ Saving Glyph } of Debug to File "fonts.aaf", Asset Size: 826, Total Size: 160657
 Saving Glyph ~ of Debug to File "fonts.aaf", Asset Size: 346, Total Size: 1606916
 Saving Kerning Table for Debug to File "fonts.aaf", Asset Size: 58, Total Size: 1606974
 Saving Metadata for Font Debug to File "fonts.aaf", Asset Size: 58, Total Size: 1607032
+Saving Glyph   of DebugLarge to File "fonts.aaf", Asset Size: 602, Total Size: 1607634
+Saving Glyph ! of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 1629996
+Saving Glyph " of DebugLarge to File "fonts.aaf", Asset Size: 9034, Total Size: 1639030
+Saving Glyph # of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 1661392
+Saving Glyph $ of DebugLarge to File "fonts.aaf", Asset Size: 26170, Total Size: 1687562
+Saving Glyph % of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 1711012
+Saving Glyph & of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 1734462
+Saving Glyph ' of DebugLarge to File "fonts.aaf", Asset Size: 10122, Total Size: 1744584
+Saving Glyph ( of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 1772930
+Saving Glyph ) of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 1801276
+Saving Glyph * of DebugLarge to File "fonts.aaf", Asset Size: 13658, Total Size: 1814934
+Saving Glyph + of DebugLarge to File "fonts.aaf", Asset Size: 16378, Total Size: 1831312
+Saving Glyph , of DebugLarge to File "fonts.aaf", Asset Size: 10122, Total Size: 1841434
+Saving Glyph - of DebugLarge to File "fonts.aaf", Asset Size: 3322, Total Size: 1844756
+Saving Glyph . of DebugLarge to File "fonts.aaf", Asset Size: 5226, Total Size: 1849982
+Saving Glyph / of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 1878328
+Saving Glyph 0 of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 1901778
+Saving Glyph 1 of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 1924684
+Saving Glyph 2 of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 1947590
+Saving Glyph 3 of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 1971040
+Saving Glyph 4 of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 1993402
+Saving Glyph 5 of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 2016308
+Saving Glyph 6 of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2039758
+Saving Glyph 7 of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2062120
+Saving Glyph 8 of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2085570
+Saving Glyph 9 of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2109020
+Saving Glyph : of DebugLarge to File "fonts.aaf", Asset Size: 16650, Total Size: 2125670
+Saving Glyph ; of DebugLarge to File "fonts.aaf", Asset Size: 21546, Total Size: 2147216
+Saving Glyph < of DebugLarge to File "fonts.aaf", Asset Size: 16378, Total Size: 2163594
+Saving Glyph = of DebugLarge to File "fonts.aaf", Asset Size: 8218, Total Size: 2171812
+Saving Glyph > of DebugLarge to File "fonts.aaf", Asset Size: 16378, Total Size: 2188190
+Saving Glyph ? of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 2211096
+Saving Glyph @ of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2234546
+Saving Glyph A of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2256908
+Saving Glyph B of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2279270
+Saving Glyph C of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2302720
+Saving Glyph D of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2325082
+Saving Glyph E of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2347444
+Saving Glyph F of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2369806
+Saving Glyph G of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2393256
+Saving Glyph H of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2415618
+Saving Glyph I of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2437980
+Saving Glyph J of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 2460886
+Saving Glyph K of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2483248
+Saving Glyph L of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2505610
+Saving Glyph M of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2527972
+Saving Glyph N of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2550334
+Saving Glyph O of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2573784
+Saving Glyph P of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2596146
+Saving Glyph Q of DebugLarge to File "fonts.aaf", Asset Size: 27802, Total Size: 2623948
+Saving Glyph R of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2646310
+Saving Glyph S of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 2669760
+Saving Glyph T of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2692122
+Saving Glyph U of DebugLarge to File "fonts.aaf", Asset Size: 22906, Total Size: 2715028
+Saving Glyph V of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2737390
+Saving Glyph W of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2759752
+Saving Glyph X of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2782114
+Saving Glyph Y of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2804476
+Saving Glyph Z of DebugLarge to File "fonts.aaf", Asset Size: 22362, Total Size: 2826838
+Saving Glyph [ of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 2855184
+Saving Glyph \ of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 2883530
+Saving Glyph ] of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 2911876
+Saving Glyph ^ of DebugLarge to File "fonts.aaf", Asset Size: 18282, Total Size: 2930158
+Saving Glyph _ of DebugLarge to File "fonts.aaf", Asset Size: 3050, Total Size: 2933208
+Saving Glyph ` of DebugLarge to File "fonts.aaf", Asset Size: 5498, Total Size: 2938706
+Saving Glyph a of DebugLarge to File "fonts.aaf", Asset Size: 17738, Total Size: 2956444
+Saving Glyph b of DebugLarge to File "fonts.aaf", Asset Size: 24538, Total Size: 2980982
+Saving Glyph c of DebugLarge to File "fonts.aaf", Asset Size: 17738, Total Size: 2998720
+Saving Glyph d of DebugLarge to File "fonts.aaf", Asset Size: 24538, Total Size: 3023258
+Saving Glyph e of DebugLarge to File "fonts.aaf", Asset Size: 17738, Total Size: 3040996
+Saving Glyph f of DebugLarge to File "fonts.aaf", Asset Size: 24266, Total Size: 3065262
+Saving Glyph g of DebugLarge to File "fonts.aaf", Asset Size: 23450, Total Size: 3088712
+Saving Glyph h of DebugLarge to File "fonts.aaf", Asset Size: 23994, Total Size: 3112706
+Saving Glyph i of DebugLarge to File "fonts.aaf", Asset Size: 23994, Total Size: 3136700
+Saving Glyph j of DebugLarge to File "fonts.aaf", Asset Size: 30250, Total Size: 3166950
+Saving Glyph k of DebugLarge to File "fonts.aaf", Asset Size: 23994, Total Size: 3190944
+Saving Glyph l of DebugLarge to File "fonts.aaf", Asset Size: 23994, Total Size: 3214938
+Saving Glyph m of DebugLarge to File "fonts.aaf", Asset Size: 17194, Total Size: 3232132
+Saving Glyph n of DebugLarge to File "fonts.aaf", Asset Size: 17194, Total Size: 3249326
+Saving Glyph o of DebugLarge to File "fonts.aaf", Asset Size: 17738, Total Size: 3267064
+Saving Glyph p of DebugLarge to File "fonts.aaf", Asset Size: 23178, Total Size: 3290242
+Saving Glyph q of DebugLarge to File "fonts.aaf", Asset Size: 23178, Total Size: 3313420
+Saving Glyph r of DebugLarge to File "fonts.aaf", Asset Size: 17194, Total Size: 3330614
+Saving Glyph s of DebugLarge to File "fonts.aaf", Asset Size: 17738, Total Size: 3348352
+Saving Glyph t of DebugLarge to File "fonts.aaf", Asset Size: 20186, Total Size: 3368538
+Saving Glyph u of DebugLarge to File "fonts.aaf", Asset Size: 17194, Total Size: 3385732
+Saving Glyph v of DebugLarge to File "fonts.aaf", Asset Size: 16650, Total Size: 3402382
+Saving Glyph w of DebugLarge to File "fonts.aaf", Asset Size: 16650, Total Size: 3419032
+Saving Glyph x of DebugLarge to File "fonts.aaf", Asset Size: 16650, Total Size: 3435682
+Saving Glyph y of DebugLarge to File "fonts.aaf", Asset Size: 22634, Total Size: 3458316
+Saving Glyph z of DebugLarge to File "fonts.aaf", Asset Size: 16650, Total Size: 3474966
+Saving Glyph { of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 3503312
+Saving Glyph | of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 3531658
+Saving Glyph } of DebugLarge to File "fonts.aaf", Asset Size: 28346, Total Size: 3560004
+Saving Glyph ~ of DebugLarge to File "fonts.aaf", Asset Size: 6314, Total Size: 3566318
+Saving Kerning Table for DebugLarge to File "fonts.aaf", Asset Size: 58, Total Size: 3566376
+Saving Metadata for Font DebugLarge to File "fonts.aaf", Asset Size: 58, Total Size: 3566434

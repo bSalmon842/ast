@@ -5,8 +5,8 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// Current Ongoing (10APR2022 - )
-// TODO(bSalmon): Debug output work
+// 22APR2022
+// TODO(bSalmon): Debug mode selection
 
 // TODO(bSalmon): Engine:
 // TODO(bSalmon): More OpenGL work
@@ -20,10 +20,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
 
 // New Debug Infrastructure
-// NOTE(bSalmon): I hate this new debug infrastructure, this version was done as a learning exercise from Handmade Hero and I am really frustrated with it
-// so I might try and dumb it down a little for my use
-// TODO(bSalmon): Allow segmenting of a block (So I can set markers through the W32 Loop)
-// TODO(bSalmon): Only measure while in frame bounds
 // TODO(bSalmon): Record last 256 frames
 
 // Sim Region Brainstorming
@@ -38,7 +34,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Death and lives
 
 // TODO(bSalmon): Bitmap list
-// TODO(bSalmon): UFO (S: 1000)
+// NOTE(bSalmon): COMPLETE
 
 // TODO(bSalmon): Audio list
 // TODO(bSalmon): Ambient noise once every x seconds which speeds up as wave progresses
@@ -114,12 +110,6 @@ inline v2f RandomChoosePointInArea(Game_State *gameState, v2f min, v2f max, b32 
         result = V2F(x, y);
     }
     
-    return result;
-}
-
-inline b32 InputNoRepeat(Game_ButtonState buttonState)
-{
-    b32 result = buttonState.endedFrameDown && (buttonState.halfTransitionCount % 2 != 0);
     return result;
 }
 
@@ -299,7 +289,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keyF2))
     {
-        debug_colliders = !debug_colliders;
+        globalDebugState->settings.colliders = !globalDebugState->settings.colliders;
     }
     if (InputNoRepeat(keyboard->keyF3))
     {
@@ -307,13 +297,13 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keyF4))
     {
-        debug_regions = !debug_regions;
+        globalDebugState->settings.regions = !globalDebugState->settings.regions;
     }
     if (InputNoRepeat(keyboard->keyF5))
     {
-        debug_camMove = !debug_camMove;
+        globalDebugState->settings.camMove = !globalDebugState->settings.camMove;
     }
-    if (debug_camMove)
+    if (globalDebugState->settings.camMove)
     {
         f32 debugCamMoveRate = 10.0f * input->deltaTime;
         if (keyboard->keyUp.endedFrameDown)
@@ -371,7 +361,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
         ASSERT(found.entity);
         
-        *found.entity = MakeEntity_UFO(gameState, found.index, V3F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->world.area.dims.y, 0.0f), V2F(5.0f, 3.0f),
+        b32 smallUFO = (rnd_pcg_range(&gameState->pcg, 0, 9) >= 8);
+        v2f ufoDims = smallUFO ? V2F(3.0f, 3.0f) : V2F(5.0f, 3.0f);
+        *found.entity = MakeEntity_UFO(gameState, found.index, V3F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->world.area.dims.y, 0.0f), ufoDims, smallUFO,
                                        ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
         gameState->ufoSpawned = true;
     }
@@ -464,7 +456,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             entity->dP.y = 0.0f;
                         }
                         
-                        PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, BitmapID_UFO_Large, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        BitmapID ufoBitmap = ufoInfo->smallUFO ? BitmapID_UFO_Small : BitmapID_UFO_Large;
+                        PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, ufoBitmap, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
                         PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
@@ -478,19 +471,19 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
-            if (debug_colliders)
+            if (globalDebugState->settings.colliders)
             {
                 PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
             }
         }
         
-        if (entityIndex == gameState->gameCamera.linkedEntityIndex && !debug_camMove)
+        if (entityIndex == gameState->gameCamera.linkedEntityIndex && !globalDebugState->settings.camMove)
         {
             UpdateCamera(renderCommands, &gameState->gameCamera, *entity);
         }
     }
     
-    if (debug_regions)
+    if (globalDebugState->settings.regions)
     {
         PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
         
@@ -503,7 +496,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         Emitter *currEmitter = &gameState->emitters[emitterIndex];
         if (currEmitter->active)
         {
-            UpdateRenderEmitter(gameState, renderCommands, &transState->loadedAssets, gameState->gameCamera, input, currEmitter, platform);
+            UpdateRenderEmitter(gameState, renderCommands, &transState->loadedAssets, gameState->gameCamera, input, currEmitter, platform, globalDebugState->settings);
         }
     }
     
@@ -518,7 +511,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if AST_INTERNAL
     if (debug_info)
     {
-        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, memory->platform);
+        DisplayDebugMenu(renderCommands, &transState->loadedAssets, input, platform, gameState->gameCamera, &globalDebugState->settings);
+    }
+    if (globalDebugState->settings.timers)
+    {
+        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
     }
     if (debug_cam)
     {
@@ -535,7 +532,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
     char mouseString[16];
-    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouseX, input->mouseY);
+    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
     v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
 #endif
@@ -568,6 +565,11 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
                     lastBlockStat->maxHits = 0;
                 }
             }
+            
+            stbsp_sprintf(globalDebugState->settings.options[0], "Timing Info");
+            stbsp_sprintf(globalDebugState->settings.options[1], "Show Colliders");
+            stbsp_sprintf(globalDebugState->settings.options[2], "Show Regions");
+            stbsp_sprintf(globalDebugState->settings.options[3], "Camera Lock");
             
             globalDebugState->memInitialised = true;
         }

@@ -20,6 +20,7 @@ enum BitmapID : u32
     BitmapID_Asteroid2,
     BitmapID_Asteroid3,
     BitmapID_UFO_Large,
+    BitmapID_UFO_Small,
     
     BitmapID_Count,
 };
@@ -64,6 +65,7 @@ struct FontMetadata
 {
     f32 lineGap;
     b32 monospace;
+    s32 charWidth;
     b32 allCapital;
     
     char font[32];

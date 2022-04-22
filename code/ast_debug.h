@@ -8,10 +8,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #ifndef AST_DEBUG_H
 
 global b32 debug_info = false;
-global b32 debug_colliders = false;
 global b32 debug_cam = false;
-global b32 debug_regions = false;
-global b32 debug_camMove = false;
 
 #define TRANSLATION_UNIT_COUNT 2
 #define MAX_DEBUG_TRANSLATION_UNIT_INFOS 256
@@ -51,12 +48,24 @@ struct DebugTable
     DebugBlockStats lastBlockStats[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
 };
 
+struct DebugSettings
+{
+    b32 timers;
+    b32 colliders;
+    b32 regions;
+    b32 camMove;
+    
+    char options[4][32];
+};
+
 struct DebugState
 {
     b32 inFrame;
     
     MemoryRegion dataRegion;
     DebugTable *table;
+    
+    DebugSettings settings;
     
     b32 memInitialised;
 };

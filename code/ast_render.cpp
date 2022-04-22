@@ -172,3 +172,75 @@ inline void PushText(Game_RenderCommands *commands, Game_LoadedAssets *loadedAss
         entry->colour = colour;
     }
 }
+
+#define DEFAULT_CHAR_WIDTH 13.5f
+inline void PushTooltip(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, char *string, char *font, f32 textScale, v2f mousePos, s32 zLayer)
+{
+    u8 lineCount = 1;
+    char *c = string;
+    s32 longestLineLength = 0;
+    s32 currLineLength = 0;
+    while (*c)
+    {
+        if (*c == '\n')
+        {
+            lineCount++;
+            if (currLineLength > longestLineLength)
+            {
+                longestLineLength = currLineLength;
+                currLineLength = 0;
+            }
+        }
+        else
+        {
+            currLineLength++;
+        }
+        c++;
+    }
+    
+    LoadedAssetHeader *metadataHeader = GetAsset(loadedAssets, AssetType_FontMetadata, font, true);
+    FontMetadata metadata = metadataHeader->metadata;
+    f32 lineHeight = metadata.lineGap * textScale;
+    
+    v2f tooltipDims = V2F();
+    if (metadata.monospace)
+    {
+        tooltipDims = V2F((f32)(longestLineLength * metadata.charWidth) * textScale + 20.0f, (lineHeight * lineCount) + 5.0f);
+    }
+    else
+    {
+        tooltipDims = V2F((f32)longestLineLength * (DEFAULT_CHAR_WIDTH * textScale) + 20.0f, (lineHeight * lineCount) + 5.0f);
+    }
+    
+    v2f tooltipMax = V2F();
+    v2f tooltipMin = V2F();
+    if (mousePos.x <= commands->width / 2 &&
+        mousePos.y > commands->height / 2)
+    {
+        tooltipMin = V2F(mousePos.x + 10.0f, mousePos.y - tooltipDims.y);
+        tooltipMax = tooltipMin + tooltipDims;
+    }
+    else if (mousePos.x > commands->width / 2 &&
+             mousePos.y > commands->height / 2)
+    {
+        tooltipMax = (mousePos - V2F(10.0f));
+        tooltipMin = tooltipMax - tooltipDims;
+    }
+    else if (mousePos.x <= commands->width / 2 &&
+             mousePos.y <= commands->height / 2)
+    {
+        tooltipMin = mousePos + V2F(10.0f);
+        tooltipMax = tooltipMin + tooltipDims;
+    }
+    else if (mousePos.x > commands->width / 2 &&
+             mousePos.y <= commands->height / 2)
+    {
+        tooltipMin = V2F(mousePos.x - (tooltipDims.x + 10.0f), mousePos.y + 10.0f);
+        tooltipMax = tooltipMin + tooltipDims;
+    }
+    
+    PushRect(commands, platform, camera, tooltipMin, tooltipMax, 0.0f, 0.0f, zLayer, V4F(V3F(0.1f), 0.66f));
+    
+    v2f hoverLineOffset = V2F(tooltipMin.x + 10.0f, tooltipMax.y - lineHeight);
+    PushText(commands, loadedAssets, platform, camera, string, font, V3F(hoverLineOffset, 0.0f), textScale, zLayer, V4F(1.0f));
+}

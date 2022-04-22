@@ -1,5 +1,8 @@
+/////////////////////////////////////
+22APR2022
 
-
+- Added Bitmap and functionality for the small UFO
+- Small UFO has a 1/5 chance in spawning
 /////////////////////////////////////
 18APR2022
 

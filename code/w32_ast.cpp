@@ -280,6 +280,15 @@ function void W32_ProcessKeyboardEvent(Game_ButtonState *state, b32 keyIsDown)
     }
 }
 
+function void W32_ProcessMouseButtonEvent(Game_ButtonState *state, b32 keyIsDown)
+{
+    if (state->endedFrameDown != keyIsDown)
+    {
+        state->endedFrameDown = keyIsDown;
+        ++state->halfTransitionCount;
+    }
+}
+
 //~ RENDERING / OPENGL
 function void W32_InitOpenGL(HDC deviceContext, HGLRC *glContext)
 {
@@ -417,7 +426,7 @@ function void W32_RenderAudioSyncDisplay(W32_BackBuffer *backBuffer, s32 markerC
 }
 
 //~ WINDOWS
-function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, Game_RenderCommands *renderCommands, PlatformAPI platform)
+function void W32_ProcessPendingMessages(HWND window, Game_Mouse *mouse, Game_Keyboard *keyboard, Game_RenderCommands *renderCommands, PlatformAPI platform)
 {
     MSG msg;
     
@@ -437,6 +446,33 @@ function void W32_ProcessPendingMessages(HWND window, Game_Keyboard *keyboard, G
                 
                 W32_PresentBuffer(renderCommands, platform, deviceContext);
                 EndPaint(window, &paint);
+            } break;
+            
+            case WM_LBUTTONDOWN:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_L], true);
+            } break;
+            case WM_LBUTTONUP:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_L], false);
+            } break;
+            
+            case WM_MBUTTONDOWN:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_M], true);
+            } break;
+            case WM_MBUTTONUP:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_M], false);
+            } break;
+            
+            case WM_RBUTTONDOWN:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_R], true);
+            } break;
+            case WM_RBUTTONUP:
+            {
+                W32_ProcessMouseButtonEvent(&mouse->buttons[MouseButton_R], false);
             } break;
             
             case WM_SYSKEYDOWN:
@@ -700,17 +736,14 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
                     }
                     
-                    W32_ProcessPendingMessages(window, newKeyboard, &gameRenderCommands, platform);
+                    
+                    W32_ProcessPendingMessages(window, &newInput->mouse, newKeyboard, &gameRenderCommands, platform);
                     
                     POINT mouseLoc;
                     GetCursorPos(&mouseLoc);
                     ScreenToClient(window, &mouseLoc);
-                    newInput->mouseX = mouseLoc.x;
-                    newInput->mouseY = gameRenderCommands.height - mouseLoc.y;
-#if 0
-                    b32 mouseLeftDown = (GetKeyState(VK_LBUTTON) & (1 << 15));
-                    b32 mouseRightDown = (GetKeyState(VK_RBUTTON) & (1 << 15));
-#endif
+                    newInput->mouse.x = mouseLoc.x;
+                    newInput->mouse.y = gameRenderCommands.height - mouseLoc.y;
                     
 #if AST_INTERNAL
                     debugGlobalMem = &gameMem;

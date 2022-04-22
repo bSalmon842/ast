@@ -142,7 +142,7 @@ function Entity MakeEntity_Shot_Player(Game_State *gameState, s32 index, v3f ini
     return result;
 }
 
-function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v3f initialPos, v2f dims, s32 vMoveDir, PlatformAPI platform)
+function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v3f initialPos, v2f dims, b32 smallUFO, s32 vMoveDir, PlatformAPI platform)
 {
     Entity result = {};
     
@@ -157,6 +157,7 @@ function Entity MakeEntity_UFO(Game_State *gameState, s32 index, v3f initialPos,
     
     result.extraInfo = platform.MemAlloc(sizeof(EntityInfo_UFO));
     EntityInfo_UFO *ufoInfo = (EntityInfo_UFO *)result.extraInfo;
+    ufoInfo->smallUFO = smallUFO;
     ufoInfo->timer = InitialiseTimer(0.0f, 10.0f);
     ufoInfo->shotTimer = InitialiseTimer(0.0f, 1.5f);
     ufoInfo->vMoveDir = vMoveDir;

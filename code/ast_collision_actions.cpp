@@ -65,9 +65,26 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_PlayerShot_UFO)
     Entity *entity = triggerData->entity;
     Entity *other = triggerData->other;
     
+    EntityInfo_UFO *ufoInfo = 0;
+    if (entity->type == Entity_UFO)
+    {
+        ufoInfo = (EntityInfo_UFO *)entity->extraInfo;
+    }
+    else
+    {
+        ufoInfo = (EntityInfo_UFO *)other->extraInfo;
+    }
+    
+    u32 scoreAddition = 200;
+    if (ufoInfo->smallUFO)
+    {
+        scoreAddition = 1000;
+    }
+    gameState->score += scoreAddition;
+    
     ClearEntity(entity, triggerData->platform);
     ClearEntity(other, triggerData->platform);
-    gameState->score += 200;
+    
     ResetTimer(&gameState->ufoSpawnTimer);
     gameState->ufoSpawned = false;
 }

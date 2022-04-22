@@ -197,16 +197,34 @@ struct Game_Keyboard
     };
 };
 
+enum MouseButtons
+{
+    MouseButton_L,
+    MouseButton_M,
+    MouseButton_R,
+};
+
+struct Game_Mouse
+{
+    s32 x;
+    s32 y;
+    Game_ButtonState buttons[3];
+};
+
 struct Game_Input
 {
     b32 exeReloaded;
     f32 deltaTime;
     
-    s32 mouseX;
-    s32 mouseY;
-    
+    Game_Mouse mouse;
     Game_Keyboard keyboard;
 };
+
+inline b32 InputNoRepeat(Game_ButtonState buttonState)
+{
+    b32 result = buttonState.endedFrameDown && (buttonState.halfTransitionCount % 2 != 0);
+    return result;
+}
 
 struct InstructionSets
 {

@@ -46,6 +46,7 @@ struct EntityInfo_Shot
 
 struct EntityInfo_UFO
 {
+    b32 smallUFO;
     Timer timer;
     Timer shotTimer;
     s32 vMoveDir;

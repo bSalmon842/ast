@@ -1,4 +1,13 @@
 /////////////////////////////////////
+22APR2022
+
+- Abstracted tooltips to a push function similar to HollowRects
+- Moved some of the debug globals out to DebugSettings in DebugState
+- Started on a debug menu to control options
+- Added charWidth for monospace fonts to FontMetadata
+- Added DebugButton function to act as an ImGUI style button for the debug menu
+- Moved changing debug options into the debug menu
+/////////////////////////////////////
 21APR2022
 
 - Complete restructure of the debug restructure, did away with a lot of the complexity for my own sanity

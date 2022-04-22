@@ -265,7 +265,7 @@ function void AddToAssets_Glyph(Game_Assets *assets, FontInfo font, char codepoi
             v2s unusedMin = V2S();
             v2s unusedMax = V2S();
             
-            stbtt_GetCodepointBitmapBox(&font.font, '_', scale, scale, &min.x, &unusedMin.y, &max.x, &unusedMax.y);
+            stbtt_GetCodepointBitmapBox(&font.font, 'W', scale, scale, &min.x, &unusedMin.y, &max.x, &unusedMax.y);
             stbtt_GetCodepointBitmapBox(&font.font, codepoint, scale, scale, &unusedMin.x, &min.y, &unusedMax.x, &max.y);
         }
         else
@@ -387,6 +387,16 @@ function void AddToAssets_KerningAndMetadata(Game_Assets *assets, FontInfo font,
     stbtt_GetFontVMetrics(&font.font, &ascent, &descent, &lineGap);
     metadata.lineGap = scale * ((f32)ascent - (f32)descent + (f32)lineGap);
     metadata.monospace = font.monospace;
+    metadata.charWidth = 0;
+    if (metadata.monospace)
+    {
+        v2s min = V2S();
+        v2s max = V2S();
+        stbtt_GetCodepointBitmapBox(&font.font, 'W', scale, scale, &min.x, &min.y, &max.x, &max.y);
+        --min;
+        ++max;
+        metadata.charWidth = max.x - min.x + 2;
+    }
     metadata.allCapital = font.allCapital;
     sprintf(metadata.font, "%s", font.fontName);
     
@@ -477,9 +487,10 @@ s32 main(s32 argc, char **argv)
     Game_Assets assets = {};
     FILE *logFile = fopen(".\\logs\\asset_build_log.txt", "wb");
     
-    FontInfo fonts[2] = {};
+    FontInfo fonts[3] = {};
     GetFontInfo(&fonts[0], "Hyperspace", ".\\raw\\HyperspaceBold.ttf", false, true);
     GetFontInfo(&fonts[1], "Debug", "C:\\Windows\\Fonts\\Ltype.ttf", true, false);
+    GetFontInfo(&fonts[2], "DebugLarge", "C:\\Windows\\Fonts\\Ltype.ttf", true, false);
     
     AddToAssets_Bitmap(&assets, ".\\raw\\player.bmp", BitmapID_Player_NoTrail);
     AddToAssets_Bitmap(&assets, ".\\raw\\player_trail.bmp", BitmapID_Player_Trail);
@@ -488,6 +499,7 @@ s32 main(s32 argc, char **argv)
     AddToAssets_Bitmap(&assets, ".\\raw\\ast3.bmp", BitmapID_Asteroid2);
     AddToAssets_Bitmap(&assets, ".\\raw\\ast4.bmp", BitmapID_Asteroid3);
     AddToAssets_Bitmap(&assets, ".\\raw\\ufoL.bmp", BitmapID_UFO_Large);
+    AddToAssets_Bitmap(&assets, ".\\raw\\ufoS.bmp", BitmapID_UFO_Small);
     WriteAssetFile(assets, "graphics.aaf", logFile);
     
     ClearAssets(&assets);

@@ -5,6 +5,91 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
+function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, char *text, char *font, v2f textOrigin, f32 textScale, s32 zLayer, v4f textColour, v2f min, v2f max)
+{
+    b32 result = false;
+    
+    PushText(commands, loadedAssets, platform, camera, text, font, V3F(textOrigin, 0.0f),
+             textScale, zLayer, textColour);
+    
+    v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
+    if (InputNoRepeat(input->mouse.buttons[0]))
+    {
+        if (mousePos > min && mousePos < max)
+        {
+            result = true;
+        }
+    }
+    
+    return result;
+}
+
+function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings)
+{
+    f32 scale = 1.0f;
+    v2f topLine = V2F(50.0f, (f32)commands->height - 50.0f);
+    v2f debugLineOffset = topLine;
+    
+    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, "DebugLarge", true);
+    FontMetadata metadata = metadataHeader->metadata;
+    ASSERT(metadata.monospace);
+    f32 lineHeight = metadata.lineGap * scale;
+    
+    v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
+    
+    char *font = "DebugLarge";
+    v4f textColour = V4F(1.0f, 0.5f, 0.5f, 1.0f);
+    s32 selectedOption = -1;
+    for (s32 optionIndex = 0; optionIndex < ARRAY_COUNT(debugSettings->options); ++optionIndex)
+    {
+        char *string = debugSettings->options[optionIndex];
+        v2f lineMin = V2F(topLine.x, debugLineOffset.y);
+        v2f lineMax = V2F(lineMin.x + (f32)(StringLength(string) * metadata.charWidth) * scale, debugLineOffset.y + lineHeight);
+        
+        if (mousePos > lineMin && mousePos < lineMax)
+        {
+            PushRect(commands, platform, camera, lineMin, lineMax, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+        }
+        if (DebugButton(commands, loadedAssets, input, platform, camera, string, font, debugLineOffset,
+                        scale, DEBUG_LAYER - 1, textColour, lineMin, lineMax))
+        {
+            // TODO(bSalmon): Bug with selected options flickering on hover without click
+            //selectedOption = optionIndex;
+        }
+        debugLineOffset.y -= lineHeight;
+    }
+    
+    switch (selectedOption)
+    {
+        case -1:
+        {
+            // Do Nothing
+        } break;
+        
+        case 0:
+        {
+            INVERT(debugSettings->timers);
+        } break;
+        
+        case 1:
+        {
+            INVERT(debugSettings->colliders);
+        } break;
+        
+        case 2:
+        {
+            INVERT(debugSettings->regions);
+        } break;
+        
+        case 3:
+        {
+            INVERT(debugSettings->camMove);
+        } break;
+        
+        INVALID_DEFAULT;
+    }
+}
+
 function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
 {
     DebugState *debugState = (DebugState *)memory->debugStorage;
@@ -24,7 +109,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         PushText(commands, loadedAssets, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
         debugLineOffset.y -= lineHeight;
         
-        v2f mousePos = V2F((f32)input->mouseX, (f32)input->mouseY);
+        v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
         s16 hoveredTIndex = -1;
         s16 hoveredBIndex = -1;
         for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
@@ -53,29 +138,12 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         
         if (hoveredTIndex != -1 && hoveredBIndex != -1)
         {
-            v2f hoverDims = V2F(450.0f, 40.0f);
-            
-            v2f hoverMax = V2F();(mousePos - V2F(10.0f));
-            v2f hoverMin = V2F();hoverMax - hoverDims;
-            if (mousePos.x <= commands->width / 2)
-            {
-                hoverMin = V2F(mousePos.x + 10.0f, mousePos.y - hoverDims.y);
-                hoverMax = hoverMin + hoverDims;
-            }
-            else
-            {
-                hoverMax = (mousePos - V2F(10.0f));
-                hoverMin = hoverMax - hoverDims;
-            }
-            PushRect(commands, platform, camera, hoverMin, hoverMax, 0.0f, 0.0f, DEBUG_LAYER + 1, V4F(V3F(0.1f), 0.66f));
+            char string[128];
             DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[hoveredTIndex][hoveredBIndex];
             DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[hoveredTIndex][hoveredBIndex];
-            
-            v2f hoverLineOffset = V2F(hoverMin.x + 10.0f, hoverMax.y - lineHeight);
-            char string[128];
             stbsp_sprintf(string, "%s:\nMin: %10lluc | Max: %10lluc\nMin: %10uh | Max: %10uh",
                           lastBlockInfo->name, lastBlockStat->minCycles, lastBlockStat->maxCycles, lastBlockStat->minHits, lastBlockStat->maxHits);
-            PushText(commands, loadedAssets, platform, camera, string, font, V3F(hoverLineOffset, 0.0f), scale, DEBUG_LAYER + 2, V4F(1.0f));
+            PushTooltip(commands, loadedAssets, platform, camera, string, font, scale, mousePos, DEBUG_LAYER + 1);
         }
         
         v2f min = V2F(10.0f, debugLineOffset.y);
