@@ -736,14 +736,22 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                         newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
                     }
                     
+                    Game_Mouse *oldMouse = &oldInput->mouse;
+                    Game_Mouse *newMouse = &newInput->mouse;
+                    *newMouse = {};
                     
-                    W32_ProcessPendingMessages(window, &newInput->mouse, newKeyboard, &gameRenderCommands, platform);
+                    for (s32 mbIndex = 0; mbIndex < ARRAY_COUNT(newMouse->buttons); ++mbIndex)
+                    {
+                        newMouse->buttons[mbIndex].endedFrameDown = oldMouse->buttons[mbIndex].endedFrameDown;
+                    }
                     
                     POINT mouseLoc;
                     GetCursorPos(&mouseLoc);
                     ScreenToClient(window, &mouseLoc);
                     newInput->mouse.x = mouseLoc.x;
                     newInput->mouse.y = gameRenderCommands.height - mouseLoc.y;
+                    
+                    W32_ProcessPendingMessages(window, &newInput->mouse, newKeyboard, &gameRenderCommands, platform);
                     
 #if AST_INTERNAL
                     debugGlobalMem = &gameMem;

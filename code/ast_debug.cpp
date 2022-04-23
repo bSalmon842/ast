@@ -13,7 +13,7 @@ function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loade
              textScale, zLayer, textColour);
     
     v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
-    if (InputNoRepeat(input->mouse.buttons[0]))
+    if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
     {
         if (mousePos > min && mousePos < max)
         {
@@ -27,7 +27,7 @@ function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loade
 function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings)
 {
     f32 scale = 1.0f;
-    v2f topLine = V2F(50.0f, (f32)commands->height - 50.0f);
+    v2f topLine = V2F(50.0f, (f32)commands->height - 100.0f);
     v2f debugLineOffset = topLine;
     
     LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, "DebugLarge", true);
@@ -54,7 +54,7 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
                         scale, DEBUG_LAYER - 1, textColour, lineMin, lineMax))
         {
             // TODO(bSalmon): Bug with selected options flickering on hover without click
-            //selectedOption = optionIndex;
+            selectedOption = optionIndex;
         }
         debugLineOffset.y -= lineHeight;
     }
@@ -86,6 +86,16 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
             INVERT(debugSettings->camMove);
         } break;
         
+        case 4:
+        {
+            INVERT(debugSettings->zoom);
+        } break;
+        
+        case 5:
+        {
+            INVERT(debugSettings->mouseInfo);
+        } break;
+        
         INVALID_DEFAULT;
     }
 }
@@ -98,7 +108,12 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         f32 scale = DEBUG_TEXT_SCALE;
         char *font = "Debug";
         
-        v2f topLine = V2F(20.0f, (f32)commands->height - 100.0f);
+        if (globalDebugState->settings.movingTimerWindow)
+        {
+            globalDebugState->settings.timerWindowPosY = (f32)input->mouse.y;
+        }
+        
+        v2f topLine = V2F(20.0f, globalDebugState->settings.timerWindowPosY);
         v2f debugLineOffset = topLine;
         
         LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
@@ -149,5 +164,14 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         v2f min = V2F(10.0f, debugLineOffset.y);
         v2f max = V2F((f32)commands->width - 10.0f, topLine.y + (metadata.lineGap * scale));
         PushRect(commands, platform, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(0.05f, 0.0f, 0.1f, 0.66f));
+        
+        if (mousePos > min && mousePos < max && input->mouse.buttons[MouseButton_R].endedFrameDown)
+        {
+            globalDebugState->settings.movingTimerWindow = true;
+        }
+        else
+        {
+            globalDebugState->settings.movingTimerWindow = false;
+        }
     }
 }

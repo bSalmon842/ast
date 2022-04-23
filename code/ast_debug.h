@@ -7,8 +7,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_DEBUG_H
 
-global b32 debug_info = false;
-global b32 debug_cam = false;
+global b32 debug_menu = false;
 
 #define TRANSLATION_UNIT_COUNT 2
 #define MAX_DEBUG_TRANSLATION_UNIT_INFOS 256
@@ -54,8 +53,13 @@ struct DebugSettings
     b32 colliders;
     b32 regions;
     b32 camMove;
+    b32 zoom;
+    b32 mouseInfo;
     
-    char options[4][32];
+    b32 movingTimerWindow;
+    f32 timerWindowPosY;
+    
+    char options[6][32];
 };
 
 struct DebugState

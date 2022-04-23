@@ -5,9 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// 22APR2022
-// TODO(bSalmon): Debug mode selection
-
 // TODO(bSalmon): Engine:
 // TODO(bSalmon): More OpenGL work
 // TODO(bSalmon): Animation (Sprite-sheets?)
@@ -281,27 +278,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keyEsc))
     {
-        gameState->paused = !gameState->paused;
+        INVERT(gameState->paused);
     }
     if (InputNoRepeat(keyboard->keyF1))
     {
-        debug_info = !debug_info;
-    }
-    if (InputNoRepeat(keyboard->keyF2))
-    {
-        globalDebugState->settings.colliders = !globalDebugState->settings.colliders;
-    }
-    if (InputNoRepeat(keyboard->keyF3))
-    {
-        debug_cam = !debug_cam;
-    }
-    if (InputNoRepeat(keyboard->keyF4))
-    {
-        globalDebugState->settings.regions = !globalDebugState->settings.regions;
-    }
-    if (InputNoRepeat(keyboard->keyF5))
-    {
-        globalDebugState->settings.camMove = !globalDebugState->settings.camMove;
+        INVERT(debug_menu);
     }
     if (globalDebugState->settings.camMove)
     {
@@ -509,7 +490,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
              V3F(scorePixelOffset, 0.0f), 0.5f, 0, V4F(1.0f));
     
 #if AST_INTERNAL
-    if (debug_info)
+    if (debug_menu)
     {
         DisplayDebugMenu(renderCommands, &transState->loadedAssets, input, platform, gameState->gameCamera, &globalDebugState->settings);
     }
@@ -517,7 +498,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     {
         PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
     }
-    if (debug_cam)
+    if (globalDebugState->settings.zoom)
     {
         ChangeCameraDistance(&gameState->gameCamera, 30.0f);
     }
@@ -531,10 +512,26 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
-    char mouseString[16];
-    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
-    v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    if (globalDebugState->settings.mouseInfo)
+    {
+        char mouseString[16];
+        stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
+        v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
+        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+        
+        char mbString[32];
+        stbsp_sprintf(mbString, "Mouse L Down: %d\nMouse M Down: %d\nMouse R Down: %d", input->mouse.buttons[0].endedFrameDown, input->mouse.buttons[1].endedFrameDown, input->mouse.buttons[2].endedFrameDown);
+        v2f mbPixelOffset = V2F((f32)renderCommands->width - 500.0f, (f32)renderCommands->height - 50.0f);
+        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mbString, "Debug", V3F(mbPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    }
+    
+    if (globalDebugState->settings.camMove)
+    {
+        char unlockString[32];
+        stbsp_sprintf(unlockString, "CAMERA UNLOCKED");
+        v2f unlockPixelOffset = V2F(450.0f, (f32)renderCommands->height - 25.0f);
+        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, unlockString, "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    }
 #endif
     
     // AUDIO
@@ -570,6 +567,10 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             stbsp_sprintf(globalDebugState->settings.options[1], "Show Colliders");
             stbsp_sprintf(globalDebugState->settings.options[2], "Show Regions");
             stbsp_sprintf(globalDebugState->settings.options[3], "Camera Lock");
+            stbsp_sprintf(globalDebugState->settings.options[4], "Camera Zoom");
+            stbsp_sprintf(globalDebugState->settings.options[5], "Mouse Info");
+            
+            globalDebugState->settings.timerWindowPosY = 700.0f;
             
             globalDebugState->memInitialised = true;
         }

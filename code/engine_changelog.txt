@@ -1,4 +1,10 @@
 /////////////////////////////////////
+23APR2022
+
+- Fixed a bug with how mouse buttons were being handled in the platform layer causing incorrect behaviour
+- Cleaned up remaining debug mode globals
+- Timing Info panel can now be moved by holding Right Mouse Button over the panel
+/////////////////////////////////////
 22APR2022
 
 - Abstracted tooltips to a push function similar to HollowRects
