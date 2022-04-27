@@ -9,6 +9,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include <stdio.h>
 
+#include "ast_debug_config.h"
+
 #include "ast_utility.h"
 
 typedef struct
@@ -29,7 +31,16 @@ enum Platform_FileType
     PlatformFileType_Save,
 };
 
+enum Platform_WriteType
+{
+    PlatformWriteType_Overwrite,
+    PlatformWriteType_Append,
+};
+
 struct Platform_ParallelQueue;
+
+#define PLATFORM_DEBUG_SYSTEM_COMMAND(funcName) void funcName(char *command, char *path)
+typedef PLATFORM_DEBUG_SYSTEM_COMMAND(platformDebugSystemCommand);
 
 #define PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(funcName) Platform_FileGroup funcName(Platform_FileType fileType)
 typedef PLATFORM_GET_ALL_FILES_OF_EXT_BEGIN(platformGetAllFilesOfExtBegin);
@@ -45,6 +56,15 @@ typedef PLATFORM_MARK_FILE_ERROR(platformMarkFileError);
 
 #define PLATFORM_READ_DATA_FROM_FILE(funcName) void funcName(Platform_FileHandle *fileHandle, usize offset, usize size, void *dest)
 typedef PLATFORM_READ_DATA_FROM_FILE(platformReadDataFromFile);
+
+#define PLATFORM_OPEN_FILE_FOR_WRITE(funcName) Platform_FileHandle funcName(char *filename, Platform_WriteType writeType)
+typedef PLATFORM_OPEN_FILE_FOR_WRITE(platformOpenFileForWrite);
+
+#define PLATFORM_WRITE_INTO_FILE(funcName) void funcName(Platform_FileHandle fileHandle, char *fmtStr, ...)
+typedef PLATFORM_WRITE_INTO_FILE(platformWriteIntoFile);
+
+#define PLATFORM_CLOSE_FILE(funcName) void funcName(Platform_FileHandle *fileHandle)
+typedef PLATFORM_CLOSE_FILE(platformCloseFile);
 
 #define PLATFORM_MEM_ALLOC(funcName) void *funcName(usize size)
 typedef PLATFORM_MEM_ALLOC(platformMemAlloc);
@@ -115,12 +135,18 @@ struct PlatformAPI
     platformMarkFileError *MarkFileError;
     platformReadDataFromFile *ReadDataFromFile;
     
+    platformOpenFileForWrite *OpenFileForWrite;
+    platformWriteIntoFile *WriteIntoFile;
+    platformCloseFile *CloseFile;
+    
     platformAddParallelEntry *AddParallelEntry;
     platformCompleteAllParallelWork *CompleteAllParallelWork;
     platformHasParallelWorkFinished *HasParallelWorkFinished;
     
     platformAllocTexture *AllocTexture;
     platformFreeTexture *FreeTexture;
+    
+    platformDebugSystemCommand *DebugSystemCommand;
 };
 
 struct Game_RenderCommands
@@ -252,9 +278,6 @@ struct Game_Memory
 extern Game_Memory *debugGlobalMem;
 
 #include "ast_intrinsics.h"
-
-#define DEBUG_TEXT_SCALE 0.75f
-#define DEBUG_LAYER 200
 
 struct DebugState;
 global DebugState *globalDebugState;

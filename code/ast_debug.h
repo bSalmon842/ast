@@ -13,6 +13,9 @@ global b32 debug_menu = false;
 #define MAX_DEBUG_TRANSLATION_UNIT_INFOS 256
 #define MAX_DEBUG_FRAMES 64
 
+#define DEBUG_TEXT_SCALE 0.75f
+#define DEBUG_LAYER 200
+
 struct DebugFrame
 {
     u64 startClock;
@@ -47,14 +50,20 @@ struct DebugTable
     DebugBlockStats lastBlockStats[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
 };
 
-struct DebugSettings
+struct DebugConfig
 {
     b32 timers;
     b32 colliders;
     b32 regions;
     b32 camMove;
-    b32 zoom;
+    b32 camZoom;
     b32 mouseInfo;
+};
+
+struct DebugSettings
+{
+    DebugConfig config;
+    b32 configChanged;
     
     b32 movingTimerWindow;
     f32 timerWindowPosY;

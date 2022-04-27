@@ -5,6 +5,18 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
+function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
+{
+    Platform_FileHandle fileHandle = platform.OpenFileForWrite("..\\code\\ast_debug_config.h", PlatformWriteType_Overwrite);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_TIMERS %d\n", config.timers);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_COLLIDERS %d\n", config.colliders);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_REGIONS %d\n", config.regions);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMMOVE %d\n", config.camMove);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMZOOM %d\n", config.camZoom);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_MOUSEINFO %d\n", config.mouseInfo);
+    platform.CloseFile(&fileHandle);
+}
+
 function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, char *text, char *font, v2f textOrigin, f32 textScale, s32 zLayer, v4f textColour, v2f min, v2f max)
 {
     b32 result = false;
@@ -53,48 +65,22 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
         if (DebugButton(commands, loadedAssets, input, platform, camera, string, font, debugLineOffset,
                         scale, DEBUG_LAYER - 1, textColour, lineMin, lineMax))
         {
-            // TODO(bSalmon): Bug with selected options flickering on hover without click
             selectedOption = optionIndex;
+            debugSettings->configChanged = true;
         }
         debugLineOffset.y -= lineHeight;
     }
     
     switch (selectedOption)
     {
-        case -1:
-        {
-            // Do Nothing
-        } break;
+        case -1: {} break;
         
-        case 0:
-        {
-            INVERT(debugSettings->timers);
-        } break;
-        
-        case 1:
-        {
-            INVERT(debugSettings->colliders);
-        } break;
-        
-        case 2:
-        {
-            INVERT(debugSettings->regions);
-        } break;
-        
-        case 3:
-        {
-            INVERT(debugSettings->camMove);
-        } break;
-        
-        case 4:
-        {
-            INVERT(debugSettings->zoom);
-        } break;
-        
-        case 5:
-        {
-            INVERT(debugSettings->mouseInfo);
-        } break;
+        case 0: { INVERT(debugSettings->config.timers);    } break;
+        case 1: { INVERT(debugSettings->config.colliders); } break;
+        case 2: { INVERT(debugSettings->config.regions);   } break;
+        case 3: { INVERT(debugSettings->config.camMove);   } break;
+        case 4: { INVERT(debugSettings->config.camZoom);   } break;
+        case 5: { INVERT(debugSettings->config.mouseInfo); } break;
         
         INVALID_DEFAULT;
     }

@@ -6,9 +6,9 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
+// TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): More OpenGL work
 // TODO(bSalmon): Animation (Sprite-sheets?)
-// TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
 // TODO(bSalmon): Collision double dispatch method review
@@ -18,6 +18,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 // New Debug Infrastructure
 // TODO(bSalmon): Record last 256 frames
+// TODO(bSalmon): Nesting variables
+// TODO(bSalmon): Nesting Functions in timers
+// TODO(bSalmon): Memory Vis
+// TODO(bSalmon): Render Vis
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -140,6 +144,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 {
 #if AST_INTERNAL
     debugGlobalMem = memory;
+    if (!globalDebugState)
+    {
+        globalDebugState = (DebugState *)memory->debugStorage;
+    }
 #endif
     DEBUG_BLOCK_FUNC;
     
@@ -243,7 +251,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         transState->initialised = true;
     }
     
-    
     if (gameState->paused)
     {
         input->deltaTime = 0.0f;
@@ -284,26 +291,32 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     {
         INVERT(debug_menu);
     }
-    if (globalDebugState->settings.camMove)
+    if (InputNoRepeat(keyboard->keyF2))
     {
-        f32 debugCamMoveRate = 10.0f * input->deltaTime;
-        if (keyboard->keyUp.endedFrameDown)
-        {
-            gameState->gameCamera.rect.center.y += debugCamMoveRate;
-        }
-        if (keyboard->keyDown.endedFrameDown)
-        {
-            gameState->gameCamera.rect.center.y -= debugCamMoveRate;
-        }
-        if (keyboard->keyLeft.endedFrameDown)
-        {
-            gameState->gameCamera.rect.center.x -= debugCamMoveRate;
-        }
-        if (keyboard->keyRight.endedFrameDown)
-        {
-            gameState->gameCamera.rect.center.x += debugCamMoveRate;
-        }
+        globalDebugState->settings.config.timers = true;
+        WriteDebugConfigFile(platform, globalDebugState->settings.config);
+        printf("Config Written");
     }
+    
+#if DEBUGUI_CAMMOVE
+    f32 debugCamMoveRate = 10.0f * input->deltaTime;
+    if (keyboard->keyUp.endedFrameDown)
+    {
+        gameState->gameCamera.rect.center.y += debugCamMoveRate;
+    }
+    if (keyboard->keyDown.endedFrameDown)
+    {
+        gameState->gameCamera.rect.center.y -= debugCamMoveRate;
+    }
+    if (keyboard->keyLeft.endedFrameDown)
+    {
+        gameState->gameCamera.rect.center.x -= debugCamMoveRate;
+    }
+    if (keyboard->keyRight.endedFrameDown)
+    {
+        gameState->gameCamera.rect.center.x += debugCamMoveRate;
+    }
+#endif
     
     if (gameState->playerDDP.x != 0.0f || gameState->playerDDP.y != 0.0f)
     {
@@ -452,25 +465,25 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
-            if (globalDebugState->settings.colliders)
-            {
-                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
-            }
+#if DEBUGUI_COLLIDERS
+            PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+#endif
         }
         
-        if (entityIndex == gameState->gameCamera.linkedEntityIndex && !globalDebugState->settings.camMove)
+#if !DEBUGUI_CAMMOVE
+        if (entityIndex == gameState->gameCamera.linkedEntityIndex)
         {
             UpdateCamera(renderCommands, &gameState->gameCamera, *entity);
         }
+#endif
     }
     
-    if (globalDebugState->settings.regions)
-    {
-        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-        
-        Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, gameState->gameCamera.rect.center.xy, DEFAULT_CAMERA_Z);
-        PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-    }
+#if DEBUGUI_REGIONS
+    PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    
+    Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, gameState->gameCamera.rect.center.xy, DEFAULT_CAMERA_Z);
+    PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+#endif
     
     for (s32 emitterIndex = 0; emitterIndex < ARRAY_COUNT(gameState->emitters); ++emitterIndex)
     {
@@ -494,44 +507,41 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     {
         DisplayDebugMenu(renderCommands, &transState->loadedAssets, input, platform, gameState->gameCamera, &globalDebugState->settings);
     }
-    if (globalDebugState->settings.timers)
-    {
-        PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
-    }
-    if (globalDebugState->settings.zoom)
-    {
-        ChangeCameraDistance(&gameState->gameCamera, 30.0f);
-    }
-    else
-    {
-        ChangeCameraDistance(&gameState->gameCamera, DEFAULT_CAMERA_Z);
-    }
+    
+#if DEBUGUI_TIMERS
+    PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+#endif
+    
+#if DEBUGUI_CAMZOOM
+    ChangeCameraDistance(&gameState->gameCamera, 30.0f);
+#else
+    ChangeCameraDistance(&gameState->gameCamera, DEFAULT_CAMERA_Z);
+#endif
     
     char metricString[16];
     stbsp_sprintf(metricString, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
     v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
-    if (globalDebugState->settings.mouseInfo)
-    {
-        char mouseString[16];
-        stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
-        v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
-        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
-        
-        char mbString[32];
-        stbsp_sprintf(mbString, "Mouse L Down: %d\nMouse M Down: %d\nMouse R Down: %d", input->mouse.buttons[0].endedFrameDown, input->mouse.buttons[1].endedFrameDown, input->mouse.buttons[2].endedFrameDown);
-        v2f mbPixelOffset = V2F((f32)renderCommands->width - 500.0f, (f32)renderCommands->height - 50.0f);
-        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mbString, "Debug", V3F(mbPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
-    }
+#if DEBUGUI_MOUSEINFO
+    char mouseString[16];
+    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
+    v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
-    if (globalDebugState->settings.camMove)
-    {
-        char unlockString[32];
-        stbsp_sprintf(unlockString, "CAMERA UNLOCKED");
-        v2f unlockPixelOffset = V2F(450.0f, (f32)renderCommands->height - 25.0f);
-        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, unlockString, "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-    }
+    char mbString[32];
+    stbsp_sprintf(mbString, "Mouse L Down: %d\nMouse M Down: %d\nMouse R Down: %d", input->mouse.buttons[0].endedFrameDown, input->mouse.buttons[1].endedFrameDown, input->mouse.buttons[2].endedFrameDown);
+    v2f mbPixelOffset = V2F((f32)renderCommands->width - 500.0f, (f32)renderCommands->height - 50.0f);
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mbString, "Debug", V3F(mbPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+#endif
+    
+#if DEBUGUI_CAMMOVE
+    char unlockString[32];
+    stbsp_sprintf(unlockString, "CAMERA UNLOCKED");
+    v2f unlockPixelOffset = V2F(450.0f, (f32)renderCommands->height - 25.0f);
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, unlockString, "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+#endif
+    
 #endif
     
     // AUDIO
@@ -598,5 +608,12 @@ extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
             if (lastBlockInfo->hits > lastBlockStat->maxHits) { lastBlockStat->maxHits = lastBlockInfo->hits; }
             if (lastBlockInfo->hits < lastBlockStat->minHits) { lastBlockStat->minHits = lastBlockInfo->hits; }
         }
+    }
+    
+    if (globalDebugState->settings.configChanged)
+    {
+        WriteDebugConfigFile(memory->platform, globalDebugState->settings.config);
+        memory->platform.DebugSystemCommand("/C running_build.bat", "..\\code");
+        globalDebugState->settings.configChanged = false;
     }
 }

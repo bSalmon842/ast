@@ -270,6 +270,60 @@ function PLATFORM_READ_DATA_FROM_FILE(W32_ReadDataFromFile)
     }
 }
 
+function PLATFORM_OPEN_FILE_FOR_WRITE(W32_OpenFileForWrite)
+{
+    Platform_FileHandle result = {};
+    
+    W32_FileHandle *w32FileHandle = (W32_FileHandle *)VirtualAlloc(0, sizeof(W32_FileHandle), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (w32FileHandle)
+    {
+        if (writeType == PlatformWriteType_Overwrite)
+        {
+            w32FileHandle->w32Handle = CreateFileA(filename, GENERIC_WRITE, FILE_SHARE_WRITE, 0, CREATE_ALWAYS, 0, 0);
+        }
+        else if (writeType == PlatformWriteType_Append)
+        {
+            w32FileHandle->w32Handle = CreateFileA(filename, FILE_APPEND_DATA, FILE_SHARE_WRITE, 0, OPEN_ALWAYS, 0, 0);
+        }
+        else
+        {
+            INVALID_CODE_PATH;
+        }
+        result.platform = w32FileHandle;
+        result.errored = (w32FileHandle->w32Handle == INVALID_HANDLE_VALUE);
+    }
+    
+    return result;
+}
+
+function PLATFORM_WRITE_INTO_FILE(W32_WriteIntoFile)
+{
+    W32_FileHandle *w32FileHandle = (W32_FileHandle *)fileHandle.platform;
+    if (w32FileHandle)
+    {
+        va_list args;
+        va_start(args, fmtStr);
+        
+        char string[128];
+        s32 bytesToWrite = stbsp_vsprintf(string, fmtStr, args);
+        
+        va_end(args);
+        
+        WriteFile(w32FileHandle->w32Handle, string, bytesToWrite, 0, 0);
+    }
+}
+
+function PLATFORM_CLOSE_FILE(W32_CloseFile)
+{
+    W32_FileHandle *w32FileHandle = (W32_FileHandle *)fileHandle->platform;
+    if (w32FileHandle)
+    {
+        CloseHandle(w32FileHandle->w32Handle);
+        VirtualFree(w32FileHandle, 0, MEM_RELEASE);
+        fileHandle->platform = 0;
+    }
+}
+
 //~ INPUT
 function void W32_ProcessKeyboardEvent(Game_ButtonState *state, b32 keyIsDown)
 {
@@ -426,6 +480,17 @@ function void W32_RenderAudioSyncDisplay(W32_BackBuffer *backBuffer, s32 markerC
 }
 
 //~ WINDOWS
+function PLATFORM_DEBUG_SYSTEM_COMMAND(W32_DebugSystemCommand)
+{
+    STARTUPINFO startInfo = { sizeof(STARTUPINFO) };
+    PROCESS_INFORMATION processInfo;
+    
+    if (!CreateProcess("C:\\Windows\\System32\\cmd.exe", command, 0, 0, 0, 0, 0, path, &startInfo, &processInfo))
+    {
+        ASSERT(false);
+    }
+}
+
 function void W32_ProcessPendingMessages(HWND window, Game_Mouse *mouse, Game_Keyboard *keyboard, Game_RenderCommands *renderCommands, PlatformAPI platform)
 {
     MSG msg;
@@ -662,11 +727,17 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             platform.OpenNextFile = W32_OpenNextFile;
             platform.MarkFileError = W32_MarkFileError;
             platform.ReadDataFromFile = W32_ReadDataFromFile;
+            platform.OpenFileForWrite = W32_OpenFileForWrite;
+            platform.WriteIntoFile = W32_WriteIntoFile;
+            platform.CloseFile = W32_CloseFile;
             platform.AddParallelEntry = W32_AddParallelEntry;
             platform.CompleteAllParallelWork = W32_CompleteAllParallelWork;
             platform.HasParallelWorkFinished = W32_HasParallelWorkFinished;
             platform.AllocTexture = WGL_AllocTexture;
             platform.FreeTexture = WGL_FreeTexture;
+            
+            platform.DebugSystemCommand = W32_DebugSystemCommand;
+            
             gameMem.platform = platform;
             gameMem.parallelQueue = &parallelQueue;
             
@@ -709,20 +780,29 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 f32 lastSecPerFrame = 0.16f;
                 while (globalRunning)
                 {
-                    LARGE_INTEGER frameStartCounter = BS842_Timing_GetClock();
-                    DEBUG_FRAME_START;
-                    DEBUG_BLOCK_OPEN(MainLoop);
 #if AST_INTERNAL
                     FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
                     if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
                     {
-                        Sleep(33);
+                        // NOTE(bSalmon): Flush last frame debug info
+                        for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
+                        {
+                            for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+                            {
+                                globalDebugState->table->lastBlockInfos[translationIndex][blockIndex] = {};
+                            }
+                        }
+                        
+                        Sleep(100);
                         
                         W32_UnloadProgramCode(&programCode);
                         programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
                     }
-                    DEBUG_FRAME_MARKER(DLLLoad);
 #endif
+                    LARGE_INTEGER frameStartCounter = BS842_Timing_GetClock();
+                    DEBUG_FRAME_START;
+                    DEBUG_BLOCK_OPEN(MainLoop);
+                    
                     newInput->deltaTime = lastSecPerFrame;
                     newInput->exeReloaded = false;
                     

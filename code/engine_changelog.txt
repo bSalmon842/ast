@@ -1,4 +1,12 @@
 /////////////////////////////////////
+27APR2022
+
+- Implemented platform functions for writing files
+- Added WriteDebugConfigFile for writing out debug values in preparation for self re-compilation
+- Implemented DebugSystemCommand for executing system commands
+- Selecting debug options now recompiles the game to save overhead on the debug system when not enabled
+- Debug Info from the previous frame(s) is now flushed to prevent an error with function names
+/////////////////////////////////////
 23APR2022
 
 - Fixed a bug with how mouse buttons were being handled in the platform layer causing incorrect behaviour

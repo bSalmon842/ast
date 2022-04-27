@@ -164,10 +164,9 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
                     PushBitmap(renderCommands, loadedAssets, platform, camera, particle->bitmap, particle->pos, particle->dims, 0.0f, 0, particle->colour);
                 }
                 
-                if (debugSettings.colliders)
-                {
-                    PushHollowRect(renderCommands, platform, gameState->gameCamera, particle->collider.origin, particle->collider.dims, 0.0f, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
-                }
+#if DEBUGUI_COLLIDERS
+                PushHollowRect(renderCommands, platform, gameState->gameCamera, particle->collider.origin, particle->collider.dims, 0.0f, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+#endif
                 
                 if (particle->timer.finished)
                 {

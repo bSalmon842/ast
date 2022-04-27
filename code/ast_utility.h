@@ -12,6 +12,7 @@ Notice: (C) Copyright 2021 by Brock Salmon. All Rights Reserved
 #include "stb_sprintf.h"
 #endif
 #define stbsp_sprintf(a, b, ...) sprintf(a, b, __VA_ARGS__)
+#define stbsp_vsprintf(a, b, c) vsprintf(a, b, c)
 
 #define function static
 #define persist static
