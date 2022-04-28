@@ -208,7 +208,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
-#if 0        
+#if 1 
         EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f, 5.0f};
         EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f, 5.0f};
         
@@ -289,13 +289,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     if (InputNoRepeat(keyboard->keyF1))
     {
-        INVERT(debug_menu);
-    }
-    if (InputNoRepeat(keyboard->keyF2))
-    {
-        globalDebugState->settings.config.timers = true;
-        WriteDebugConfigFile(platform, globalDebugState->settings.config);
-        printf("Config Written");
+        INVERT(globalDebugState->openMenu);
     }
     
 #if DEBUGUI_CAMMOVE
@@ -465,7 +459,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
-#if DEBUGUI_COLLIDERS
+#if DEBUGUI_ENTITY_COLLIDERS
             PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
 #endif
         }
@@ -503,12 +497,12 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
              V3F(scorePixelOffset, 0.0f), 0.5f, 0, V4F(1.0f));
     
 #if AST_INTERNAL
-    if (debug_menu)
+    if (globalDebugState->openMenu)
     {
         DisplayDebugMenu(renderCommands, &transState->loadedAssets, input, platform, gameState->gameCamera, &globalDebugState->settings);
     }
     
-#if DEBUGUI_TIMERS
+#if DEBUGUI_FUNC_TIMERS
     PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
 #endif
     
@@ -573,12 +567,21 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
                 }
             }
             
-            stbsp_sprintf(globalDebugState->settings.options[0], "Timing Info");
-            stbsp_sprintf(globalDebugState->settings.options[1], "Show Colliders");
-            stbsp_sprintf(globalDebugState->settings.options[2], "Show Regions");
-            stbsp_sprintf(globalDebugState->settings.options[3], "Camera Lock");
-            stbsp_sprintf(globalDebugState->settings.options[4], "Camera Zoom");
-            stbsp_sprintf(globalDebugState->settings.options[5], "Mouse Info");
+            globalDebugState->settings.menuSentinel = {};
+            DebugMenuItem *timingVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, &globalDebugState->settings.menuSentinel, "Timing Vis", DebugMenuFuncType_None, 0);
+            AddChildDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Function Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.funcTimers);
+            
+            DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Bounds Vis", DebugMenuFuncType_None, 0);
+            DebugMenuItem *collidersChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0);
+            DebugMenuItem *entityCollidersChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Entities", DebugMenuFuncType_b32, &globalDebugState->settings.config.entityColliders);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, entityCollidersChild, "Particles", DebugMenuFuncType_b32, &globalDebugState->settings.config.particleColliders);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Show Regions", DebugMenuFuncType_b32, &globalDebugState->settings.config.regions);
+            
+            DebugMenuItem *cameraItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Camera Controls", DebugMenuFuncType_None, 0);
+            DebugMenuItem *camLockChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Camera Lock", DebugMenuFuncType_b32, &globalDebugState->settings.config.camMove);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, camLockChild, "Camera Zoom", DebugMenuFuncType_b32, &globalDebugState->settings.config.camZoom);
+            
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Mouse Info", DebugMenuFuncType_b32, &globalDebugState->settings.config.mouseInfo);
             
             globalDebugState->settings.timerWindowPosY = 700.0f;
             

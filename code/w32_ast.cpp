@@ -749,7 +749,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             
             gameMem.permaStorageSize = MEGABYTE(16);
             gameMem.transStorageSize = MEGABYTE(512);
-            gameMem.debugStorageSize = MEGABYTE(64);
+            gameMem.debugStorageSize = MEGABYTE(128);
             ASSERT(sizeof(DebugState) <= gameMem.debugStorageSize);
             
             u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize + gameMem.debugStorageSize;

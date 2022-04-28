@@ -8,13 +8,58 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
 {
     Platform_FileHandle fileHandle = platform.OpenFileForWrite("..\\code\\ast_debug_config.h", PlatformWriteType_Overwrite);
-    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_TIMERS %d\n", config.timers);
-    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_COLLIDERS %d\n", config.colliders);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_FUNC_TIMERS %d\n", config.funcTimers);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_ENTITY_COLLIDERS %d\n", config.entityColliders);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_PARTICLE_COLLIDERS %d\n", config.particleColliders);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_REGIONS %d\n", config.regions);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMMOVE %d\n", config.camMove);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMZOOM %d\n", config.camZoom);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_MOUSEINFO %d\n", config.mouseInfo);
     platform.CloseFile(&fileHandle);
+}
+
+inline DebugMenuItem *AddNextDebugMenuItem(MemoryRegion *memRegion, DebugMenuItem *prev, char *name, DebugMenuFunctionType funcType, void *use)
+{
+    DebugMenuItem *newItem = PushStruct(memRegion, DebugMenuItem);
+    newItem->next = 0;
+    newItem->child = 0;
+    newItem->isChild = prev->isChild;
+    newItem->isOpen = false;
+    newItem->funcType = funcType;
+    newItem->use = use;
+    
+    char *src = name;
+    u8 destIndex = 0;
+    while (*src)
+    {
+        newItem->name[destIndex++] = *src++;
+    }
+    
+    prev->next = newItem;
+    
+    return newItem;
+}
+
+inline DebugMenuItem *AddChildDebugMenuItem(MemoryRegion *memRegion, DebugMenuItem *parent, char *name, DebugMenuFunctionType funcType, void *use)
+{
+    DebugMenuItem *newItem = PushStruct(memRegion, DebugMenuItem);
+    newItem->next = 0;
+    newItem->child = 0;
+    newItem->isChild = true;
+    newItem->isOpen = false;
+    newItem->funcType = funcType;
+    newItem->use = use;
+    
+    char *src = name;
+    u8 destIndex = 0;
+    while (*src)
+    {
+        newItem->name[destIndex++] = *src++;
+    }
+    
+    parent->child = newItem;
+    
+    return newItem;
 }
 
 function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, char *text, char *font, v2f textOrigin, f32 textScale, s32 zLayer, v4f textColour, v2f min, v2f max)
@@ -25,15 +70,61 @@ function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loade
              textScale, zLayer, textColour);
     
     v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
-    if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
+    if (mousePos > min && mousePos < max)
     {
-        if (mousePos > min && mousePos < max)
+        PushRect(commands, platform, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+        if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
         {
             result = true;
         }
     }
     
     return result;
+}
+
+inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f debugLineOffset, f32 scale, f32 lineHeight, FontMetadata metadata, char *font, v4f textColour)
+{
+    v2f itemMin = debugLineOffset;
+    v2f itemMax = V2F(itemMin.x + (f32)(StringLength(item->name) * metadata.charWidth) * scale, debugLineOffset.y + lineHeight);
+    
+    if (DebugButton(commands, loadedAssets, input, platform, camera, item->name, font, debugLineOffset,
+                    scale, DEBUG_LAYER - 1, textColour, itemMin, itemMax))
+    {
+        INVERT(item->isOpen);
+        if (item->use)
+        {
+            switch (item->funcType)
+            {
+                case DebugMenuFuncType_b32:
+                {
+                    INVERT(*((b32 *)item->use));
+                    debugSettings->configChanged = true;
+                } break;
+                
+                INVALID_DEFAULT;
+            }
+        }
+    }
+}
+
+function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f *debugLineOffset, f32 scale, f32 lineHeight,  FontMetadata metadata, char *font, v4f textColour)
+{
+    if (parent->isOpen && parent->child)
+    {
+        debugLineOffset->x += 20.0f;
+        
+        for (DebugMenuItem *child = parent->child; child; child = child->next)
+        {
+            HandleDebugMenuItem(child, commands, loadedAssets, input, platform, camera, debugSettings, *debugLineOffset, scale, lineHeight, metadata, font, textColour);
+            
+            debugLineOffset->y -= lineHeight;
+            
+            DisplayDebugMenuChildLayer(child, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, textColour);
+        }
+        
+        debugLineOffset->x -= 20.0f;
+        
+    }
 }
 
 function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings)
@@ -51,38 +142,14 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
     
     char *font = "DebugLarge";
     v4f textColour = V4F(1.0f, 0.5f, 0.5f, 1.0f);
-    s32 selectedOption = -1;
-    for (s32 optionIndex = 0; optionIndex < ARRAY_COUNT(debugSettings->options); ++optionIndex)
-    {
-        char *string = debugSettings->options[optionIndex];
-        v2f lineMin = V2F(topLine.x, debugLineOffset.y);
-        v2f lineMax = V2F(lineMin.x + (f32)(StringLength(string) * metadata.charWidth) * scale, debugLineOffset.y + lineHeight);
-        
-        if (mousePos > lineMin && mousePos < lineMax)
-        {
-            PushRect(commands, platform, camera, lineMin, lineMax, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(1.0f, 0.0f, 1.0f, 1.0f));
-        }
-        if (DebugButton(commands, loadedAssets, input, platform, camera, string, font, debugLineOffset,
-                        scale, DEBUG_LAYER - 1, textColour, lineMin, lineMax))
-        {
-            selectedOption = optionIndex;
-            debugSettings->configChanged = true;
-        }
-        debugLineOffset.y -= lineHeight;
-    }
     
-    switch (selectedOption)
+    for (DebugMenuItem *item = debugSettings->menuSentinel.next; item; item = item->next)
     {
-        case -1: {} break;
+        HandleDebugMenuItem(item, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, textColour);
         
-        case 0: { INVERT(debugSettings->config.timers);    } break;
-        case 1: { INVERT(debugSettings->config.colliders); } break;
-        case 2: { INVERT(debugSettings->config.regions);   } break;
-        case 3: { INVERT(debugSettings->config.camMove);   } break;
-        case 4: { INVERT(debugSettings->config.camZoom);   } break;
-        case 5: { INVERT(debugSettings->config.mouseInfo); } break;
+        debugLineOffset.y -= lineHeight;
         
-        INVALID_DEFAULT;
+        DisplayDebugMenuChildLayer(item, commands, loadedAssets, input, platform, camera, debugSettings, &debugLineOffset, scale, lineHeight, metadata, font, textColour);
     }
 }
 

@@ -13,17 +13,17 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast_utility.h"
 
-typedef struct
+struct Platform_FileHandle
 {
     b32 errored;
     void *platform;
-} Platform_FileHandle;
+};
 
-typedef struct
+struct Platform_FileGroup
 {
     u32 fileCount;
     void *platform;
-} Platform_FileGroup;
+};
 
 enum Platform_FileType
 {

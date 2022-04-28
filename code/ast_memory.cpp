@@ -27,6 +27,8 @@ inline usize GetAlignmentOffset(MemoryRegion *memRegion, usize alignment)
     return result;
 }
 
+#include <string.h>
+
 #define Align16(val) (((val) + 15) & ~15)
 
 #define PushStruct(region, type, ...) (type *)PushSize(region, sizeof(type), ## __VA_ARGS__)
@@ -41,6 +43,12 @@ inline void *PushSize_(MemoryRegion *memRegion, usize size, usize alignment = 4)
     
     void *result = memRegion->base + memRegion->used + alignmentOffset;
     memRegion->used += size;
+    
+#if 0
+    // TODO(bSalmon): Manual memset
+#else
+    memset(result, 0, size);
+#endif
     
     return result;
 }

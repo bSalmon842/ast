@@ -7,8 +7,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef AST_DEBUG_H
 
-global b32 debug_menu = false;
-
 #define TRANSLATION_UNIT_COUNT 2
 #define MAX_DEBUG_TRANSLATION_UNIT_INFOS 256
 #define MAX_DEBUG_FRAMES 64
@@ -52,12 +50,32 @@ struct DebugTable
 
 struct DebugConfig
 {
-    b32 timers;
-    b32 colliders;
+    b32 funcTimers;
+    b32 entityColliders;
+    b32 particleColliders;
     b32 regions;
     b32 camMove;
     b32 camZoom;
     b32 mouseInfo;
+};
+
+enum DebugMenuFunctionType
+{
+    DebugMenuFuncType_None,
+    DebugMenuFuncType_b32,
+};
+
+struct DebugMenuItem
+{
+    DebugMenuItem *next;
+    DebugMenuItem *child;
+    b32 isChild;
+    b32 isOpen;
+    
+    char name[32];
+    
+    DebugMenuFunctionType funcType;
+    void *use;
 };
 
 struct DebugSettings
@@ -68,7 +86,7 @@ struct DebugSettings
     b32 movingTimerWindow;
     f32 timerWindowPosY;
     
-    char options[6][32];
+    DebugMenuItem menuSentinel;
 };
 
 struct DebugState
@@ -78,6 +96,7 @@ struct DebugState
     MemoryRegion dataRegion;
     DebugTable *table;
     
+    b32 openMenu;
     DebugSettings settings;
     
     b32 memInitialised;

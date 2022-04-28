@@ -49,7 +49,7 @@ typedef u64 usize;
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 #define SWAP(a, b) {decltype(a) temp = a; a = b; b = temp;}
-#define INVERT(a) a = !a
+#define INVERT(a) (a) = !(a)
 
 #define MAX(a, b) ((a > b) ? a : b)
 #define MIN(a, b) ((a < b) ? a : b)
