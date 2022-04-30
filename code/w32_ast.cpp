@@ -383,7 +383,7 @@ function void W32_InitOpenGL(HDC deviceContext, HGLRC *glContext)
         wglGetSwapInterval = (wgl_getSwapIntervalEXT *)wglGetProcAddress("wglGetSwapIntervalEXT");
         if (wglSwapInterval && wglGetSwapInterval)
         {
-            wglSwapInterval(0);
+            wglSwapInterval(1);
         }
         else
         {
@@ -784,12 +784,17 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     FILETIME newDLLWriteTime = W32_GetFileLastWriteTime(programCodeDLLPath);
                     if (CompareFileTime(&newDLLWriteTime, &programCode.dllLastWriteTime) != 0)
                     {
-                        // NOTE(bSalmon): Flush last frame debug info
-                        for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
+                        // NOTE(bSalmon): Flush frame debug info
+                        for (u32 frameIndex = 0; frameIndex < MAX_DEBUG_FRAMES; ++frameIndex)
                         {
-                            for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+                            DebugFrame *frame = &globalDebugState->table->frames[frameIndex];
+                            
+                            for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
                             {
-                                globalDebugState->table->lastBlockInfos[translationIndex][blockIndex] = {};
+                                for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+                                {
+                                    frame->blockInfos[translationIndex][blockIndex] = {};
+                                }
                             }
                         }
                         

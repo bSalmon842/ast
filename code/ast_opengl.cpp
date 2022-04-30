@@ -253,6 +253,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
         }
     }
     
+    //FinishTempMemory(commands->renderTemp);
     commands->pushBufferSize = 0;
     commands->entryCount = 0;
 }

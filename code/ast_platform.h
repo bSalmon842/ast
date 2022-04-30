@@ -12,6 +12,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_debug_config.h"
 
 #include "ast_utility.h"
+#include "ast_memory.h"
 
 struct Platform_FileHandle
 {
@@ -161,6 +162,9 @@ struct Game_RenderCommands
     u32 entryCount;
     struct RenderEntry_Header *headers[10000];
     
+    MemoryRegion renderRegion;
+    TempMemory renderTemp;
+    
     struct Game_LoadedAssets *loadedAssets;
 };
 
@@ -287,7 +291,8 @@ global DebugState *globalDebugState;
 ASSERT(TRANSLATION_UNIT_INDEX == 1); \
 globalDebugState->inFrame = true; \
 u32 frameIndex = (globalDebugState->table->frameIndex + 1 >= MAX_DEBUG_FRAMES) ? 0 : ++globalDebugState->table->frameIndex; \
-DebugFrame *currentFrame = &globalDebugState->table->frames[frameIndex]; \
+globalDebugState->table->frameIndex = frameIndex; \
+DebugFrame *currentFrame = &globalDebugState->table->frames[globalDebugState->table->frameIndex]; \
 currentFrame->startClock = __rdtsc(); \
 currentFrame->totalClock = currentFrame->startClock; 
 
@@ -305,6 +310,7 @@ DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[TRANSLATION_UNI
 blockInfo->cycles -= __rdtsc(); \
 blockInfo->hits++; \
 blockInfo->name = blockName; \
+blockInfo->isMarker = false; \
 }
 
 #define DEBUG_BLOCK_OPEN(blockName) u8 block_##blockName = __COUNTER__; DEBUG_BLOCK_OPEN_(#blockName, block_##blockName)
@@ -318,6 +324,7 @@ blockInfo->cycles = __rdtsc() - frame->totalClock; \
 frame->totalClock += blockInfo->cycles; \
 blockInfo->hits++; \
 blockInfo->name = #markerName; \
+blockInfo->isMarker = true; \
 }
 
 #define DEBUG_BLOCK_CLOSE_(block) \

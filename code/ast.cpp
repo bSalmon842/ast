@@ -17,8 +17,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
 
 // New Debug Infrastructure
-// TODO(bSalmon): Record last 256 frames
-// TODO(bSalmon): Nesting variables
 // TODO(bSalmon): Nesting Functions in timers
 // TODO(bSalmon): Memory Vis
 // TODO(bSalmon): Render Vis
@@ -46,8 +44,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "ast.h"
 #include "ast_timer.cpp"
-#include "ast_memory.cpp"
 #include "ast_world.cpp"
+#include "ast_parallel_memory.cpp"
 #include "ast_asset.cpp"
 #include "ast_render.cpp"
 #include "ast_collision.cpp"
@@ -227,6 +225,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                    progress2, shape3, V2F(0.5f), true, 0, 0, TestParticleSimCollision);
 #endif
         
+        printf("%zd\n", sizeof(RenderEntry_Header));
         gameState->initialised = true;
     }
     
@@ -243,6 +242,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             mem->inUse = false;
             mem->memRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1));
         }
+        
+        renderCommands->renderRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1));
         
         transState->loadedAssets = InitialiseLoadedAssets(platform, memory->parallelQueue);
         transState->loadedAssets.transState = transState;
@@ -337,6 +338,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         }
     }
     
+    //renderCommands->renderTemp = StartTempMemory(&renderCommands->renderRegion);
+    
     f32 widthOverHeight = (f32)renderCommands->width / (f32)renderCommands->height;
     v2f worldToPixelConversion = V2F(10.0f, 10.0f * widthOverHeight);
     CameraMode_Perspective(&gameState->gameCamera, 10.0f, 0.1f, worldToPixelConversion);
@@ -355,6 +358,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                                        ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
         gameState->ufoSpawned = true;
     }
+    
     
     for (s32 entityIndex = 0; entityIndex < ARRAY_COUNT(gameState->entities); ++entityIndex)
     {
@@ -503,7 +507,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     
 #if DEBUGUI_FUNC_TIMERS
-    PrintDebugRecords(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+    DisplayFunctionTimers(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+#endif
+    
+#if DEBUGUI_FRAME_TIMERS
+    DisplayFrameTimers(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
 #endif
     
 #if DEBUGUI_CAMZOOM
@@ -559,29 +567,30 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             {
                 for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
                 {
-                    DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[translationIndex][blockIndex];
-                    lastBlockStat->minCycles = U64_MAX;
-                    lastBlockStat->maxCycles = 0;
-                    lastBlockStat->minHits = U32_MAX;
-                    lastBlockStat->maxHits = 0;
+                    DebugBlockStats *blockStat = &globalDebugState->table->blockStats[translationIndex][blockIndex];
+                    blockStat->minCycles = U64_MAX;
+                    blockStat->maxCycles = 0;
+                    blockStat->minHits = U32_MAX;
+                    blockStat->maxHits = 0;
                 }
             }
             
             globalDebugState->settings.menuSentinel = {};
             DebugMenuItem *timingVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, &globalDebugState->settings.menuSentinel, "Timing Vis", DebugMenuFuncType_None, 0);
-            AddChildDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Function Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.funcTimers);
+            DebugMenuItem *funcTimersItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Function Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.funcTimers, true);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, funcTimersItem, "Frame Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.frameTimers);
             
             DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Bounds Vis", DebugMenuFuncType_None, 0);
-            DebugMenuItem *collidersChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0);
-            DebugMenuItem *entityCollidersChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Entities", DebugMenuFuncType_b32, &globalDebugState->settings.config.entityColliders);
+            DebugMenuItem *collidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0, true);
+            DebugMenuItem *entityCollidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Entities", DebugMenuFuncType_b32, &globalDebugState->settings.config.entityColliders, true);
             AddNextDebugMenuItem(&globalDebugState->dataRegion, entityCollidersChild, "Particles", DebugMenuFuncType_b32, &globalDebugState->settings.config.particleColliders);
             AddNextDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Show Regions", DebugMenuFuncType_b32, &globalDebugState->settings.config.regions);
             
             DebugMenuItem *cameraItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Camera Controls", DebugMenuFuncType_None, 0);
-            DebugMenuItem *camLockChild = AddChildDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Camera Lock", DebugMenuFuncType_b32, &globalDebugState->settings.config.camMove);
+            DebugMenuItem *camLockChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Camera Lock", DebugMenuFuncType_b32, &globalDebugState->settings.config.camMove, true);
             AddNextDebugMenuItem(&globalDebugState->dataRegion, camLockChild, "Camera Zoom", DebugMenuFuncType_b32, &globalDebugState->settings.config.camZoom);
             
-            AddNextDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Mouse Info", DebugMenuFuncType_b32, &globalDebugState->settings.config.mouseInfo);
+            DebugMenuItem *mouseItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Mouse Info", DebugMenuFuncType_b32, &globalDebugState->settings.config.mouseInfo);
             
             globalDebugState->settings.timerWindowPosY = 700.0f;
             
@@ -594,22 +603,23 @@ extern "C" GAME_DEBUG_FRAME_END(Game_DebugFrameEnd)
 {
     ASSERT(!globalDebugState->inFrame);
     
+    DebugFrame *frame = &globalDebugState->table->frames[globalDebugState->table->frameIndex];
     for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
     {
         for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
         {
-            DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[translationIndex][blockIndex];
+            DebugBlockInfo *frameBlockInfo = &frame->blockInfos[translationIndex][blockIndex];
             DebugBlockInfo *blockInfo = &globalDebugState->table->blockInfos[translationIndex][blockIndex];
-            DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[translationIndex][blockIndex];
+            DebugBlockStats *blockStat = &globalDebugState->table->blockStats[translationIndex][blockIndex];
             
-            *lastBlockInfo = *blockInfo;
+            *frameBlockInfo = *blockInfo;
             blockInfo->cycles = 0;
             blockInfo->hits = 0;
             
-            if (lastBlockInfo->cycles > lastBlockStat->maxCycles) { lastBlockStat->maxCycles = lastBlockInfo->cycles; }
-            if (lastBlockInfo->cycles < lastBlockStat->minCycles) { lastBlockStat->minCycles = lastBlockInfo->cycles; }
-            if (lastBlockInfo->hits > lastBlockStat->maxHits) { lastBlockStat->maxHits = lastBlockInfo->hits; }
-            if (lastBlockInfo->hits < lastBlockStat->minHits) { lastBlockStat->minHits = lastBlockInfo->hits; }
+            if (frameBlockInfo->cycles > blockStat->maxCycles) { blockStat->maxCycles = frameBlockInfo->cycles; }
+            if (frameBlockInfo->cycles < blockStat->minCycles) { blockStat->minCycles = frameBlockInfo->cycles; }
+            if (frameBlockInfo->hits > blockStat->maxHits) { blockStat->maxHits = frameBlockInfo->hits; }
+            if (frameBlockInfo->hits < blockStat->minHits) { blockStat->minHits = frameBlockInfo->hits; }
         }
     }
     

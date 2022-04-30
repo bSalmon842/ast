@@ -14,17 +14,11 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define DEBUG_TEXT_SCALE 0.75f
 #define DEBUG_LAYER 200
 
-struct DebugFrame
-{
-    u64 startClock;
-    u64 totalClock;
-    f32 frameTime;
-};
-
 struct DebugBlockInfo
 {
     u64 cycles;
     u32 hits;
+    b32 isMarker;
     
     char *name;
 };
@@ -38,25 +32,35 @@ struct DebugBlockStats
     u32 maxHits;
 };
 
+struct DebugFrame
+{
+    u64 startClock;
+    u64 totalClock;
+    f32 frameTime;
+    
+    DebugBlockInfo blockInfos[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
+};
+
 struct DebugTable
 {
     u32 frameIndex;
     DebugFrame frames[MAX_DEBUG_FRAMES];
     
     DebugBlockInfo blockInfos[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
-    DebugBlockInfo lastBlockInfos[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
-    DebugBlockStats lastBlockStats[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
+    DebugBlockStats blockStats[TRANSLATION_UNIT_COUNT][MAX_DEBUG_TRANSLATION_UNIT_INFOS];
 };
 
 struct DebugConfig
 {
     b32 funcTimers;
+    b32 frameTimers;
     b32 entityColliders;
     b32 particleColliders;
     b32 regions;
     b32 camMove;
     b32 camZoom;
     b32 mouseInfo;
+    b32 vsync;
 };
 
 enum DebugMenuFunctionType
@@ -69,7 +73,6 @@ struct DebugMenuItem
 {
     DebugMenuItem *next;
     DebugMenuItem *child;
-    b32 isChild;
     b32 isOpen;
     
     char name[32];

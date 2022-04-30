@@ -9,6 +9,7 @@ function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
 {
     Platform_FileHandle fileHandle = platform.OpenFileForWrite("..\\code\\ast_debug_config.h", PlatformWriteType_Overwrite);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_FUNC_TIMERS %d\n", config.funcTimers);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_FRAME_TIMERS %d\n", config.frameTimers);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_ENTITY_COLLIDERS %d\n", config.entityColliders);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_PARTICLE_COLLIDERS %d\n", config.particleColliders);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_REGIONS %d\n", config.regions);
@@ -18,12 +19,11 @@ function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
     platform.CloseFile(&fileHandle);
 }
 
-inline DebugMenuItem *AddNextDebugMenuItem(MemoryRegion *memRegion, DebugMenuItem *prev, char *name, DebugMenuFunctionType funcType, void *use)
+inline DebugMenuItem *AddNextDebugMenuItem(MemoryRegion *memRegion, DebugMenuItem *prev, char *name, DebugMenuFunctionType funcType, void *use, b32 isChild = false)
 {
     DebugMenuItem *newItem = PushStruct(memRegion, DebugMenuItem);
     newItem->next = 0;
     newItem->child = 0;
-    newItem->isChild = prev->isChild;
     newItem->isOpen = false;
     newItem->funcType = funcType;
     newItem->use = use;
@@ -35,29 +35,14 @@ inline DebugMenuItem *AddNextDebugMenuItem(MemoryRegion *memRegion, DebugMenuIte
         newItem->name[destIndex++] = *src++;
     }
     
-    prev->next = newItem;
-    
-    return newItem;
-}
-
-inline DebugMenuItem *AddChildDebugMenuItem(MemoryRegion *memRegion, DebugMenuItem *parent, char *name, DebugMenuFunctionType funcType, void *use)
-{
-    DebugMenuItem *newItem = PushStruct(memRegion, DebugMenuItem);
-    newItem->next = 0;
-    newItem->child = 0;
-    newItem->isChild = true;
-    newItem->isOpen = false;
-    newItem->funcType = funcType;
-    newItem->use = use;
-    
-    char *src = name;
-    u8 destIndex = 0;
-    while (*src)
+    if (isChild)
     {
-        newItem->name[destIndex++] = *src++;
+        prev->child = newItem;
     }
-    
-    parent->child = newItem;
+    else
+    {
+        prev->next = newItem;
+    }
     
     return newItem;
 }
@@ -81,6 +66,32 @@ function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loade
     
     return result;
 }
+
+global v4f debugColourTableA[6] = 
+{
+    V4F(1.0f, 0.5f, 0.5f, 1.0f),
+    V4F(0.5f, 1.0f, 0.5f, 1.0f),
+    V4F(0.5f, 0.5f, 1.0f, 1.0f),
+    V4F(1.0f, 1.0f, 0.5f, 1.0f),
+    V4F(1.0f, 0.5f, 1.0f, 1.0f),
+    V4F(0.5f, 1.0f, 1.0f, 1.0f),
+};
+
+global v4f debugColourTableB[12] = 
+{
+    V4F(1.0f, 0.0f, 0.0f, 1.0f),
+    V4F(0.0f, 1.0f, 0.0f, 1.0f),
+    V4F(0.0f, 0.0f, 1.0f, 1.0f),
+    V4F(1.0f, 1.0f, 0.0f, 1.0f),
+    V4F(1.0f, 0.0f, 1.0f, 1.0f),
+    V4F(0.0f, 1.0f, 1.0f, 1.0f),
+    V4F(1.0f, 0.5f, 0.0f, 1.0f),
+    V4F(1.0f, 0.0f, 0.5f, 1.0f),
+    V4F(0.5f, 1.0f, 0.0f, 1.0f),
+    V4F(0.0f, 1.0f, 0.5f, 1.0f),
+    V4F(0.5f, 0.0f, 1.0f, 1.0f),
+    V4F(0.0f, 0.5f, 1.0f, 1.0f),
+};
 
 inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f debugLineOffset, f32 scale, f32 lineHeight, FontMetadata metadata, char *font, v4f textColour)
 {
@@ -107,8 +118,9 @@ inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *comman
     }
 }
 
-function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f *debugLineOffset, f32 scale, f32 lineHeight,  FontMetadata metadata, char *font, v4f textColour)
+function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f *debugLineOffset, f32 scale, f32 lineHeight,  FontMetadata metadata, char *font, u32 *debugColourIndex)
 {
+    v4f textColour = debugColourTableA[(*debugColourIndex)++ % ARRAY_COUNT(debugColourTableA)];
     if (parent->isOpen && parent->child)
     {
         debugLineOffset->x += 20.0f;
@@ -119,7 +131,7 @@ function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderComma
             
             debugLineOffset->y -= lineHeight;
             
-            DisplayDebugMenuChildLayer(child, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, textColour);
+            DisplayDebugMenuChildLayer(child, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, debugColourIndex);
         }
         
         debugLineOffset->x -= 20.0f;
@@ -141,7 +153,8 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
     v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
     
     char *font = "DebugLarge";
-    v4f textColour = V4F(1.0f, 0.5f, 0.5f, 1.0f);
+    u32 debugColourIndex = 0;
+    v4f textColour = debugColourTableA[debugColourIndex++ % ARRAY_COUNT(debugColourTableA)];
     
     for (DebugMenuItem *item = debugSettings->menuSentinel.next; item; item = item->next)
     {
@@ -149,15 +162,22 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
         
         debugLineOffset.y -= lineHeight;
         
-        DisplayDebugMenuChildLayer(item, commands, loadedAssets, input, platform, camera, debugSettings, &debugLineOffset, scale, lineHeight, metadata, font, textColour);
+        DisplayDebugMenuChildLayer(item, commands, loadedAssets, input, platform, camera, debugSettings, &debugLineOffset, scale, lineHeight, metadata, font, &debugColourIndex);
     }
 }
 
-function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
 {
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {
+        u32 frameIndex = globalDebugState->table->frameIndex - 1;
+        if (frameIndex > (MAX_DEBUG_FRAMES - 1))
+        {
+            frameIndex = (MAX_DEBUG_FRAMES - 1);
+        }
+        DebugFrame *lastFrame = &globalDebugState->table->frames[frameIndex];
+        
         f32 scale = DEBUG_TEXT_SCALE;
         char *font = "Debug";
         
@@ -184,7 +204,7 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         {
             for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
             {
-                DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[translationIndex][blockIndex];
+                DebugBlockInfo *lastBlockInfo = &lastFrame->blockInfos[translationIndex][blockIndex];
                 if (lastBlockInfo->hits)
                 {
                     v2f lineMin = V2F(10.0f, debugLineOffset.y);
@@ -207,8 +227,8 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         if (hoveredTIndex != -1 && hoveredBIndex != -1)
         {
             char string[128];
-            DebugBlockInfo *lastBlockInfo = &globalDebugState->table->lastBlockInfos[hoveredTIndex][hoveredBIndex];
-            DebugBlockStats *lastBlockStat = &globalDebugState->table->lastBlockStats[hoveredTIndex][hoveredBIndex];
+            DebugBlockInfo *lastBlockInfo = &lastFrame->blockInfos[hoveredTIndex][hoveredBIndex];
+            DebugBlockStats *lastBlockStat = &globalDebugState->table->blockStats[hoveredTIndex][hoveredBIndex];
             stbsp_sprintf(string, "%s:\nMin: %10lluc | Max: %10lluc\nMin: %10uh | Max: %10uh",
                           lastBlockInfo->name, lastBlockStat->minCycles, lastBlockStat->maxCycles, lastBlockStat->minHits, lastBlockStat->maxHits);
             PushTooltip(commands, loadedAssets, platform, camera, string, font, scale, mousePos, DEBUG_LAYER + 1);
@@ -226,5 +246,62 @@ function void PrintDebugRecords(Game_Memory *memory, Game_RenderCommands *comman
         {
             globalDebugState->settings.movingTimerWindow = false;
         }
+    }
+}
+
+function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+{
+    DebugState *debugState = (DebugState *)memory->debugStorage;
+    if (debugState)
+    {
+        f32 barGap = 2.0f;
+        f32 barWidth = 5.0f;
+        f32 targetTime = 1.0f / 60.0f;
+        f32 chartHeight = 250.0f;
+        v2f chartMin = V2F(20.0f);
+        v2f chartMax = V2F((f32)commands->width - 20.0f, chartMin.y + chartHeight);
+        
+        PushRect(commands, platform, camera, V2F(chartMin.x, chartMax.y - 1), chartMax, 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
+        
+        v2f barMin = chartMin;
+        
+        for (u32 frameIndex = 0; frameIndex < MAX_DEBUG_FRAMES; ++frameIndex)
+        {
+            DebugFrame *frame = &globalDebugState->table->frames[frameIndex];
+            f32 timeFactor = frame->frameTime / targetTime;
+            f32 totalBarHeight = timeFactor * chartHeight;
+            u64 remainingClocks = frame->totalClock;
+            
+            u8 debugColourIndex = 0;
+            v2f segmentMin = barMin;
+            for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
+            {
+                for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+                {
+                    DebugBlockInfo *blockInfo = &frame->blockInfos[translationIndex][blockIndex];
+                    if (blockInfo->isMarker)
+                    {
+                        f32 segmentHeight = ((f32)blockInfo->cycles / (f32)frame->totalClock) * totalBarHeight;
+                        v4f segmentColour = debugColourTableB[debugColourIndex++];
+                        v2f segmentMax = segmentMin + V2F(barWidth, segmentHeight);
+                        
+                        PushRect(commands, platform, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                        
+                        segmentMin.y += segmentHeight;
+                        ASSERT(remainingClocks - blockInfo->cycles < remainingClocks);
+                        remainingClocks -= blockInfo->cycles;
+                    }
+                }
+            }
+            
+            if (remainingClocks > 0)
+            {
+                v2f barMax = barMin + V2F(barWidth, totalBarHeight);
+                PushRect(commands, platform, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
+            }
+            
+            barMin.x += barWidth + barGap;
+        }
+        
     }
 }

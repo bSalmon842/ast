@@ -1,4 +1,14 @@
 /////////////////////////////////////
+30APR2022
+
+- Debug info now records the past 256 frames
+- Added a frame timing graph across the 256 stored frames
+- Frame Timing graph new shows frame marker times
+/////////////////////////////////////
+29APR2022
+
+- Debug Menu layers now have colours to help differentiate layers
+/////////////////////////////////////
 28APR2022
 
 - Added nesting menues with arbitrary layer counts to the debug menu
