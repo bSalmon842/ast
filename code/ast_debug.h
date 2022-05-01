@@ -60,7 +60,7 @@ struct DebugConfig
     b32 camMove;
     b32 camZoom;
     b32 mouseInfo;
-    b32 vsync;
+    b32 picking;
 };
 
 enum DebugMenuFunctionType
@@ -88,6 +88,8 @@ struct DebugSettings
     
     b32 movingTimerWindow;
     f32 timerWindowPosY;
+    
+    s32 pickedEntityIndex;
     
     DebugMenuItem menuSentinel;
 };

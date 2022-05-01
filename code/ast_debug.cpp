@@ -16,6 +16,7 @@ function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMMOVE %d\n", config.camMove);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_CAMZOOM %d\n", config.camZoom);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_MOUSEINFO %d\n", config.mouseInfo);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_PICKING %d\n", config.picking);
     platform.CloseFile(&fileHandle);
 }
 
@@ -254,6 +255,7 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
     DebugState *debugState = (DebugState *)memory->debugStorage;
     if (debugState)
     {
+        v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
         f32 barGap = 2.0f;
         f32 barWidth = 5.0f;
         f32 targetTime = 1.0f / 60.0f;
@@ -281,11 +283,19 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
                     DebugBlockInfo *blockInfo = &frame->blockInfos[translationIndex][blockIndex];
                     if (blockInfo->isMarker)
                     {
-                        f32 segmentHeight = ((f32)blockInfo->cycles / (f32)frame->totalClock) * totalBarHeight;
+                        f32 segPct = ((f32)blockInfo->cycles / (f32)frame->totalClock);
+                        f32 segmentHeight = segPct * totalBarHeight;
                         v4f segmentColour = debugColourTableB[debugColourIndex++];
                         v2f segmentMax = segmentMin + V2F(barWidth, segmentHeight);
                         
                         PushRect(commands, platform, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                        
+                        if (mousePos > segmentMin && mousePos < segmentMax)
+                        {
+                            char string[128] = {};
+                            stbsp_sprintf(string, "Seg Name: %s\nSeg Clock: %llu\nFrame Pct: %.03f", blockInfo->name, blockInfo->cycles, segPct);
+                            PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
+                        }
                         
                         segmentMin.y += segmentHeight;
                         ASSERT(remainingClocks - blockInfo->cycles < remainingClocks);
@@ -303,5 +313,28 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
             barMin.x += barWidth + barGap;
         }
         
+    }
+}
+
+function void DisplayPickedEntityInfo(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Camera camera, PlatformAPI platform, Entity *entities)
+{
+    DebugState *debugState = (DebugState *)memory->debugStorage;
+    if (debugState)
+    {
+        s32 entityIndex = globalDebugState->settings.pickedEntityIndex;
+        v2f lineOffset = V2F(800.0f, 200.0f);
+        PushText(commands, loadedAssets, platform, camera, "Picked Entity Info", "Debug", V3F(800.0f, 200.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+        {
+            if (entityIndex != -1)
+            {
+                char string[128];
+                stbsp_sprintf(string, "Index: %d\nType: %d\nPos: {%.02f, %.02f}\n", entityIndex, entities[entityIndex].type, entities[entityIndex].pos.x, entities[entityIndex].pos.y);
+                PushText(commands, loadedAssets, platform, camera, string, "Debug", V3F(800.0f, 180.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+            }
+            else
+            {
+                PushText(commands, loadedAssets, platform, camera, "Invalid Entity Index", "Debug", V3F(800.0f, 180.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+            }
+        }
     }
 }

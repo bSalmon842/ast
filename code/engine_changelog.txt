@@ -1,4 +1,11 @@
 /////////////////////////////////////
+01MAY2022
+
+- Altered UnprojectPoint to be more consistent
+- Added entity picking for debugging
+- The debug config struct is now set on initialisation from the debug config macros
+- Added tooltips for frame marker segments
+/////////////////////////////////////
 30APR2022
 
 - Debug info now records the past 256 frames

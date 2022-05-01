@@ -466,6 +466,26 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if DEBUGUI_ENTITY_COLLIDERS
             PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
 #endif
+            
+#if DEBUGUI_PICKING
+            v2f entityMin = entity->pos.xy - (entity->dims / 2.0f);
+            v2f entityMax = entityMin + entity->dims;
+            v2f projectedMousePos = UnprojectPoint(gameState->gameCamera, V2F((f32)input->mouse.x, (f32)input->mouse.y));
+            PushRect(renderCommands, platform, gameState->gameCamera, V3F(projectedMousePos, 0.0f), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+            if (projectedMousePos > entityMin && projectedMousePos < entityMax)
+            {
+                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
+                {
+                    globalDebugState->settings.pickedEntityIndex = entityIndex;
+                }
+            }
+            
+            if (entityIndex == globalDebugState->settings.pickedEntityIndex)
+            {
+                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+            }
+#endif
         }
         
 #if !DEBUGUI_CAMMOVE
@@ -526,10 +546,21 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
 #if DEBUGUI_MOUSEINFO
-    char mouseString[16];
-    stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
-    v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    {
+        char mouseString[16];
+        stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
+        v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
+        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    }
+    
+    {
+        v2f projectedMousePos = ProjectMouse(input, gameState->gameCamera);
+        char mouseString[32];
+        stbsp_sprintf(mouseString, "Proj Mouse X: %.02f\nProj Mouse Y: %.02f", projectedMousePos.x, projectedMousePos.y);
+        v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 100.0f);
+        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    }
+    
     
     char mbString[32];
     stbsp_sprintf(mbString, "Mouse L Down: %d\nMouse M Down: %d\nMouse R Down: %d", input->mouse.buttons[0].endedFrameDown, input->mouse.buttons[1].endedFrameDown, input->mouse.buttons[2].endedFrameDown);
@@ -538,10 +569,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #endif
     
 #if DEBUGUI_CAMMOVE
-    char unlockString[32];
-    stbsp_sprintf(unlockString, "CAMERA UNLOCKED");
     v2f unlockPixelOffset = V2F(450.0f, (f32)renderCommands->height - 25.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, unlockString, "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, "CAMERA UNLOCKED", "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+#endif
+    
+#if DEBUGUI_PICKING
+    v2f pickPixelOffset = V2F(750.0f, (f32)renderCommands->height - 25.0f);
+    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, "PICKING ENABLED", "Debug", V3F(pickPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+    
+    DisplayPickedEntityInfo(memory, renderCommands, &transState->loadedAssets, gameState->gameCamera, platform, gameState->entities);
 #endif
     
 #endif
@@ -575,6 +611,16 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
                 }
             }
             
+            globalDebugState->settings.config.funcTimers = DEBUGUI_FUNC_TIMERS;
+            globalDebugState->settings.config.frameTimers = DEBUGUI_FRAME_TIMERS;
+            globalDebugState->settings.config.entityColliders = DEBUGUI_ENTITY_COLLIDERS;
+            globalDebugState->settings.config.particleColliders = DEBUGUI_PARTICLE_COLLIDERS;
+            globalDebugState->settings.config.regions = DEBUGUI_REGIONS;
+            globalDebugState->settings.config.camMove = DEBUGUI_CAMMOVE;
+            globalDebugState->settings.config.camZoom = DEBUGUI_CAMZOOM;
+            globalDebugState->settings.config.mouseInfo = DEBUGUI_MOUSEINFO;
+            globalDebugState->settings.config.picking = DEBUGUI_PICKING;
+            
             globalDebugState->settings.menuSentinel = {};
             DebugMenuItem *timingVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, &globalDebugState->settings.menuSentinel, "Timing Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *funcTimersItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Function Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.funcTimers, true);
@@ -591,6 +637,7 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             AddNextDebugMenuItem(&globalDebugState->dataRegion, camLockChild, "Camera Zoom", DebugMenuFuncType_b32, &globalDebugState->settings.config.camZoom);
             
             DebugMenuItem *mouseItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, cameraItem, "Mouse Info", DebugMenuFuncType_b32, &globalDebugState->settings.config.mouseInfo);
+            DebugMenuItem *pickItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, mouseItem, "Entity Picking", DebugMenuFuncType_b32, &globalDebugState->settings.config.picking);
             
             globalDebugState->settings.timerWindowPosY = 700.0f;
             

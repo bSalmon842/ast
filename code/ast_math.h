@@ -9,6 +9,12 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include <math.h>
 
+inline f32 Abs(f32 value)
+{
+    f32 result = (value < 0) ? -value : value;
+    return result;
+}
+
 inline f32 Sin(f32 theta)
 {
     f32 result = sinf(theta);

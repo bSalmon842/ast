@@ -44,18 +44,30 @@ function void ChangeCameraDistance(Camera *camera, f32 dist)
     camera->rect.center.z = dist;
 }
 
+#if 0
 inline v2f UnprojectPoint(f32 distanceFromCamera, f32 focalLength, v2f projPoint)
 {
     v2f result = (distanceFromCamera / focalLength) * projPoint;
     return result;
 }
+#else
+inline v2f UnprojectPoint(Camera camera, v2f projPoint)
+{
+    v2f result = {};
+    
+    ASSERT(!camera.orthographic);
+    result = (camera.rect.center.z / camera.focalLength) * (projPoint / camera.worldToPixelConversion);
+    
+    return result;
+}
+#endif
 
 function Rect2f GetCameraBoundsForDistance(Game_RenderCommands *commands, Camera camera, v2f pos, f32 distance)
 {
     Rect2f result = {};
     
-    v2f projXY = V2F((f32)commands->width, (f32)commands->height) / camera.worldToPixelConversion;
-    v2f rawXY = UnprojectPoint(distance, camera.focalLength, projXY);
+    v2f projXY = V2F((f32)commands->width, (f32)commands->height);
+    v2f rawXY = UnprojectPoint(camera, projXY);
     
     result = CreateRect2f_CenterDims(pos, rawXY);
     
@@ -68,4 +80,14 @@ function void UpdateCamera(Game_RenderCommands *commands, Camera *camera, Entity
     Rect2f boundsRect = GetCameraBoundsForDistance(commands, *camera, camera->rect.center.xy, camera->rect.center.z);
     camera->rect = CreateRect3f_CenterDims(camera->rect.center, V3F(boundsRect.dims, camera->rect.center.z));
     camera->screenCenterPixels = V2F((f32)commands->width, (f32)commands->height) / 2.0f;
+}
+
+function v2f ProjectMouse(Game_Input *input, Camera camera)
+{
+    v2f result = {};
+    
+    v2f pixelMousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
+    result = pixelMousePos / (camera.rect.center.z / camera.focalLength);
+    
+    return result;
 }
