@@ -17,9 +17,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
 
 // New Debug Infrastructure
+// TODO(bSalmon): Debug introspection
 // TODO(bSalmon): Nesting Functions in timers
 // TODO(bSalmon): Memory Vis
-// TODO(bSalmon): Render Vis
+// TODO(bSalmon): Console
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -534,6 +535,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     DisplayFrameTimers(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
 #endif
     
+#if DEBUGUI_RENDER_TIMING
+    DisplayRenderTiming(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+#endif
+    
 #if DEBUGUI_CAMZOOM
     ChangeCameraDistance(&gameState->gameCamera, 30.0f);
 #else
@@ -613,6 +618,7 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             
             globalDebugState->settings.config.funcTimers = DEBUGUI_FUNC_TIMERS;
             globalDebugState->settings.config.frameTimers = DEBUGUI_FRAME_TIMERS;
+            globalDebugState->settings.config.renderTiming = DEBUGUI_RENDER_TIMING;
             globalDebugState->settings.config.entityColliders = DEBUGUI_ENTITY_COLLIDERS;
             globalDebugState->settings.config.particleColliders = DEBUGUI_PARTICLE_COLLIDERS;
             globalDebugState->settings.config.regions = DEBUGUI_REGIONS;
@@ -622,9 +628,11 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             globalDebugState->settings.config.picking = DEBUGUI_PICKING;
             
             globalDebugState->settings.menuSentinel = {};
+            
             DebugMenuItem *timingVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, &globalDebugState->settings.menuSentinel, "Timing Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *funcTimersItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Function Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.funcTimers, true);
-            AddNextDebugMenuItem(&globalDebugState->dataRegion, funcTimersItem, "Frame Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.frameTimers);
+            DebugMenuItem *frameTimersItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, funcTimersItem, "Frame Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.frameTimers);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, frameTimersItem, "Render Timing", DebugMenuFuncType_b32, &globalDebugState->settings.config.renderTiming);
             
             DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Bounds Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *collidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0, true);

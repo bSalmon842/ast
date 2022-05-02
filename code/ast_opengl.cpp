@@ -134,6 +134,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
+    DEBUG_BLOCK_OPEN(RenderTotal);
     for (u32 entryIndex = 0; entryIndex < commands->entryCount; ++entryIndex)
     {
         RenderEntry_Header *header = commands->headers[entryIndex];
@@ -142,6 +143,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
         {
             case RenderEntryType_RenderEntry_Bitmap:
             {
+                DEBUG_BLOCK_AUTO(Render_Bitmap);
                 RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)(header + 1);
                 
                 LoadedAssetHeader *assetHeader = entry->assetHeader;
@@ -177,6 +179,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             
             case RenderEntryType_RenderEntry_Rect:
             {
+                DEBUG_BLOCK_AUTO(Render_Rect);
                 RenderEntry_Rect *entry = (RenderEntry_Rect *)(header + 1);
                 
                 v2f min = entry->positioning.pos.xy - (entry->positioning.dims / 2.0f);
@@ -189,6 +192,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             
             case RenderEntryType_RenderEntry_Clear:
             {
+                DEBUG_BLOCK_AUTO(Render_Clear);
                 RenderEntry_Clear *entry = (RenderEntry_Clear *)(header + 1);
                 
                 glClearColor(entry->colour.r, entry->colour.g, entry->colour.b, entry->colour.a);
@@ -197,6 +201,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             
             case RenderEntryType_RenderEntry_Text:
             {
+                DEBUG_BLOCK_AUTO(Render_Text);
                 RenderEntry_Text *entry = (RenderEntry_Text *)(header + 1);
                 
                 char *c = entry->string;
@@ -252,6 +257,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
             INVALID_DEFAULT;
         }
     }
+    DEBUG_BLOCK_CLOSE(RenderTotal);
     
     //FinishTempMemory(commands->renderTemp);
     commands->pushBufferSize = 0;

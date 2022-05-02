@@ -1,4 +1,8 @@
 /////////////////////////////////////
+02MAY2022
+
+- Added visualisation for rendering
+/////////////////////////////////////
 01MAY2022
 
 - Altered UnprojectPoint to be more consistent

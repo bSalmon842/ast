@@ -54,6 +54,7 @@ struct DebugConfig
 {
     b32 funcTimers;
     b32 frameTimers;
+    b32 renderTiming;
     b32 entityColliders;
     b32 particleColliders;
     b32 regions;

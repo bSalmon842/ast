@@ -10,6 +10,7 @@ function void WriteDebugConfigFile(PlatformAPI platform, DebugConfig config)
     Platform_FileHandle fileHandle = platform.OpenFileForWrite("..\\code\\ast_debug_config.h", PlatformWriteType_Overwrite);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_FUNC_TIMERS %d\n", config.funcTimers);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_FRAME_TIMERS %d\n", config.frameTimers);
+    platform.WriteIntoFile(fileHandle, "#define DEBUGUI_RENDER_TIMING %d\n", config.renderTiming);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_ENTITY_COLLIDERS %d\n", config.entityColliders);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_PARTICLE_COLLIDERS %d\n", config.particleColliders);
     platform.WriteIntoFile(fileHandle, "#define DEBUGUI_REGIONS %d\n", config.regions);
@@ -206,7 +207,7 @@ function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *co
             for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
             {
                 DebugBlockInfo *lastBlockInfo = &lastFrame->blockInfos[translationIndex][blockIndex];
-                if (lastBlockInfo->hits)
+                if (lastBlockInfo->hits && !StringsAreSame(lastBlockInfo->name, "Render_", 7))
                 {
                     v2f lineMin = V2F(10.0f, debugLineOffset.y);
                     v2f lineMax = V2F((f32)commands->width - 10.0f, debugLineOffset.y + lineHeight);
@@ -336,5 +337,68 @@ function void DisplayPickedEntityInfo(Game_Memory *memory, Game_RenderCommands *
                 PushText(commands, loadedAssets, platform, camera, "Invalid Entity Index", "Debug", V3F(800.0f, 180.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
             }
         }
+    }
+}
+
+function void DisplayRenderTiming(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+{
+    DebugState *debugState = (DebugState *)memory->debugStorage;
+    if (debugState)
+    {
+        u32 frameIndex = globalDebugState->table->frameIndex - 1;
+        if (frameIndex > (MAX_DEBUG_FRAMES - 1))
+        {
+            frameIndex = (MAX_DEBUG_FRAMES - 1);
+        }
+        DebugFrame *lastFrame = &globalDebugState->table->frames[frameIndex];
+        
+        v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
+        
+        f32 totalBarWidth = (f32)commands->width - 40.0f;
+        f32 barHeight = 100.0f;
+        v2f barMin = V2F(20.0f, 300.0f);
+        v2f barMax = barMin + V2F(totalBarWidth, barHeight);
+        
+        u64 totalCycles = 0;
+        
+        for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+        {
+            DebugBlockInfo *blockInfo = &lastFrame->blockInfos[1][blockIndex];
+            if (blockInfo->hits)
+            {
+                if (StringsAreSame(blockInfo->name, "RenderTotal", 11))
+                {
+                    totalCycles = blockInfo->cycles;
+                    break;
+                }
+            }
+        }
+        
+        u8 debugColourIndex = 0;
+        v2f segmentMin = barMin;
+        for (u32 blockIndex = 0; blockIndex < MAX_DEBUG_TRANSLATION_UNIT_INFOS; ++blockIndex)
+        {
+            DebugBlockInfo *blockInfo = &lastFrame->blockInfos[1][blockIndex];
+            if (blockInfo->hits && StringsAreSame(blockInfo->name, "Render_", 7))
+            {
+                f32 segPct = ((f32)blockInfo->cycles / (f32)totalCycles);
+                f32 segmentWidth = segPct * totalBarWidth;
+                v2f segmentMax = segmentMin + V2F(segmentWidth, barHeight);
+                v4f segmentColour = debugColourTableB[debugColourIndex++];
+                
+                PushRect(commands, platform, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                
+                if (mousePos > segmentMin && mousePos < segmentMax)
+                {
+                    char string[128] = {};
+                    stbsp_sprintf(string, "Seg Name: %s\nSeg Clock: %llu\nFrame Pct: %.03f", blockInfo->name, blockInfo->cycles, segPct);
+                    PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
+                }
+                
+                segmentMin.x += segmentWidth;
+            }
+        }
+        
+        PushRect(commands, platform, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
     }
 }
