@@ -19,8 +19,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // New Debug Infrastructure
 // TODO(bSalmon): Debug introspection
 // TODO(bSalmon): Nesting Functions in timers
-// TODO(bSalmon): Memory Vis
 // TODO(bSalmon): Console
+// TODO(bSalmon): Fix camera region debug display
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -32,6 +32,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 // TODO(bSalmon): Game:
 // TODO(bSalmon): Death and lives
+// TODO(bSalmon): Fix random UFO shot speeds
 
 // TODO(bSalmon): Bitmap list
 // NOTE(bSalmon): COMPLETE
@@ -49,6 +50,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_parallel_memory.cpp"
 #include "ast_asset.cpp"
 #include "ast_render.cpp"
+#include "ast_interface.cpp"
 #include "ast_collision.cpp"
 #include "ast_entity.cpp"
 #include "ast_particle.cpp"
@@ -145,13 +147,13 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     debugGlobalMem = memory;
     if (!globalDebugState)
     {
-        globalDebugState = (DebugState *)memory->debugStorage;
+        globalDebugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     }
 #endif
     DEBUG_BLOCK_FUNC;
     
-    ASSERT(sizeof(Game_State) <= memory->permaStorageSize);
-    Game_State *gameState = (Game_State *)memory->permaStorage;
+    ASSERT(sizeof(Game_State) <= memory->storage[PERMA_STORAGE_INDEX].size);
+    Game_State *gameState = (Game_State *)memory->storage[PERMA_STORAGE_INDEX].ptr;
     PlatformAPI platform = memory->platform;
     if (!gameState->initialised)
     {
@@ -230,21 +232,29 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->initialised = true;
     }
     
-    ASSERT(sizeof(Transient_State) <= memory->transStorageSize);
-    Transient_State *transState = (Transient_State *)memory->transStorage;
+    ASSERT(sizeof(Transient_State) <= memory->storage[TRANS_STORAGE_INDEX].size);
+    Transient_State *transState = (Transient_State *)memory->storage[TRANS_STORAGE_INDEX].ptr;
     if (!transState->initialised)
     {
-        InitMemRegion(&transState->transRegion, memory->transStorageSize - sizeof(Transient_State), (u8 *)memory->transStorage + sizeof(Transient_State));
+        StorageInfo *transStorage = &memory->storage[TRANS_STORAGE_INDEX];
+        
+        InitMemRegion(&transState->transRegion, transStorage->size - sizeof(Transient_State), (u8 *)transStorage->ptr + sizeof(Transient_State), "Transient Region", TRANS_STORAGE_INDEX);
+        transStorage->regions[transStorage->regionCount++] = &transState->transRegion;
         
         for (u32 memIndex = 0; memIndex < ARRAY_COUNT(transState->parallelMems); ++memIndex)
         {
             ParallelMemory *mem = &transState->parallelMems[memIndex];
             
             mem->inUse = false;
-            mem->memRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1));
+            
+            char string[32] = {};
+            stbsp_sprintf(string, "Parallel Mem %d", memIndex);
+            mem->memRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1), string, TRANS_STORAGE_INDEX);
+            transStorage->regions[transStorage->regionCount++] = &mem->memRegion;
         }
         
-        renderCommands->renderRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1));
+        renderCommands->renderRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1), "Render Region", TRANS_STORAGE_INDEX);
+        transStorage->regions[transStorage->regionCount++] = &renderCommands->renderRegion;
         
         transState->loadedAssets = InitialiseLoadedAssets(platform, memory->parallelQueue);
         transState->loadedAssets.transState = transState;
@@ -539,6 +549,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     DisplayRenderTiming(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
 #endif
     
+#if DEBUGUI_MEMORY_VIS
+    DisplayMemoryVis(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+#endif
+    
 #if DEBUGUI_CAMZOOM
     ChangeCameraDistance(&gameState->gameCamera, 30.0f);
 #else
@@ -598,10 +612,14 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
 {
     if (!globalDebugState)
     {
-        globalDebugState = (DebugState *)memory->debugStorage;
+        globalDebugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
         if (!globalDebugState->memInitialised)
         {
-            InitMemRegion(&globalDebugState->dataRegion, memory->debugStorageSize - sizeof(DebugState), (u8 *)memory->debugStorage + sizeof(DebugState));
+            StorageInfo *debugStorage = &memory->storage[DEBUG_STORAGE_INDEX];
+            
+            InitMemRegion(&globalDebugState->dataRegion, debugStorage->size - sizeof(DebugState), (u8 *)debugStorage->ptr + sizeof(DebugState), "Debug Region", DEBUG_STORAGE_INDEX);
+            debugStorage->regions[debugStorage->regionCount++] = &globalDebugState->dataRegion;
+            
             globalDebugState->table = PushStruct(&globalDebugState->dataRegion, DebugTable);
             
             for (u32 translationIndex = 0; translationIndex < TRANSLATION_UNIT_COUNT; ++translationIndex)
@@ -619,6 +637,7 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             globalDebugState->settings.config.funcTimers = DEBUGUI_FUNC_TIMERS;
             globalDebugState->settings.config.frameTimers = DEBUGUI_FRAME_TIMERS;
             globalDebugState->settings.config.renderTiming = DEBUGUI_RENDER_TIMING;
+            globalDebugState->settings.config.memoryVis = DEBUGUI_MEMORY_VIS;
             globalDebugState->settings.config.entityColliders = DEBUGUI_ENTITY_COLLIDERS;
             globalDebugState->settings.config.particleColliders = DEBUGUI_PARTICLE_COLLIDERS;
             globalDebugState->settings.config.regions = DEBUGUI_REGIONS;
@@ -634,7 +653,10 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             DebugMenuItem *frameTimersItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, funcTimersItem, "Frame Timers", DebugMenuFuncType_b32, &globalDebugState->settings.config.frameTimers);
             AddNextDebugMenuItem(&globalDebugState->dataRegion, frameTimersItem, "Render Timing", DebugMenuFuncType_b32, &globalDebugState->settings.config.renderTiming);
             
-            DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Bounds Vis", DebugMenuFuncType_None, 0);
+            DebugMenuItem *memoryItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Memory", DebugMenuFuncType_None, 0);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Memory Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.memoryVis, true);
+            
+            DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Bounds Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *collidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0, true);
             DebugMenuItem *entityCollidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, collidersChild, "Entities", DebugMenuFuncType_b32, &globalDebugState->settings.config.entityColliders, true);
             AddNextDebugMenuItem(&globalDebugState->dataRegion, entityCollidersChild, "Particles", DebugMenuFuncType_b32, &globalDebugState->settings.config.particleColliders);

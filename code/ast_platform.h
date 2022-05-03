@@ -263,14 +263,22 @@ struct InstructionSets
     b8 avx;
 };
 
+#define STORAGE_COUNT 3
+#define PERMA_STORAGE_INDEX 0
+#define TRANS_STORAGE_INDEX 1
+#define DEBUG_STORAGE_INDEX 2
+struct StorageInfo
+{
+    u64 size;
+    void *ptr;
+    
+    MemoryRegion *regions[64];
+    u32 regionCount;
+};
+
 struct Game_Memory
 {
-    u64 permaStorageSize;
-    u64 transStorageSize;
-    u64 debugStorageSize;
-    void *permaStorage;
-    void *transStorage;
-    void *debugStorage;
+    StorageInfo storage[STORAGE_COUNT];
     
     InstructionSets availableInstructionSets;
     

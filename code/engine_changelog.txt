@@ -1,4 +1,9 @@
 /////////////////////////////////////
+03MAY2022
+
+- Added visualisation for memory allocation
+- Started implementation of a discrete slider for changing zoom level on the memory vis
+/////////////////////////////////////
 02MAY2022
 
 - Added visualisation for rendering

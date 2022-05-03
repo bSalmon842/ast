@@ -747,23 +747,26 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             gameMem.availableInstructionSets.sse4_2 = cpuInfo[2] & (1 << 20) || false;
             gameMem.availableInstructionSets.avx = cpuInfo[2] & (1 << 28) || false;
             
-            gameMem.permaStorageSize = MEGABYTE(16);
-            gameMem.transStorageSize = MEGABYTE(512);
-            gameMem.debugStorageSize = MEGABYTE(128);
-            ASSERT(sizeof(DebugState) <= gameMem.debugStorageSize);
+            gameMem.storage[PERMA_STORAGE_INDEX].size = MEGABYTE(16);
+            gameMem.storage[TRANS_STORAGE_INDEX].size = MEGABYTE(512);
+            gameMem.storage[DEBUG_STORAGE_INDEX].size = MEGABYTE(128);
+            ASSERT(sizeof(DebugState) <= gameMem.storage[DEBUG_STORAGE_INDEX].size);
             
-            u64 totalMemSize = gameMem.permaStorageSize + gameMem.transStorageSize + gameMem.debugStorageSize;
-            gameMem.permaStorage = VirtualAlloc(baseAddress, totalMemSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            gameMem.transStorage = (u8 *)gameMem.permaStorage + gameMem.permaStorageSize;
-            gameMem.debugStorage = (u8 *)gameMem.transStorage + gameMem.transStorageSize;
+            u64 totalMemSize = 
+                gameMem.storage[PERMA_STORAGE_INDEX].size + 
+                gameMem.storage[TRANS_STORAGE_INDEX].size + 
+                gameMem.storage[DEBUG_STORAGE_INDEX].size;
+            gameMem.storage[PERMA_STORAGE_INDEX].ptr = VirtualAlloc(baseAddress, totalMemSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            gameMem.storage[TRANS_STORAGE_INDEX].ptr = (u8 *)gameMem.storage[PERMA_STORAGE_INDEX].ptr + gameMem.storage[PERMA_STORAGE_INDEX].size;
+            gameMem.storage[DEBUG_STORAGE_INDEX].ptr = (u8 *)gameMem.storage[TRANS_STORAGE_INDEX].ptr + gameMem.storage[TRANS_STORAGE_INDEX].size;
             
-            globalDebugState = (DebugState *)gameMem.debugStorage;
+            globalDebugState = (DebugState *)gameMem.storage[DEBUG_STORAGE_INDEX].ptr;
             if (programCode.InitialiseDebugState)
             {
                 programCode.InitialiseDebugState(&gameMem);
             }
             
-            if (samples && gameMem.permaStorage && gameMem.transStorage)
+            if (samples && gameMem.storage[PERMA_STORAGE_INDEX].ptr && gameMem.storage[TRANS_STORAGE_INDEX].ptr)
             {
                 s32 debugTimeMarkerIndex = 0;
                 W32_DebugTimeMarker debugTimeMarkers[60] = {};

@@ -13,6 +13,11 @@ struct MemoryRegion
     u8 *base;
     usize size;
     usize used;
+    
+#if AST_INTERNAL
+    char *name;
+    u32 storageIndex;
+#endif
 };
 
 struct TempMemory
@@ -30,12 +35,18 @@ struct ParallelMemory
 
 //////////////////////// CPP IMPL ////////////////////////////
 
-inline void InitMemRegion(MemoryRegion *memRegion, usize size, void *base)
+inline void InitMemRegion(MemoryRegion *memRegion, usize size, void *base, char *name = 0, u32 storageIndex = U32_MAX)
 {
     memRegion->base = (u8 *)base;
     memRegion->size = size;
     memRegion->used = 0;
     memRegion->tempCount = 0;
+    
+#if AST_INTERNAL
+    ASSERT(name && storageIndex != U32_MAX);
+    memRegion->name = name;
+    memRegion->storageIndex = storageIndex;
+#endif
 }
 
 inline usize GetAlignmentOffset(MemoryRegion *memRegion, usize alignment)
@@ -107,13 +118,19 @@ inline void FinishTempMemory(TempMemory tempMem)
     --memRegion->tempCount;
 }
 
-inline MemoryRegion CreateMemorySubRegion(MemoryRegion *baseRegion, usize size, usize alignment = 16)
+inline MemoryRegion CreateMemorySubRegion(MemoryRegion *baseRegion, usize size, char *name = 0, u32 storageIndex = U32_MAX, usize alignment = 16)
 {
     MemoryRegion result = {};
     
     ASSERT(GetMemoryRegionSizeRemaining(baseRegion) >= size);
     result.size = size;
     result.base = (u8 *)PushSize(baseRegion, size, alignment);
+    
+#if AST_INTERNAL
+    ASSERT(name && storageIndex != U32_MAX);
+    result.name = name;
+    result.storageIndex = storageIndex;
+#endif
     
     return result;
 }
