@@ -209,7 +209,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         gameState->ufoSpawnTimer = InitialiseTimer(5.0f, 0.0f);
         gameState->ufoSpawned = false;
         
-#if 1 
+#if 0 
         EmitterProgressionInfo progress1 = {EmitterLife_Continuous, 0.0f, 5.0f, V4F(), V4F(), 0.0f, 5.0f};
         EmitterProgressionInfo progress2 = {EmitterLife_Continuous, 2.0f, 5.0f, V4F(1.0f, 0.3f, 0.1f, 1.0f), V4F(0.3f, 0.3f, 0.3f, 0.5f), 0.0f, 5.0f};
         
@@ -228,7 +228,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                    progress2, shape3, V2F(0.5f), true, 0, 0, TestParticleSimCollision);
 #endif
         
-        printf("%zd\n", sizeof(RenderEntry_Header));
+        printf("%zd\n", sizeof(Game_State));
+        printf("%zd\n", sizeof(Transient_State));
+        printf("%zd\n", sizeof(DebugState));
         gameState->initialised = true;
     }
     
@@ -247,7 +249,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             
             mem->inUse = false;
             
-            char string[32] = {};
+            char *string = transState->parallelNameStrings[memIndex];
             stbsp_sprintf(string, "Parallel Mem %d", memIndex);
             mem->memRegion = CreateMemorySubRegion(&transState->transRegion, MEGABYTE(1), string, TRANS_STORAGE_INDEX);
             transStorage->regions[transStorage->regionCount++] = &mem->memRegion;
@@ -638,6 +640,7 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             globalDebugState->settings.config.frameTimers = DEBUGUI_FRAME_TIMERS;
             globalDebugState->settings.config.renderTiming = DEBUGUI_RENDER_TIMING;
             globalDebugState->settings.config.memoryVis = DEBUGUI_MEMORY_VIS;
+            globalDebugState->settings.config.stackVis = DEBUGUI_STACK_VIS;
             globalDebugState->settings.config.entityColliders = DEBUGUI_ENTITY_COLLIDERS;
             globalDebugState->settings.config.particleColliders = DEBUGUI_PARTICLE_COLLIDERS;
             globalDebugState->settings.config.regions = DEBUGUI_REGIONS;
@@ -645,6 +648,9 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             globalDebugState->settings.config.camZoom = DEBUGUI_CAMZOOM;
             globalDebugState->settings.config.mouseInfo = DEBUGUI_MOUSEINFO;
             globalDebugState->settings.config.picking = DEBUGUI_PICKING;
+            
+            globalDebugState->settings.memZoomMin = 0.0f;
+            globalDebugState->settings.memZoomMax = 1.0f;
             
             globalDebugState->settings.menuSentinel = {};
             
@@ -654,7 +660,8 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             AddNextDebugMenuItem(&globalDebugState->dataRegion, frameTimersItem, "Render Timing", DebugMenuFuncType_b32, &globalDebugState->settings.config.renderTiming);
             
             DebugMenuItem *memoryItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Memory", DebugMenuFuncType_None, 0);
-            AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Memory Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.memoryVis, true);
+            DebugMenuItem *memVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Memory Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.memoryVis, true);
+            AddNextDebugMenuItem(&globalDebugState->dataRegion, memVisItem, "Stack Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.stackVis);
             
             DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Bounds Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *collidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0, true);

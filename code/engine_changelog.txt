@@ -1,4 +1,9 @@
 /////////////////////////////////////
+05MAY2022
+
+- Finished implementation of discrete slider
+- Finished memory region vis
+/////////////////////////////////////
 03MAY2022
 
 - Added visualisation for memory allocation

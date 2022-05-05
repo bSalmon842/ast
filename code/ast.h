@@ -59,12 +59,14 @@ struct Game_State
     u32 score;
 };
 
+#define PARALLEL_MEM_COUNT 8
 struct Transient_State
 {
     b32 initialised;
     
     MemoryRegion transRegion;
-    ParallelMemory parallelMems[8];
+    ParallelMemory parallelMems[PARALLEL_MEM_COUNT];
+    char parallelNameStrings[PARALLEL_MEM_COUNT][32];
     
     Game_LoadedAssets loadedAssets;
 };

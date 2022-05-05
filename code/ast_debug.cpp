@@ -50,26 +50,6 @@ inline DebugMenuItem *AddNextDebugMenuItem(MemoryRegion *memRegion, DebugMenuIte
     return newItem;
 }
 
-function b32 DebugButton(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, char *text, char *font, v2f textOrigin, f32 textScale, s32 zLayer, v4f textColour, v2f min, v2f max)
-{
-    b32 result = false;
-    
-    PushText(commands, loadedAssets, platform, camera, text, font, V3F(textOrigin, 0.0f),
-             textScale, zLayer, textColour);
-    
-    v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
-    if (mousePos > min && mousePos < max)
-    {
-        PushRect(commands, platform, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(1.0f, 0.0f, 1.0f, 1.0f));
-        if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
-        {
-            result = true;
-        }
-    }
-    
-    return result;
-}
-
 global v4f debugColourTableA[6] = 
 {
     V4F(1.0f, 0.5f, 0.5f, 1.0f),
@@ -411,10 +391,8 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
     {
         v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
         
-        // TODO(bSalmon): Slider for zooming in on bars
-        f32 barMinPct = 0.0f;
-        f32 barMaxPct = 1.0f;
-        DiscreteSlider(commands, platform, camera, input, &barMinPct, &barMaxPct, 20.0f, (f32)commands->width - 20.0f, 575.0f, 10.0f, DEBUG_LAYER - 2);
+        DebugDiscreteSlider(commands, platform, camera, input, &debugState->settings.memZoomMin, &debugState->settings.memZoomMax, 20.0f, (f32)commands->width - 20.0f, 575.0f, 10.0f, DEBUG_LAYER - 2);
+        f32 sliderWidth = debugState->settings.memZoomMax - debugState->settings.memZoomMin;
         
         f32 totalBarWidth = (f32)commands->width - 40.0f;
         f32 barHeight = 40.0f;
@@ -435,32 +413,66 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
             if (storageIndex == PERMA_STORAGE_INDEX) { stateSize = sizeof(Game_State); }
             else if (storageIndex == TRANS_STORAGE_INDEX) { stateSize = sizeof(Transient_State); }
             else if (storageIndex == DEBUG_STORAGE_INDEX) { stateSize = sizeof(DebugState); }
-            
-            f32 stateWidth = ((f32)stateSize / (f32)totalSize) * totalBarWidth;
-            v2f stateMax = barMin + V2F(stateWidth, barHeight);
-            PushRect(commands, platform, camera, barMin, stateMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex++ % ARRAY_COUNT(debugColourTableB)]);
+            ASSERT(stateSize);
             
             u32 tooltipRegionIndex = storage->regionCount + 1;
+            f32 statePct = (f32)stateSize / (f32)totalSize;
+            if (statePct > debugState->settings.memZoomMin)
+            {
+                f32 stateWidth = MAX(((statePct - debugState->settings.memZoomMin) / sliderWidth) * totalBarWidth, 1.0f);
+                v2f stateMax = barMin + V2F(stateWidth, barHeight);
+                PushRect(commands, platform, camera, barMin, stateMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
+                
+                if (mousePos > barMin && mousePos < stateMax)
+                {
+                    tooltipRegionIndex = storage->regionCount;
+                }
+            }
+            debugColourIndex++;
+            
             for (u32 regionIndex = 0; regionIndex < storage->regionCount; ++regionIndex)
             {
                 MemoryRegion *region = storage->regions[regionIndex];
-                f32 segWidth = ((f32)region->size / (f32)totalSize) * totalBarWidth;
-                v2f segMin = V2F(barMin.x + ((f32)(region->base - (u8 *)storage->ptr) / (f32)totalSize) * totalBarWidth, barMin.y);
-                v2f segMax = segMin + V2F(segWidth, barHeight);
-                
-                PushRect(commands, platform, camera, segMin, segMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex++ % ARRAY_COUNT(debugColourTableB)]);
-                
-                if (mousePos > segMin && mousePos < segMax)
+                f32 regionWidthPct = (f32)region->size / (f32)totalSize;
+                f32 segBeginPct = (f32)(region->base - (u8 *)storage->ptr) / (f32)totalSize;
+                if (segBeginPct + regionWidthPct > debugState->settings.memZoomMin)
                 {
-                    tooltipRegionIndex = regionIndex;
+                    f32 segMinPct = (segBeginPct - debugState->settings.memZoomMin) / sliderWidth;
+                    f32 segWidthPct = (regionWidthPct / sliderWidth) + MIN(segMinPct, 0.0f);
+                    f32 segWidth = segWidthPct * totalBarWidth;
+                    v2f segMin = V2F(barMin.x + (MAX(segMinPct, 0.0f) * totalBarWidth), barMin.y);
+                    v2f segMax = segMin + V2F(MIN(segWidth, barMax.x - segMin.x), barHeight);
+                    
+                    PushRect(commands, platform, camera, segMin, segMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
+                    
+                    if (mousePos > segMin && mousePos < segMax)
+                    {
+                        tooltipRegionIndex = regionIndex;
+                    }
                 }
+                
+                debugColourIndex++;
             }
             
             if (tooltipRegionIndex != storage->regionCount + 1)
             {
                 char string[128] = {};
-                MemoryRegion *region = storage->regions[tooltipRegionIndex];
-                stbsp_sprintf(string, "Region Name: %s\nRegion Size: %llu\nRegion Used: %llu", region->name, region->size, region->used);
+                if (tooltipRegionIndex == storage->regionCount)
+                {
+                    switch (storageIndex)
+                    {
+                        case PERMA_STORAGE_INDEX: { stbsp_sprintf(string, "Region Name: Game_State\nRegion Size: %llu", sizeof(Game_State)); } break;
+                        case TRANS_STORAGE_INDEX: { stbsp_sprintf(string, "Region Name: Transient_State\nRegion Size: %llu", sizeof(Transient_State)); } break;
+                        case DEBUG_STORAGE_INDEX: { stbsp_sprintf(string, "Region Name: DebugState\nRegion Size: %llu", sizeof(DebugState)); } break;
+                        
+                        INVALID_DEFAULT;
+                    }
+                }
+                else
+                {
+                    MemoryRegion *region = storage->regions[tooltipRegionIndex];
+                    stbsp_sprintf(string, "Region Name: %s\nRegion Size: %llu\nRegion Used: %llu", region->name, region->size, region->used);
+                }
                 PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
             }
             

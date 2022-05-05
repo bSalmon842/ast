@@ -383,7 +383,7 @@ function void W32_InitOpenGL(HDC deviceContext, HGLRC *glContext)
         wglGetSwapInterval = (wgl_getSwapIntervalEXT *)wglGetProcAddress("wglGetSwapIntervalEXT");
         if (wglSwapInterval && wglGetSwapInterval)
         {
-            wglSwapInterval(1);
+            wglSwapInterval(0);
         }
         else
         {

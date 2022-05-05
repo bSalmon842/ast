@@ -244,29 +244,3 @@ inline void PushTooltip(Game_RenderCommands *commands, Game_LoadedAssets *loaded
     v2f hoverLineOffset = V2F(tooltipMin.x + 10.0f, tooltipMax.y - lineHeight);
     PushText(commands, loadedAssets, platform, camera, string, font, V3F(hoverLineOffset, 0.0f), textScale, zLayer, V4F(1.0f));
 }
-
-inline void PushDiscreteSlider(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, f32 value1Pct, f32 value2Pct, f32 leftBound, f32 rightBound, f32 y, f32 height, s32 zLayer)
-{
-    f32 width = rightBound - leftBound;
-    
-    PushRect(commands, platform, camera, V2F(leftBound, y - 1.0f), V2F(rightBound, y + 1.0f), 0.0f, 0.0f, zLayer, V4F(1.0f));
-    
-    // Value 1
-    PushRect(commands, platform, camera,
-             V2F((leftBound + (width * value1Pct)) - (height / 4.0f), y - (height / 2.0f)), 
-             V2F((leftBound + (width * value1Pct)) + (height / 4.0f), y + (height / 2.0f)),
-             0.0f, 0.0f, zLayer + 1, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-    
-    // Value 2
-    PushRect(commands, platform, camera,
-             V2F((leftBound + (width * value2Pct)) - (height / 4.0f), y - (height / 2.0f)), 
-             V2F((leftBound + (width * value2Pct)) + (height / 4.0f), y + (height / 2.0f)),
-             0.0f, 0.0f, zLayer + 1, V4F(0.0f, 0.0f, 1.0f, 1.0f));
-    
-    // Middle
-    f32 middleLoc = value1Pct + ((value2Pct - value1Pct) / 2.0f);
-    PushRect(commands, platform, camera,
-             V2F((leftBound + (width * middleLoc)) - (height / 4.0f), y - (height / 2.0f)), 
-             V2F((leftBound + (width * middleLoc)) + (height / 4.0f), y + (height / 2.0f)),
-             0.0f, 0.0f, zLayer + 1, V4F(0.0f, 1.0f, 0.0f, 1.0f));
-}

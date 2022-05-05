@@ -56,6 +56,7 @@ struct DebugConfig
     b32 frameTimers;
     b32 renderTiming;
     b32 memoryVis;
+    b32 stackVis;
     b32 entityColliders;
     b32 particleColliders;
     b32 regions;
@@ -91,6 +92,9 @@ struct DebugSettings
     b32 movingTimerWindow;
     f32 timerWindowPosY;
     s32 pickedEntityIndex;
+    
+    f32 memZoomMin;
+    f32 memZoomMax;
     
     DebugMenuItem menuSentinel;
 };
