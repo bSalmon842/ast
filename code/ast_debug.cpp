@@ -304,19 +304,30 @@ function void DisplayPickedEntityInfo(Game_Memory *memory, Game_RenderCommands *
     if (debugState)
     {
         s32 entityIndex = globalDebugState->settings.pickedEntityIndex;
-        v2f lineOffset = V2F(800.0f, 200.0f);
-        PushText(commands, loadedAssets, platform, camera, "Picked Entity Info", "Debug", V3F(800.0f, 200.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+        v3f lineOffset = V3F(50.0f, 300.0f, 0.0f);
+        v4f textColour = V4F(0.0f, 1.0f, 0.0f, 1.0f);
+        f32 offsetDelta = 20.0f;
+        PushText(commands, loadedAssets, platform, camera, "Picked Entity Info", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
+        lineOffset.y -= offsetDelta;
+        
+        if (entityIndex != -1)
         {
-            if (entityIndex != -1)
-            {
-                char string[128];
-                stbsp_sprintf(string, "Index: %d\nType: %d\nPos: {%.02f, %.02f}\n", entityIndex, entities[entityIndex].type, entities[entityIndex].pos.x, entities[entityIndex].pos.y);
-                PushText(commands, loadedAssets, platform, camera, string, "Debug", V3F(800.0f, 180.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
-            }
-            else
-            {
-                PushText(commands, loadedAssets, platform, camera, "Invalid Entity Index", "Debug", V3F(800.0f, 180.0f, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
-            }
+            Entity *entity = &entities[entityIndex];
+            
+            DEBUG_PRINT_VALUE(s32, entity->type);
+            DEBUG_PRINT_VALUE(b32, entity->active);
+            DEBUG_PRINT_VALUE(s32, entity->index);
+            //DEBUG_PRINT_VALUE(entity->collider);
+            DEBUG_PRINT_VALUE(f32, entity->angle);
+            DEBUG_PRINT_VALUE(f32, entity->dA);
+            DEBUG_PRINT_VALUE(v3f, entity->pos);
+            DEBUG_PRINT_VALUE(v2f, entity->dP);
+            DEBUG_PRINT_VALUE(v3f, entity->newPos);
+            DEBUG_PRINT_VALUE(v2f, entity->dims);
+        }
+        else
+        {
+            PushText(commands, loadedAssets, platform, camera, "Invalid Entity Index", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
         }
     }
 }
@@ -438,8 +449,7 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
                 if (segBeginPct + regionWidthPct > debugState->settings.memZoomMin)
                 {
                     f32 segMinPct = (segBeginPct - debugState->settings.memZoomMin) / sliderWidth;
-                    f32 segWidthPct = (regionWidthPct / sliderWidth) + MIN(segMinPct, 0.0f);
-                    f32 segWidth = segWidthPct * totalBarWidth;
+                    f32 segWidth = (regionWidthPct / sliderWidth) + MIN(segMinPct, 0.0f) * totalBarWidth;
                     v2f segMin = V2F(barMin.x + (MAX(segMinPct, 0.0f) * totalBarWidth), barMin.y);
                     v2f segMax = segMin + V2F(MIN(segWidth, barMax.x - segMin.x), barHeight);
                     

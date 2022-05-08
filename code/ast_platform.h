@@ -294,6 +294,65 @@ extern Game_Memory *debugGlobalMem;
 struct DebugState;
 global DebugState *globalDebugState;
 
+enum Debug_VarType
+{
+    Debug_VarType_b32,
+    Debug_VarType_s32,
+    Debug_VarType_f32,
+    Debug_VarType_v2f,
+    Debug_VarType_v3f,
+};
+
+inline void GetDebugFormatString(char *fmt, Debug_VarType varType)
+{
+    switch (varType)
+    {
+        case Debug_VarType_s32:
+        {
+            stbsp_sprintf(fmt, "%%s: %%d");
+        } break;
+        
+        case Debug_VarType_b32:
+        {
+            stbsp_sprintf(fmt, "%%s: %%s (%%d)");
+        } break;
+        
+        case Debug_VarType_f32:
+        {
+            stbsp_sprintf(fmt, "%%s: %%.03f");
+        } break;
+        
+        case Debug_VarType_v2f:
+        {
+            stbsp_sprintf(fmt, "%%s: { %%.03f, %%.03f }");
+        } break;
+        
+        case Debug_VarType_v3f:
+        {
+            stbsp_sprintf(fmt, "%%s: { %%.03f, %%.03f, %%.03f }");
+        } break;
+        
+        INVALID_DEFAULT;
+    }
+}
+/*stbsp_sprintf(string, fmt, #var, var##.x, var##.y); } */
+#define DEBUG_PRINT_VALUE(type, var) \
+{ \
+char string[32] = {}; \
+char fmt[32] = {}; \
+Debug_VarType varType = Debug_VarType_##type; \
+GetDebugFormatString(fmt, varType); \
+\
+if (varType == Debug_VarType_b32) { b32 varAdjust = *(b32 *)&(var); char *temp = (varAdjust) ? "true" : "false"; stbsp_sprintf(string, fmt, #var, temp, varAdjust); } \
+else if (varType == Debug_VarType_v2f) { v2f varAdjust = *(v2f *)&(var); stbsp_sprintf(string, fmt, #var, varAdjust.x, varAdjust.y); } \
+else if (varType == Debug_VarType_v3f) { v3f varAdjust = *(v3f *)&(var); stbsp_sprintf(string, fmt, #var, varAdjust.x, varAdjust.y, varAdjust.z); } \
+else { stbsp_sprintf(string, fmt, #var, var); } \
+\
+PushText(commands, loadedAssets, platform, camera, string, "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour); \
+lineOffset.y -= offsetDelta; \
+} \
+
+
 // NOTE(bSalmon): Platform Layer Only
 #define DEBUG_FRAME_START \
 ASSERT(TRANSLATION_UNIT_INDEX == 1); \

@@ -1,4 +1,13 @@
 /////////////////////////////////////
+08MAY2022
+
+- Started on introspection preprocessor
+- Added DEBUG_VALUE to display variables on screen
+/////////////////////////////////////
+06MAY2022
+
+- Fixed issue with unprojection that broke accurate game camera region vis
+/////////////////////////////////////
 05MAY2022
 
 - Finished implementation of discrete slider

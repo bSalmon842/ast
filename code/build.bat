@@ -10,7 +10,15 @@ set commonFlagsLinker= -incremental:no -opt:ref
 
 IF NOT EXIST ..\build mkdir ..\build
 IF NOT EXIST ..\build\asset_build mkdir ..\build\asset_build
+IF NOT EXIST ..\build\preproc mkdir ..\build\preproc
 pushd ..\build
+
+pushd .\preproc
+echo COMPILING PREPROC
+cl %commonFlagsCompiler% ..\..\code\preproc\cmt_preproc.cpp /link %commonFlagsLinker%
+popd
+
+echo.
 
 REM 64-bit
 del *.pdb > NUL 2> NUL
@@ -30,7 +38,7 @@ echo.
 pushd .\asset_build
 
 echo COMPILING ASSET BUILDER
-cl %commonFlagsCompiler% -DTRANSLATION_UNIT_INDEX=255 ..\..\code\asset_build\asset_build.cpp /link %commonFlagsLinker% gdi32.lib
+cl %commonFlagsCompiler% ..\..\code\asset_build\asset_build.cpp /link %commonFlagsLinker% gdi32.lib
 
 popd
 popd

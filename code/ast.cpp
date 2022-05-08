@@ -20,7 +20,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Debug introspection
 // TODO(bSalmon): Nesting Functions in timers
 // TODO(bSalmon): Console
-// TODO(bSalmon): Fix camera region debug display
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -483,7 +482,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #if DEBUGUI_PICKING
             v2f entityMin = entity->pos.xy - (entity->dims / 2.0f);
             v2f entityMax = entityMin + entity->dims;
-            v2f projectedMousePos = UnprojectPoint(gameState->gameCamera, V2F((f32)input->mouse.x, (f32)input->mouse.y));
+            v2f projectedMousePos = UnprojectPoint(gameState->gameCamera, gameState->gameCamera.rect.center.z, V2F((f32)input->mouse.x, (f32)input->mouse.y));
             PushRect(renderCommands, platform, gameState->gameCamera, V3F(projectedMousePos, 0.0f), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
             if (projectedMousePos > entityMin && projectedMousePos < entityMax)
             {
@@ -640,7 +639,6 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             globalDebugState->settings.config.frameTimers = DEBUGUI_FRAME_TIMERS;
             globalDebugState->settings.config.renderTiming = DEBUGUI_RENDER_TIMING;
             globalDebugState->settings.config.memoryVis = DEBUGUI_MEMORY_VIS;
-            globalDebugState->settings.config.stackVis = DEBUGUI_STACK_VIS;
             globalDebugState->settings.config.entityColliders = DEBUGUI_ENTITY_COLLIDERS;
             globalDebugState->settings.config.particleColliders = DEBUGUI_PARTICLE_COLLIDERS;
             globalDebugState->settings.config.regions = DEBUGUI_REGIONS;
@@ -661,7 +659,6 @@ extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
             
             DebugMenuItem *memoryItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, timingVisItem, "Memory", DebugMenuFuncType_None, 0);
             DebugMenuItem *memVisItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Memory Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.memoryVis, true);
-            AddNextDebugMenuItem(&globalDebugState->dataRegion, memVisItem, "Stack Vis", DebugMenuFuncType_b32, &globalDebugState->settings.config.stackVis);
             
             DebugMenuItem *boundsItem = AddNextDebugMenuItem(&globalDebugState->dataRegion, memoryItem, "Bounds Vis", DebugMenuFuncType_None, 0);
             DebugMenuItem *collidersChild = AddNextDebugMenuItem(&globalDebugState->dataRegion, boundsItem, "Show Colliders...", DebugMenuFuncType_None, 0, true);

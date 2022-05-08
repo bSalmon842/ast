@@ -56,7 +56,6 @@ struct DebugConfig
     b32 frameTimers;
     b32 renderTiming;
     b32 memoryVis;
-    b32 stackVis;
     b32 entityColliders;
     b32 particleColliders;
     b32 regions;
