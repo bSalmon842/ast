@@ -5,7 +5,7 @@ date /T
 echo.
 
 REM -MTd for debug build
-set commonFlagsCompiler=-MTd -nologo -Gm- -GS- -GR- -fp:fast -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4996 -FC -Z7 -DAST_INTERNAL=1 -DAST_SLOW=1
+set commonFlagsCompiler=-MTd -nologo -Gm- -GS- -GR- -fp:fast -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4996 -wd4311 -wd4302 -FC -Z7 -DAST_INTERNAL=1 -DAST_SLOW=1
 set commonFlagsLinker= -incremental:no -opt:ref
 
 IF NOT EXIST ..\build mkdir ..\build
@@ -16,6 +16,8 @@ pushd ..\build
 pushd .\preproc
 echo COMPILING PREPROC
 cl %commonFlagsCompiler% ..\..\code\preproc\cmt_preproc.cpp /link %commonFlagsLinker%
+echo RUNNING PREPROC
+.\cmt_preproc.exe > ..\..\code\ast_generated.h
 popd
 
 echo.

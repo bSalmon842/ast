@@ -5,8 +5,8 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-#define PushRenderEntry(group, type, sort, layer, platform) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer, platform)
-inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer, PlatformAPI platform)
+#define PushRenderEntry(group, type, sort, layer) PushRenderEntry_(group, sizeof(type), RenderEntryType_##type, sort, layer)
+inline void *PushRenderEntry_(Game_RenderCommands *commands, usize size, RenderEntryType type, f32 zPos, s32 zLayer)
 {
     DEBUG_BLOCK_FUNC;
     
@@ -84,13 +84,13 @@ inline RenderEntryPositioning GetRenderScreenPositioning(Game_RenderCommands *co
     return result;
 }
 
-inline void PushBitmap(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour = V4F(1.0f))
+inline void PushBitmap(Game_RenderCommands *commands, Camera camera, BitmapID id, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour = V4F(1.0f))
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, zLayer, platform);
+    RenderEntry_Bitmap *entry = (RenderEntry_Bitmap *)PushRenderEntry(commands, RenderEntry_Bitmap, positioning.pos.z, zLayer);
     if (entry && positioning.valid)
     {
-        entry->assetHeader = GetAsset(loadedAssets, AssetType_Bitmap, &id, false);
+        entry->assetHeader = GetAsset(commands->loadedAssets, AssetType_Bitmap, &id, false);
         
         entry->positioning = positioning;
         
@@ -99,10 +99,10 @@ inline void PushBitmap(Game_RenderCommands *commands, Game_LoadedAssets *loadedA
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, dims);
-    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect, positioning.pos.z, zLayer, platform);
+    RenderEntry_Rect *entry = (RenderEntry_Rect *)PushRenderEntry(commands, RenderEntry_Rect, positioning.pos.z, zLayer);
     if (entry && positioning.valid)
     {
         entry->positioning = positioning;
@@ -112,34 +112,34 @@ inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera
     }
 }
 
-inline void PushRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v2f min, v2f max, f32 z, f32 angle, s32 zLayer, v4f colour)
+inline void PushRect(Game_RenderCommands *commands, Camera camera, v2f min, v2f max, f32 z, f32 angle, s32 zLayer, v4f colour)
 {
     v3f offset = V3F(((max - min) / 2.0f) + min, z);
     v2f dims = max - min;
-    PushRect(commands, platform, camera, offset, dims, angle, zLayer, colour);
+    PushRect(commands, camera, offset, dims, angle, zLayer, colour);
 }
 
-inline void PushHollowRect(Game_RenderCommands *commands, PlatformAPI platform, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, s32 zLayer, v4f colour)
+inline void PushHollowRect(Game_RenderCommands *commands, Camera camera, v3f offset, v2f dims, f32 angle, f32 thickness, s32 zLayer, v4f colour)
 {
-    PushRect(commands, platform, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Top
-    PushRect(commands, platform, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Bottom
-    PushRect(commands, platform, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Left
-    PushRect(commands, platform, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Right
+    PushRect(commands, camera, V3F(offset.x, offset.y + (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Top
+    PushRect(commands, camera, V3F(offset.x, offset.y - (dims.y / 2.0f), offset.z), {dims.x, thickness}, angle, zLayer, colour); // Bottom
+    PushRect(commands, camera, V3F(offset.x - (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Left
+    PushRect(commands, camera, V3F(offset.x + (dims.x / 2.0f), offset.y, offset.z), {thickness, dims.y}, angle, zLayer, colour); // Right
 }
 
-inline void PushClear(Game_RenderCommands *commands, PlatformAPI platform, v4f colour)
+inline void PushClear(Game_RenderCommands *commands, v4f colour)
 {
-    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, 0, platform);
+    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, 0);
     if (entry)
     {
         entry->colour = colour;
     }
 }
 
-inline void PushText(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
+inline void PushText(Game_RenderCommands *commands, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
-    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, zLayer, platform);
+    RenderEntry_Text *entry = (RenderEntry_Text *)PushRenderEntry(commands, RenderEntry_Text, positioning.pos.z, zLayer);
     if (entry && positioning.valid)
     {
         stbsp_sprintf(entry->string, "%s", string);
@@ -150,7 +150,7 @@ inline void PushText(Game_RenderCommands *commands, Game_LoadedAssets *loadedAss
             if (*c != '\n')
             {
                 GlyphIdentifier id = {*c, font};
-                entry->assetHeaders[i] = GetAsset(loadedAssets, AssetType_Glyph, &id, false);
+                entry->assetHeaders[i] = GetAsset(commands->loadedAssets, AssetType_Glyph, &id, false);
             }
             c++;
         }
@@ -174,7 +174,7 @@ inline void PushText(Game_RenderCommands *commands, Game_LoadedAssets *loadedAss
 }
 
 #define DEFAULT_CHAR_WIDTH 13.5f
-inline void PushTooltip(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, PlatformAPI platform, Camera camera, char *string, char *font, f32 textScale, v2f mousePos, s32 zLayer)
+inline void PushTooltip(Game_RenderCommands *commands, Camera camera, char *string, char *font, f32 textScale, v2f mousePos, s32 zLayer)
 {
     u8 lineCount = 1;
     char *c = string;
@@ -198,7 +198,7 @@ inline void PushTooltip(Game_RenderCommands *commands, Game_LoadedAssets *loaded
         c++;
     }
     
-    LoadedAssetHeader *metadataHeader = GetAsset(loadedAssets, AssetType_FontMetadata, font, true);
+    LoadedAssetHeader *metadataHeader = GetAsset(commands->loadedAssets, AssetType_FontMetadata, font, true);
     FontMetadata metadata = metadataHeader->metadata;
     f32 lineHeight = metadata.lineGap * textScale;
     
@@ -239,8 +239,8 @@ inline void PushTooltip(Game_RenderCommands *commands, Game_LoadedAssets *loaded
         tooltipMax = tooltipMin + tooltipDims;
     }
     
-    PushRect(commands, platform, camera, tooltipMin, tooltipMax, 0.0f, 0.0f, zLayer, V4F(V3F(0.1f), 0.66f));
+    PushRect(commands, camera, tooltipMin, tooltipMax, 0.0f, 0.0f, zLayer, V4F(V3F(0.1f), 0.66f));
     
     v2f hoverLineOffset = V2F(tooltipMin.x + 10.0f, tooltipMax.y - lineHeight);
-    PushText(commands, loadedAssets, platform, camera, string, font, V3F(hoverLineOffset, 0.0f), textScale, zLayer, V4F(1.0f));
+    PushText(commands, camera, string, font, V3F(hoverLineOffset, 0.0f), textScale, zLayer, V4F(1.0f));
 }

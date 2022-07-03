@@ -11,6 +11,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "../ast_utility.h"
 
+// TODO(bSalmon): Enum processing
+
 function char *ReadFileContentsWithTerminator(char *filename)
 {
     char *result = 0;
@@ -40,8 +42,8 @@ enum TokenType
     TokenType_Unknown,
     
     TokenType_Identifier,
-    TokenType_OpenParen,
-    TokenType_CloseParen,
+    TokenType_OpenParenthesis,
+    TokenType_CloseParenthesis,
     TokenType_OpenBrace,
     TokenType_CloseBrace,
     TokenType_OpenBracket,
@@ -146,8 +148,8 @@ function Token GetToken(Lexer *lexer)
     result.text = lexer->cursor;
     switch (*lexer->cursor)
     {
-        case '(': { result.type = TokenType_OpenParen; ++lexer->cursor; } break;
-        case ')': { result.type = TokenType_CloseParen; ++lexer->cursor; } break;
+        case '(': { result.type = TokenType_OpenParenthesis; ++lexer->cursor; } break;
+        case ')': { result.type = TokenType_CloseParenthesis; ++lexer->cursor; } break;
         case '{': { result.type = TokenType_OpenBrace; ++lexer->cursor; } break;
         case '}': { result.type = TokenType_CloseBrace; ++lexer->cursor; } break;
         case '[': { result.type = TokenType_OpenBracket; ++lexer->cursor; } break;
@@ -186,6 +188,8 @@ function Token GetToken(Lexer *lexer)
                 {
                     ++lexer->cursor;
                 }
+                
+                ++lexer->cursor;
             }
             
             result.length = (u32)(lexer->cursor - result.text);
@@ -221,11 +225,80 @@ function Token GetToken(Lexer *lexer)
     return result;
 }
 
-s32 main(s32 args, char **argv)
+inline b32 TokenIsType(Lexer *lexer, TokenType type)
 {
-    _chdir("..\\..\\code");
-    
-    char *fileContents = ReadFileContentsWithTerminator("ast_entity.h");
+    Token tkn = GetToken(lexer);
+    b32 result = (tkn.type == type);
+    return result;
+}
+
+function void IntrospectStruct(Lexer *lexer)
+{
+    Token structTkn = GetToken(lexer);
+    printf("IntrospectMemberDef introspected_%.*s[] =\n", structTkn.length, structTkn.text);
+    printf("{\n");
+    if (TokenIsType(lexer, TokenType_OpenBrace))
+    {
+        for (;;)
+        {
+            Token membertypeTkn = GetToken(lexer);
+            if (membertypeTkn.type == TokenType_CloseBrace)
+            {
+                break;
+            }
+            else
+            {
+                // NOTE(bSalmon): Parse struct member
+                b32 parsingMember = true;
+                while (parsingMember)
+                {
+                    Token memberNameTkn = GetToken(lexer);
+                    
+                    switch(memberNameTkn.type)
+                    {
+                        case TokenType_Identifier:
+                        {
+                            Token memberArrayCheck = GetToken(lexer);
+                            
+                            if (memberArrayCheck.type == TokenType_OpenBracket)
+                            {
+                                Token arrayCountTkn = GetToken(lexer);
+                                printf("{ MemberType_Array_%.*s, \"%.*s\", Preproc_MemberOffset(%.*s, %.*s), %.*s },\n",
+                                       membertypeTkn.length, membertypeTkn.text,
+                                       memberNameTkn.length, memberNameTkn.text,
+                                       structTkn.length, structTkn.text,
+                                       memberNameTkn.length, memberNameTkn.text,
+                                       arrayCountTkn.length, arrayCountTkn.text);
+                            }
+                            else
+                            {
+                                printf("{ MemberType_%.*s, \"%.*s\", Preproc_MemberOffset(%.*s, %.*s), 1 },\n",
+                                       membertypeTkn.length, membertypeTkn.text,
+                                       memberNameTkn.length, memberNameTkn.text,
+                                       structTkn.length, structTkn.text,
+                                       memberNameTkn.length, memberNameTkn.text);
+                                parsingMember = false;
+                            }
+                        } break;
+                        
+                        case TokenType_Semicolon:
+                        case TokenType_EOS:
+                        {
+                            parsingMember = false;
+                        } break;
+                        
+                        default: {} break;
+                    }
+                }
+            }
+        }
+    }
+    printf("};\n\n");
+}
+
+function void ParseFile(char *filename)
+{
+    char *fileContents = ReadFileContentsWithTerminator(filename);
     
     Lexer lexer = {};
     lexer.cursor = fileContents;
@@ -245,17 +318,61 @@ s32 main(s32 args, char **argv)
                 ASSERT(false);
             } break;
             
+#if 0            
             case TokenType_Unknown:
             {
                 printf("Found Unknown Token: '%c'\n", *tkn.text);
             } break;
+#endif
             
-            default:
+            case TokenType_Identifier:
             {
-                printf("%d: %.*s\n", tkn.type, tkn.length, tkn.text);
+                if (StringsAreSame(tkn.text, "introspect", 10))
+                {
+                    if (TokenIsType(&lexer, TokenType_OpenParenthesis))
+                    {
+                        // NOTE(bSalmon): Parse introspect params
+                        Token paramTkn = GetToken(&lexer);
+                        while (paramTkn.type != TokenType_CloseParenthesis && paramTkn.type != TokenType_EOS)
+                        {
+                            paramTkn = GetToken(&lexer);
+                        }
+                        
+                        // NOTE(bSalmon): Parse struct
+                        Token intrTkn = GetToken(&lexer);
+                        if (StringsAreSame(intrTkn.text, "struct", 6))
+                        {
+                            IntrospectStruct(&lexer);
+                        }
+                        else if (StringsAreSame(intrTkn.text, "enum", 4))
+                        {
+                            
+                        }
+                        else
+                        {
+                            printf("ERROR: NON-STRUCT INTROSPECTION");
+                        }
+                    }
+                    else
+                    {
+                        printf("ERROR: NO INTROSPECT PARAMETERS");
+                    }
+                }
             } break;
+            
+            default: {} break;
         }
     }
+}
+
+s32 main(s32 args, char **argv)
+{
+    _chdir("..\\..\\code");
+    
+    printf("#define Preproc_MemberOffset(structName, member) (u32)&((structName *)0)->member\n\n");
+    
+    ParseFile("ast_entity.h");
+    ParseFile("ast_collision.h");
     
     return 0;
 }

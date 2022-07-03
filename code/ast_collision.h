@@ -39,7 +39,7 @@ struct CollisionInfo
     colliderAction *onTrigger;
 };
 
-struct Collider
+introspect(category:"null") struct Collider
 {
     ColliderType type;
     

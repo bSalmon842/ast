@@ -76,12 +76,12 @@ global v4f debugColourTableB[12] =
     V4F(0.0f, 0.5f, 1.0f, 1.0f),
 };
 
-inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f debugLineOffset, f32 scale, f32 lineHeight, FontMetadata metadata, char *font, v4f textColour)
+inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *commands, Game_Input *input, Camera camera, DebugSettings *debugSettings, v2f debugLineOffset, f32 scale, f32 lineHeight, FontMetadata metadata, char *font, v4f textColour)
 {
     v2f itemMin = debugLineOffset;
     v2f itemMax = V2F(itemMin.x + (f32)(StringLength(item->name) * metadata.charWidth) * scale, debugLineOffset.y + lineHeight);
     
-    if (DebugButton(commands, loadedAssets, input, platform, camera, item->name, font, debugLineOffset,
+    if (DebugButton(commands, input, camera, item->name, font, debugLineOffset,
                     scale, DEBUG_LAYER - 1, textColour, itemMin, itemMax))
     {
         INVERT(item->isOpen);
@@ -101,7 +101,7 @@ inline void HandleDebugMenuItem(DebugMenuItem *item, Game_RenderCommands *comman
     }
 }
 
-function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings, v2f *debugLineOffset, f32 scale, f32 lineHeight,  FontMetadata metadata, char *font, u32 *debugColourIndex)
+function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderCommands *commands, Game_Input *input, Camera camera, DebugSettings *debugSettings, v2f *debugLineOffset, f32 scale, f32 lineHeight,  FontMetadata metadata, char *font, u32 *debugColourIndex)
 {
     v4f textColour = debugColourTableA[(*debugColourIndex)++ % ARRAY_COUNT(debugColourTableA)];
     if (parent->isOpen && parent->child)
@@ -110,11 +110,11 @@ function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderComma
         
         for (DebugMenuItem *child = parent->child; child; child = child->next)
         {
-            HandleDebugMenuItem(child, commands, loadedAssets, input, platform, camera, debugSettings, *debugLineOffset, scale, lineHeight, metadata, font, textColour);
+            HandleDebugMenuItem(child, commands, input, camera, debugSettings, *debugLineOffset, scale, lineHeight, metadata, font, textColour);
             
             debugLineOffset->y -= lineHeight;
             
-            DisplayDebugMenuChildLayer(child, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, debugColourIndex);
+            DisplayDebugMenuChildLayer(child, commands, input, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, debugColourIndex);
         }
         
         debugLineOffset->x -= 20.0f;
@@ -122,7 +122,7 @@ function void DisplayDebugMenuChildLayer(DebugMenuItem *parent, Game_RenderComma
     }
 }
 
-function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, PlatformAPI platform, Camera camera, DebugSettings *debugSettings)
+function void DisplayDebugMenu(Game_RenderCommands *commands, Game_Input *input, Camera camera, DebugSettings *debugSettings)
 {
     f32 scale = 1.0f;
     v2f topLine = V2F(50.0f, (f32)commands->height - 100.0f);
@@ -141,15 +141,15 @@ function void DisplayDebugMenu(Game_RenderCommands *commands, Game_LoadedAssets 
     
     for (DebugMenuItem *item = debugSettings->menuSentinel.next; item; item = item->next)
     {
-        HandleDebugMenuItem(item, commands, loadedAssets, input, platform, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, textColour);
+        HandleDebugMenuItem(item, commands, input, camera, debugSettings, debugLineOffset, scale, lineHeight, metadata, font, textColour);
         
         debugLineOffset.y -= lineHeight;
         
-        DisplayDebugMenuChildLayer(item, commands, loadedAssets, input, platform, camera, debugSettings, &debugLineOffset, scale, lineHeight, metadata, font, &debugColourIndex);
+        DisplayDebugMenuChildLayer(item, commands, input, camera, debugSettings, &debugLineOffset, scale, lineHeight, metadata, font, &debugColourIndex);
     }
 }
 
-function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Camera camera)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
@@ -177,7 +177,7 @@ function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *co
         f32 lineHeight = metadata.lineGap * scale;
         
         char *title = "Debug Perf Metrics";
-        PushText(commands, loadedAssets, platform, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
+        PushText(commands, camera, title, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
         debugLineOffset.y -= lineHeight;
         
         v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
@@ -201,7 +201,7 @@ function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *co
                     char string[128];
                     stbsp_sprintf(string, "%24s(%u): %10lluc | %6u hits | %10lluc/hit",
                                   lastBlockInfo->name, translationIndex, lastBlockInfo->cycles, lastBlockInfo->hits, lastBlockInfo->cycles / lastBlockInfo->hits);
-                    PushText(commands, loadedAssets, platform, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
+                    PushText(commands, camera, string, font, V3F(debugLineOffset, 0.0f), scale, DEBUG_LAYER, V4F(1.0f));
                     debugLineOffset.y -= lineHeight;
                 }
             }
@@ -214,12 +214,12 @@ function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *co
             DebugBlockStats *lastBlockStat = &globalDebugState->table->blockStats[hoveredTIndex][hoveredBIndex];
             stbsp_sprintf(string, "%s:\nMin: %10lluc | Max: %10lluc\nMin: %10uh | Max: %10uh",
                           lastBlockInfo->name, lastBlockStat->minCycles, lastBlockStat->maxCycles, lastBlockStat->minHits, lastBlockStat->maxHits);
-            PushTooltip(commands, loadedAssets, platform, camera, string, font, scale, mousePos, DEBUG_LAYER + 1);
+            PushTooltip(commands, camera, string, font, scale, mousePos, DEBUG_LAYER + 1);
         }
         
         v2f min = V2F(10.0f, debugLineOffset.y);
         v2f max = V2F((f32)commands->width - 10.0f, topLine.y + (metadata.lineGap * scale));
-        PushRect(commands, platform, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(0.05f, 0.0f, 0.1f, 0.66f));
+        PushRect(commands, camera, min, max, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(0.05f, 0.0f, 0.1f, 0.66f));
         
         if (mousePos > min && mousePos < max && input->mouse.buttons[MouseButton_R].endedFrameDown)
         {
@@ -232,7 +232,7 @@ function void DisplayFunctionTimers(Game_Memory *memory, Game_RenderCommands *co
     }
 }
 
-function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Camera camera)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
@@ -245,7 +245,7 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
         v2f chartMin = V2F(20.0f);
         v2f chartMax = V2F((f32)commands->width - 20.0f, chartMin.y + chartHeight);
         
-        PushRect(commands, platform, camera, V2F(chartMin.x, chartMax.y - 1), chartMax, 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
+        PushRect(commands, camera, V2F(chartMin.x, chartMax.y - 1), chartMax, 0.0f, 0.0f, DEBUG_LAYER, V4F(1.0f));
         
         v2f barMin = chartMin;
         
@@ -270,13 +270,13 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
                         v4f segmentColour = debugColourTableB[debugColourIndex++];
                         v2f segmentMax = segmentMin + V2F(barWidth, segmentHeight);
                         
-                        PushRect(commands, platform, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                        PushRect(commands, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
                         
                         if (mousePos > segmentMin && mousePos < segmentMax)
                         {
                             char string[128] = {};
                             stbsp_sprintf(string, "Seg Name: %s\nSeg Clock: %llu\nFrame Pct: %.03f", blockInfo->name, blockInfo->cycles, segPct);
-                            PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
+                            PushTooltip(commands, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
                         }
                         
                         segmentMin.y += segmentHeight;
@@ -289,7 +289,7 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
             if (remainingClocks > 0)
             {
                 v2f barMax = barMin + V2F(barWidth, totalBarHeight);
-                PushRect(commands, platform, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
+                PushRect(commands, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
             }
             
             barMin.x += barWidth + barGap;
@@ -298,41 +298,31 @@ function void DisplayFrameTimers(Game_Memory *memory, Game_RenderCommands *comma
     }
 }
 
-function void DisplayPickedEntityInfo(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Camera camera, PlatformAPI platform, Entity *entities)
+function void DisplayPickedEntityInfo(Game_Memory *memory, Game_RenderCommands *commands, Camera camera, PlatformAPI platform, Entity *entities)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
     {
         s32 entityIndex = globalDebugState->settings.pickedEntityIndex;
-        v3f lineOffset = V3F(50.0f, 300.0f, 0.0f);
+        v3f lineOffset = V3F(20.0f, 30.0f, 0.0f);
         v4f textColour = V4F(0.0f, 1.0f, 0.0f, 1.0f);
         f32 offsetDelta = 20.0f;
-        PushText(commands, loadedAssets, platform, camera, "Picked Entity Info", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
         lineOffset.y -= offsetDelta;
         
         if (entityIndex != -1)
         {
             Entity *entity = &entities[entityIndex];
-            
-            DEBUG_PRINT_VALUE(s32, entity->type);
-            DEBUG_PRINT_VALUE(b32, entity->active);
-            DEBUG_PRINT_VALUE(s32, entity->index);
-            //DEBUG_PRINT_VALUE(entity->collider);
-            DEBUG_PRINT_VALUE(f32, entity->angle);
-            DEBUG_PRINT_VALUE(f32, entity->dA);
-            DEBUG_PRINT_VALUE(v3f, entity->pos);
-            DEBUG_PRINT_VALUE(v2f, entity->dP);
-            DEBUG_PRINT_VALUE(v3f, entity->newPos);
-            DEBUG_PRINT_VALUE(v2f, entity->dims);
+            Meta_DumpStruct(ARRAY_COUNT(introspected_Entity), introspected_Entity, entity, commands, camera, &lineOffset, 0);
         }
         else
         {
-            PushText(commands, loadedAssets, platform, camera, "Invalid Entity Index", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
+            PushText(commands, camera, "Invalid Entity Index", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
         }
+        PushText(commands, camera, "Picked Entity Info", "Debug", lineOffset, DEBUG_TEXT_SCALE, DEBUG_LAYER, textColour);
     }
 }
 
-function void DisplayRenderTiming(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+function void DisplayRenderTiming(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Camera camera)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
@@ -378,31 +368,31 @@ function void DisplayRenderTiming(Game_Memory *memory, Game_RenderCommands *comm
                 v2f segmentMax = segmentMin + V2F(segmentWidth, barHeight);
                 v4f segmentColour = debugColourTableB[debugColourIndex++];
                 
-                PushRect(commands, platform, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
+                PushRect(commands, camera, segmentMin, segmentMax, 0.0f, 0.0f, DEBUG_LAYER - 1, segmentColour);
                 
                 if (mousePos > segmentMin && mousePos < segmentMax)
                 {
                     char string[128] = {};
                     stbsp_sprintf(string, "Seg Name: %s\nSeg Clock: %llu\nFrame Pct: %.03f", blockInfo->name, blockInfo->cycles, segPct);
-                    PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
+                    PushTooltip(commands, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
                 }
                 
                 segmentMin.x += segmentWidth;
             }
         }
         
-        PushRect(commands, platform, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
+        PushRect(commands, camera, segmentMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 1, V4F(1.0f));
     }
 }
 
-function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *commands, Game_LoadedAssets *loadedAssets, Game_Input *input, Camera camera, PlatformAPI platform)
+function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Camera camera)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
     {
         v2f mousePos = V2F((f32)input->mouse.x, (f32)input->mouse.y);
         
-        DebugDiscreteSlider(commands, platform, camera, input, &debugState->settings.memZoomMin, &debugState->settings.memZoomMax, 20.0f, (f32)commands->width - 20.0f, 575.0f, 10.0f, DEBUG_LAYER - 2);
+        DebugDiscreteSlider(commands, camera, input, &debugState->settings.memZoomMin, &debugState->settings.memZoomMax, 20.0f, (f32)commands->width - 20.0f, 575.0f, 10.0f, DEBUG_LAYER - 2);
         f32 sliderWidth = debugState->settings.memZoomMax - debugState->settings.memZoomMin;
         
         f32 totalBarWidth = (f32)commands->width - 40.0f;
@@ -418,7 +408,7 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
             StorageInfo *storage = &memory->storage[storageIndex];
             u64 totalSize = storage->size;
             
-            PushRect(commands, platform, camera, barMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(V3F(0.5f), 1.0f));
+            PushRect(commands, camera, barMin, barMax, 0.0f, 0.0f, DEBUG_LAYER - 2, V4F(V3F(0.5f), 1.0f));
             
             usize stateSize = 0;
             if (storageIndex == PERMA_STORAGE_INDEX) { stateSize = sizeof(Game_State); }
@@ -432,7 +422,7 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
             {
                 f32 stateWidth = MAX(((statePct - debugState->settings.memZoomMin) / sliderWidth) * totalBarWidth, 1.0f);
                 v2f stateMax = barMin + V2F(stateWidth, barHeight);
-                PushRect(commands, platform, camera, barMin, stateMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
+                PushRect(commands, camera, barMin, stateMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
                 
                 if (mousePos > barMin && mousePos < stateMax)
                 {
@@ -453,7 +443,7 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
                     v2f segMin = V2F(barMin.x + (MAX(segMinPct, 0.0f) * totalBarWidth), barMin.y);
                     v2f segMax = segMin + V2F(MIN(segWidth, barMax.x - segMin.x), barHeight);
                     
-                    PushRect(commands, platform, camera, segMin, segMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
+                    PushRect(commands, camera, segMin, segMax, 0.0f, 0.0f, DEBUG_LAYER - 1, debugColourTableB[debugColourIndex % ARRAY_COUNT(debugColourTableB)]);
                     
                     if (mousePos > segMin && mousePos < segMax)
                     {
@@ -483,7 +473,7 @@ function void DisplayMemoryVis(Game_Memory *memory, Game_RenderCommands *command
                     MemoryRegion *region = storage->regions[tooltipRegionIndex];
                     stbsp_sprintf(string, "Region Name: %s\nRegion Size: %llu\nRegion Used: %llu", region->name, region->size, region->used);
                 }
-                PushTooltip(commands, loadedAssets, platform, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
+                PushTooltip(commands, camera, string, "Debug", 1.0f, mousePos, DEBUG_LAYER + 1);
             }
             
             barMin.y -= (barHeight + barGap);

@@ -1,4 +1,11 @@
 /////////////////////////////////////
+03JUN2022
+
+- Continued work on introspection preprocessor
+- Added Collider and nested structs to struct vis
+- Added global colour tables and made Meta_DumpStruct use it to recolour nested structs
+- Prepared preprocessor to start enum introspection
+/////////////////////////////////////
 08MAY2022
 
 - Started on introspection preprocessor

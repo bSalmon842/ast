@@ -5,6 +5,9 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
+// NOTE(bSalmon): Where I was up to: 
+// Adding Collider to introspection and making the entity menu work with that
+
 // TODO(bSalmon): Engine:
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): More OpenGL work
@@ -15,6 +18,9 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Fix warping on resolution change
 // TODO(bSalmon): Multiple resolutions
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
+// TODO(bSalmon): Remove loadedAssets from render functions because render commands already stores it
+// TODO(bSalmon): Fix picking cursor
+// TODO(bSalmon): Fix the DEP crashes
 
 // New Debug Infrastructure
 // TODO(bSalmon): Debug introspection
@@ -55,6 +61,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_particle.cpp"
 #include "ast_collision_actions.cpp"
 #include "ast_camera.cpp"
+#include "ast_meta.cpp"
 #include "ast_debug.cpp"
 
 inline BitmapID GetAsteroidBitmapID(u32 index)
@@ -356,7 +363,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     v2f worldToPixelConversion = V2F(10.0f, 10.0f * widthOverHeight);
     CameraMode_Perspective(&gameState->gameCamera, 10.0f, 0.1f, worldToPixelConversion);
     
-    PushClear(renderCommands, platform, V4F(0.0f, 0.0f, 0.0f, 1.0f));
+    PushClear(renderCommands, V4F(0.0f, 0.0f, 0.0f, 1.0f));
     
     UpdateTimer(&gameState->ufoSpawnTimer, input->deltaTime);
     if (gameState->ufoSpawnTimer.finished && !gameState->ufoSpawned)
@@ -393,9 +400,9 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             {
                 case Entity_Player:
                 {
-                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, trail ? BitmapID_Player_Trail : BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
-                    PushRect(renderCommands, platform, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
+                    PushBitmap(renderCommands, gameState->gameCamera, trail ? BitmapID_Player_Trail : BitmapID_Player_NoTrail, entity->pos, entity->dims, entity->angle, 0);
+                    PushRect(renderCommands, gameState->gameCamera, V3F(entity->pos.xy + (playerForward * 2), entity->pos.z), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                    PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.25f), 0.0f, 0, V4F(0.3f, 0.5f, 0.0f, 1.0f));
                 } break;
                 
                 case Entity_Shot_UFO:
@@ -415,15 +422,15 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             shotColour = V4F(1.0f, 0.5f, 0.0f, 1.0f);
                         }
                         
-                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, shotColour);
+                        PushRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, shotColour);
                     }
                 } break;
                 
                 case Entity_Asteroids:
                 {
                     BitmapID bitmapID = GetAsteroidBitmapID(((EntityInfo_Asteroid *)entity->extraInfo)->bitmapIndex);
-                    PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+                    PushBitmap(renderCommands, gameState->gameCamera, bitmapID, entity->pos, entity->dims, entity->angle, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+                    PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
                 } break;
                 
                 case Entity_UFO:
@@ -461,32 +468,32 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                         }
                         
                         BitmapID ufoBitmap = ufoInfo->smallUFO ? BitmapID_UFO_Small : BitmapID_UFO_Large;
-                        PushBitmap(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, ufoBitmap, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
-                        PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                        PushBitmap(renderCommands, gameState->gameCamera, ufoBitmap, entity->pos, entity->dims, entity->angle, 0, V4F(1.0f, 1.0f, 1.0f, 1.0f));
+                        PushRect(renderCommands, gameState->gameCamera, entity->pos, V2F(1.0f), 0.0f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
                     }
                 } break;
                 
                 case Entity_Debug_Wall:
                 {
                     v4f colour = (entity->index % 2 == 1) ? V4F(1.0f) : V4F(0.0f, 0.0f, 1.0f, 1.0f);
-                    PushRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, colour);
+                    PushRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0, colour);
                 } break;
                 
                 default: { if (entity->type != Entity_Null) { printf("Entity Type %d unhandled\n", entity->type); } } break;
             }
             
 #if DEBUGUI_ENTITY_COLLIDERS
-            PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+            PushHollowRect(renderCommands, gameState->gameCamera, entity->collider.origin, entity->collider.dims, entity->angle, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
 #endif
             
 #if DEBUGUI_PICKING
             v2f entityMin = entity->pos.xy - (entity->dims / 2.0f);
             v2f entityMax = entityMin + entity->dims;
             v2f projectedMousePos = UnprojectPoint(gameState->gameCamera, gameState->gameCamera.rect.center.z, V2F((f32)input->mouse.x, (f32)input->mouse.y));
-            PushRect(renderCommands, platform, gameState->gameCamera, V3F(projectedMousePos, 0.0f), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
+            PushRect(renderCommands, gameState->gameCamera, V3F(projectedMousePos, 0.0f), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
             if (projectedMousePos > entityMin && projectedMousePos < entityMax)
             {
-                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(1.0f, 1.0f, 0.0f, 1.0f));
+                PushHollowRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(1.0f, 1.0f, 0.0f, 1.0f));
                 if (InputNoRepeat(input->mouse.buttons[MouseButton_L]))
                 {
                     globalDebugState->settings.pickedEntityIndex = entityIndex;
@@ -495,7 +502,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             
             if (entityIndex == globalDebugState->settings.pickedEntityIndex)
             {
-                PushHollowRect(renderCommands, platform, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+                PushHollowRect(renderCommands, gameState->gameCamera, entity->pos, entity->dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 0.0f, 1.0f));
             }
 #endif
         }
@@ -509,10 +516,10 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     
 #if DEBUGUI_REGIONS
-    PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    PushHollowRect(renderCommands, gameState->gameCamera, V3F(gameState->world.area.dims / 2.0f, 0.0f), gameState->world.area.dims, 0.0f, 0.5f, 0, V4F(1.0f, 0.0f, 0.0f, 1.0f));
     
     Rect2f cameraRect = GetCameraBoundsForDistance(renderCommands, gameState->gameCamera, gameState->gameCamera.rect.center.xy, DEFAULT_CAMERA_Z);
-    PushHollowRect(renderCommands, platform, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
+    PushHollowRect(renderCommands, gameState->gameCamera, V3F(cameraRect.center, 0.0f), cameraRect.dims, 0.0f, 0.5f, 0, V4F(0.0f, 1.0f, 1.0f, 1.0f));
 #endif
     
     for (s32 emitterIndex = 0; emitterIndex < ARRAY_COUNT(gameState->emitters); ++emitterIndex)
@@ -529,29 +536,29 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     char scoreString[16];
     stbsp_sprintf(scoreString, "%02d", gameState->score);
     v2f scorePixelOffset = V2F(25.0f, (f32)renderCommands->height - 60.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, scoreString, "Hyperspace",
+    PushText(renderCommands, gameState->gameCamera, scoreString, "Hyperspace",
              V3F(scorePixelOffset, 0.0f), 0.5f, 0, V4F(1.0f));
     
 #if AST_INTERNAL
     if (globalDebugState->openMenu)
     {
-        DisplayDebugMenu(renderCommands, &transState->loadedAssets, input, platform, gameState->gameCamera, &globalDebugState->settings);
+        DisplayDebugMenu(renderCommands, input, gameState->gameCamera, &globalDebugState->settings);
     }
     
 #if DEBUGUI_FUNC_TIMERS
-    DisplayFunctionTimers(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+    DisplayFunctionTimers(memory, renderCommands, input, gameState->gameCamera);
 #endif
     
 #if DEBUGUI_FRAME_TIMERS
-    DisplayFrameTimers(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+    DisplayFrameTimers(memory, renderCommands, input, gameState->gameCamera);
 #endif
     
 #if DEBUGUI_RENDER_TIMING
-    DisplayRenderTiming(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+    DisplayRenderTiming(memory, renderCommands, input, gameState->gameCamera);
 #endif
     
 #if DEBUGUI_MEMORY_VIS
-    DisplayMemoryVis(memory, renderCommands, &transState->loadedAssets, input, gameState->gameCamera, platform);
+    DisplayMemoryVis(memory, renderCommands, input, gameState->gameCamera);
 #endif
     
 #if DEBUGUI_CAMZOOM
@@ -563,41 +570,43 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     char metricString[16];
     stbsp_sprintf(metricString, "%.01f\n%.03f", 1.0f / input->deltaTime, 1000.0f * input->deltaTime);
     v2f fpsPixelOffset = V2F((f32)renderCommands->width - 100.0f, (f32)renderCommands->height - 50.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    PushText(renderCommands, gameState->gameCamera, metricString, "Debug", V3F(fpsPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     
 #if DEBUGUI_MOUSEINFO
     {
         char mouseString[16];
         stbsp_sprintf(mouseString, "Mouse X: %4d\nMouse Y: %4d", input->mouse.x, input->mouse.y);
         v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 50.0f);
-        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+        PushText(renderCommands, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     }
     
+#if 0    
     {
         v2f projectedMousePos = ProjectMouse(input, gameState->gameCamera);
         char mouseString[32];
         stbsp_sprintf(mouseString, "Proj Mouse X: %.02f\nProj Mouse Y: %.02f", projectedMousePos.x, projectedMousePos.y);
         v2f mousePixelOffset = V2F((f32)renderCommands->width - 300.0f, (f32)renderCommands->height - 100.0f);
-        PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+        PushText(renderCommands, gameState->gameCamera, mouseString, "Debug", V3F(mousePixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
     }
+#endif
     
     
     char mbString[32];
     stbsp_sprintf(mbString, "Mouse L Down: %d\nMouse M Down: %d\nMouse R Down: %d", input->mouse.buttons[0].endedFrameDown, input->mouse.buttons[1].endedFrameDown, input->mouse.buttons[2].endedFrameDown);
     v2f mbPixelOffset = V2F((f32)renderCommands->width - 500.0f, (f32)renderCommands->height - 50.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, mbString, "Debug", V3F(mbPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
+    PushText(renderCommands, gameState->gameCamera, mbString, "Debug", V3F(mbPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f));
 #endif
     
 #if DEBUGUI_CAMMOVE
     v2f unlockPixelOffset = V2F(450.0f, (f32)renderCommands->height - 25.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, "CAMERA UNLOCKED", "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+    PushText(renderCommands, gameState->gameCamera, "CAMERA UNLOCKED", "Debug", V3F(unlockPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(1.0f, 0.0f, 0.0f, 1.0f));
 #endif
     
 #if DEBUGUI_PICKING
     v2f pickPixelOffset = V2F(750.0f, (f32)renderCommands->height - 25.0f);
-    PushText(renderCommands, &transState->loadedAssets, platform, gameState->gameCamera, "PICKING ENABLED", "Debug", V3F(pickPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
+    PushText(renderCommands, gameState->gameCamera, "PICKING ENABLED", "Debug", V3F(pickPixelOffset, 0.0f), DEBUG_TEXT_SCALE, DEBUG_LAYER, V4F(0.0f, 1.0f, 0.0f, 1.0f));
     
-    DisplayPickedEntityInfo(memory, renderCommands, &transState->loadedAssets, gameState->gameCamera, platform, gameState->entities);
+    DisplayPickedEntityInfo(memory, renderCommands, gameState->gameCamera, platform, gameState->entities);
 #endif
     
 #endif

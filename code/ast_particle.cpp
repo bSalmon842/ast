@@ -157,15 +157,15 @@ function void UpdateRenderEmitter(Game_State *gameState, Game_RenderCommands *re
                 
                 if (particle->bitmap == BitmapID_Null)
                 {
-                    PushRect(renderCommands, platform, camera, particle->pos, particle->dims, 0.0f, 0, particle->colour);
+                    PushRect(renderCommands, camera, particle->pos, particle->dims, 0.0f, 0, particle->colour);
                 }
                 else
                 {
-                    PushBitmap(renderCommands, loadedAssets, platform, camera, particle->bitmap, particle->pos, particle->dims, 0.0f, 0, particle->colour);
+                    PushBitmap(renderCommands, camera, particle->bitmap, particle->pos, particle->dims, 0.0f, 0, particle->colour);
                 }
                 
 #if DEBUGUI_PARTICLE_COLLIDERS
-                PushHollowRect(renderCommands, platform, gameState->gameCamera, particle->collider.origin, particle->collider.dims, 0.0f, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
+                PushHollowRect(renderCommands, gameState->gameCamera, particle->collider.origin, particle->collider.dims, 0.0f, 0.25f, 0, V4F(0.0f, 0.0f, 1.0f, 1.0f));
 #endif
                 
                 if (particle->timer.finished)

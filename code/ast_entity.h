@@ -53,7 +53,7 @@ struct EntityInfo_UFO
     f32 nextShotAngle;
 };
 
-struct Entity
+introspect(category:"null") struct Entity
 {
     EntityType type;
     b32 active;
