@@ -18,7 +18,7 @@ enum AsteroidSize
     AsteroidSize_Count,
 };
 
-enum EntityType
+introspect(cataegory:"null") enum EntityType : u16
 {
     Entity_Null,
     

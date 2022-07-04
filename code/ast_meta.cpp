@@ -20,7 +20,6 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
         void *memberPtr = &(((u8 *)ptr)[def->offset]);
         char string[128] = {};
         
-        // TODO(bSalmon): Enum printing
         switch(def->type)
         {
             case MemberType_void:
@@ -55,7 +54,8 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
             
             case MemberType_EntityType:
             {
-                stbsp_sprintf(string, "%s: %d", def->name, *(EntityType *)memberPtr);
+                IntrospectEnumDef enumDef = GetEnumDef(EntityType, *(EntityType *)memberPtr);
+                stbsp_sprintf(string, "%s: %s (%d)", def->name, enumDef.name, (u16)enumDef.value);
             } break;
             
             case MemberType_Collider:
@@ -67,7 +67,8 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
             
             case MemberType_ColliderType:
             {
-                stbsp_sprintf(string, "%s: %d", def->name, *(ColliderType *)memberPtr);
+                IntrospectEnumDef enumDef = GetEnumDef(ColliderType, *(ColliderType *)memberPtr);
+                stbsp_sprintf(string, "%s: %s (%d)", def->name, enumDef.name, (u16)enumDef.value);
             } break;
             
             case MemberType_Array_CollisionInfo:

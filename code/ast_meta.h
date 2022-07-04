@@ -29,5 +29,18 @@ struct IntrospectMemberDef
     u32 elementCount; // NOTE(bSalmon): For arrays
 };
 
+enum EnumType
+{
+    EnumType_u16,
+    EnumType_u32,
+};
+
+struct IntrospectEnumDef
+{
+    EnumType type;
+    char *name;
+    u64 value;
+};
+
 #define AST_META_H
 #endif //AST_META_H

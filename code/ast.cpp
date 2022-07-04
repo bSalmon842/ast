@@ -5,9 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-// NOTE(bSalmon): Where I was up to: 
-// Adding Collider to introspection and making the entity menu work with that
-
 // TODO(bSalmon): Engine:
 // TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): More OpenGL work
@@ -18,12 +15,10 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Fix warping on resolution change
 // TODO(bSalmon): Multiple resolutions
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
-// TODO(bSalmon): Remove loadedAssets from render functions because render commands already stores it
 // TODO(bSalmon): Fix picking cursor
 // TODO(bSalmon): Fix the DEP crashes
 
 // New Debug Infrastructure
-// TODO(bSalmon): Debug introspection
 // TODO(bSalmon): Nesting Functions in timers
 // TODO(bSalmon): Console
 

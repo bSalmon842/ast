@@ -13,7 +13,7 @@ enum CollisionRule : u32
     Collision_Trigger = 0x2,
 };
 
-enum ColliderType
+introspect(category:"null") enum ColliderType : u16
 {
     ColliderType_None,
     ColliderType_Player,

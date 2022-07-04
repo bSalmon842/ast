@@ -1,4 +1,9 @@
 /////////////////////////////////////
+04JUN2022
+
+- Added enum introspection to preprocessor
+- Added enum introspection implementation, and GetEnumDef functions to preprocessor
+/////////////////////////////////////
 03JUN2022
 
 - Continued work on introspection preprocessor

@@ -11,8 +11,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include "../ast_utility.h"
 
-// TODO(bSalmon): Enum processing
-
 function char *ReadFileContentsWithTerminator(char *filename)
 {
     char *result = 0;
@@ -53,6 +51,7 @@ enum TokenType
     TokenType_Asterisk,
     TokenType_Ampersand,
     TokenType_Comma,
+    TokenType_Equals,
     TokenType_Macro,
     TokenType_String,
     
@@ -159,6 +158,7 @@ function Token GetToken(Lexer *lexer)
         case '*': { result.type = TokenType_Asterisk; ++lexer->cursor; } break;
         case '&': { result.type = TokenType_Ampersand; ++lexer->cursor; } break;
         case ',': { result.type = TokenType_Comma; ++lexer->cursor; } break;
+        case '=': { result.type = TokenType_Equals; ++lexer->cursor; } break;
         case '\0': { result.type = TokenType_EOS; ++lexer->cursor; } break;
         
         case '#':
@@ -296,6 +296,78 @@ function void IntrospectStruct(Lexer *lexer)
     printf("};\n\n");
 }
 
+function void IntrospectEnum(Lexer *lexer)
+{
+    Token nameTkn = GetToken(lexer);
+    printf("IntrospectEnumDef introspected_%.*s[] =\n", nameTkn.length, nameTkn.text);
+    printf("{\n");
+    
+    Token enumTypeTkn = {};
+    if (TokenIsType(lexer, TokenType_Colon))
+    {
+        enumTypeTkn = GetToken(lexer);
+        GetToken(lexer); // NOTE(bSalmon): Eat the open brace
+    }
+    else
+    {
+        enumTypeTkn.type = TokenType_Identifier;
+        enumTypeTkn.text = "u32";
+        enumTypeTkn.length = 3;
+    };
+    
+    u64 enumValue = 0;
+    for (;;)
+    {
+        Token enumNameTkn = GetToken(lexer);
+        if (enumNameTkn.type == TokenType_CloseBrace)
+        {
+            break;
+        }
+        else
+        {
+            Token checkTkn = GetToken(lexer);
+            if (checkTkn.type == TokenType_Equals)
+            {
+                Token valueTkn = GetToken(lexer);
+                enumValue = strtoull(valueTkn.text, 0, 0);
+                
+                printf("{ EnumType_%.*s, \"%.*s\", %llX },\n",
+                       enumTypeTkn.length, enumTypeTkn.text,
+                       enumNameTkn.length, enumNameTkn.text,
+                       enumValue++);
+                
+                if (TokenIsType(lexer, TokenType_CloseBrace))
+                {
+                    break;
+                }
+            }
+            else if (checkTkn.type == TokenType_Comma)
+            {
+                printf("{ EnumType_%.*s, \"%.*s\", 0x%016llX },\n",
+                       enumTypeTkn.length, enumTypeTkn.text,
+                       enumNameTkn.length, enumNameTkn.text,
+                       enumValue++);
+            }
+        }
+    }
+    
+    printf("};\n\n");
+    
+    printf("IntrospectEnumDef GetEnumDef_%.*s(u64 value)\n", nameTkn.length, nameTkn.text);
+    printf("{\n");
+    printf("IntrospectEnumDef result = {};\n\n");
+    printf("for (u64 i = 0; i < ARRAY_COUNT(introspected_%.*s); ++i)\n", nameTkn.length, nameTkn.text);
+    printf("{\n");
+    printf("if (introspected_%.*s[i].value == value)\n", nameTkn.length, nameTkn.text);
+    printf("{\n");
+    printf("result = introspected_%.*s[i];\n", nameTkn.length, nameTkn.text);
+    printf("break;\n");
+    printf("}\n");
+    printf("}\n\n");
+    printf("return result;\n");
+    printf("}\n\n");
+}
+
 function void ParseFile(char *filename)
 {
     char *fileContents = ReadFileContentsWithTerminator(filename);
@@ -346,7 +418,7 @@ function void ParseFile(char *filename)
                         }
                         else if (StringsAreSame(intrTkn.text, "enum", 4))
                         {
-                            
+                            IntrospectEnum(&lexer);
                         }
                         else
                         {
@@ -373,6 +445,8 @@ s32 main(s32 args, char **argv)
     
     ParseFile("ast_entity.h");
     ParseFile("ast_collision.h");
+    
+    printf("#define GetEnumDef(type, value) GetEnumDef_##type##(value)");
     
     return 0;
 }
