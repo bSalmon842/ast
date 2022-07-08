@@ -305,6 +305,17 @@ result.z = a.z - b.z; \
 return result; \
 } \
 \
+inline name operator*(name a, name b) \
+{ \
+name result = {}; \
+\
+result.x = a.x * b.x; \
+result.y = a.y * b.y; \
+result.z = a.z * b.z; \
+\
+return result; \
+} \
+\
 inline name operator*(name a, type b) \
 { \
 name result = {}; \
@@ -520,7 +531,8 @@ inline name Create##name##_CenterDims(type center, type dims) \
 name result = Create##name##_CenterHalfDims(center, dims / 2); \
 \
 return result; \
-}
+} \
+\
 
 #ifdef BS842_MAKE_STRUCTS
 #pragma warning(disable:4146)

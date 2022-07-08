@@ -199,30 +199,78 @@ struct Game_ButtonState
     s32 halfTransitionCount;
 };
 
+struct Game_Key
+{
+    Game_ButtonState state;
+    u8 value;
+};
+
 struct Game_Keyboard
 {
     b32 isConnected;
     
     union
     {
-        Game_ButtonState keys[14];
+        Game_Key keys[55];
         struct
         {
-            Game_ButtonState keyW;
-            Game_ButtonState keyA;
-            Game_ButtonState keyD;
-            Game_ButtonState keySpace;
-            Game_ButtonState keyEsc;
-            Game_ButtonState keyF1;
-            Game_ButtonState keyF2;
-            Game_ButtonState keyF3;
-            Game_ButtonState keyF4;
-            Game_ButtonState keyF5;
+            Game_Key keyA;
+            Game_Key keyB;
+            Game_Key keyC;
+            Game_Key keyD;
+            Game_Key keyE;
+            Game_Key keyF;
+            Game_Key keyG;
+            Game_Key keyH;
+            Game_Key keyI;
+            Game_Key keyJ;
+            Game_Key keyK;
+            Game_Key keyL;
+            Game_Key keyM;
+            Game_Key keyN;
+            Game_Key keyO;
+            Game_Key keyP;
+            Game_Key keyQ;
+            Game_Key keyR;
+            Game_Key keyS;
+            Game_Key keyT;
+            Game_Key keyU;
+            Game_Key keyV;
+            Game_Key keyW;
+            Game_Key keyX;
+            Game_Key keyY;
+            Game_Key keyZ;
+            Game_Key key0;
+            Game_Key key1;
+            Game_Key key2;
+            Game_Key key3;
+            Game_Key key4;
+            Game_Key key5;
+            Game_Key key6;
+            Game_Key key7;
+            Game_Key key8;
+            Game_Key key9;
+            Game_Key keySpace;
+            Game_Key keySemicolon;
+            Game_Key keyMinus;
+            Game_Key keyEsc;
+            Game_Key keyBackspace;
+            Game_Key keyEnter;
+            Game_Key keyTilde;
+            Game_Key keyF1;
+            Game_Key keyF2;
+            Game_Key keyF3;
+            Game_Key keyF4;
+            Game_Key keyF5;
             
-            Game_ButtonState keyUp;
-            Game_ButtonState keyDown;
-            Game_ButtonState keyLeft;
-            Game_ButtonState keyRight;
+            Game_Key keyUp;
+            Game_Key keyDown;
+            Game_Key keyLeft;
+            Game_Key keyRight;
+            
+            Game_Key keyShift;
+            Game_Key keyAlt;
+            Game_Key keyCtrl;
         };
     };
 };

@@ -138,6 +138,12 @@ inline void StringToUpper(char *string)
     }
 }
 
+inline s32 CharToInt(char c)
+{
+    s32 result = c - 48;
+    return result;
+}
+
 inline u32 SafeTruncateU64(u64 value)
 {
     ASSERT(value <= 0xFFFFFFFF);

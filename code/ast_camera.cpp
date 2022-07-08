@@ -44,12 +44,12 @@ function void ChangeCameraDistance(Camera *camera, f32 dist)
     camera->rect.center.z = dist;
 }
 
-inline v2f UnprojectPoint(Camera camera, f32 distanceFromCamera, v2f projPoint)
+inline v2f UnprojectPoint(Game_RenderCommands *commands, Camera camera, f32 distanceFromCamera, v2f projPoint)
 {
     v2f result = {};
     
     ASSERT(!camera.orthographic);
-    result = (distanceFromCamera / camera.focalLength) * (projPoint / camera.worldToPixelConversion);
+    result = (distanceFromCamera / camera.focalLength) * (camera.rect.min.xy + (projPoint / camera.worldToPixelConversion));
     
     return result;
 }
@@ -58,10 +58,9 @@ function Rect2f GetCameraBoundsForDistance(Game_RenderCommands *commands, Camera
 {
     Rect2f result = {};
     
-    v2f projXY = V2F((f32)commands->width, (f32)commands->height);
-    v2f rawXY = UnprojectPoint(camera, distance, projXY);
-    
-    result = CreateRect2f_CenterDims(pos, rawXY);
+    v2f min = UnprojectPoint(commands, camera, distance, V2F());
+    v2f max = UnprojectPoint(commands, camera, distance, V2F((f32)commands->width, (f32)commands->height));
+    result = CreateRect2f_MinMax(min, max);
     
     return result;
 }
@@ -69,7 +68,6 @@ function Rect2f GetCameraBoundsForDistance(Game_RenderCommands *commands, Camera
 function void UpdateCamera(Game_RenderCommands *commands, Camera *camera, Entity entity)
 {
     camera->rect.center.xy = entity.pos.xy;
-    Rect2f boundsRect = GetCameraBoundsForDistance(commands, *camera, camera->rect.center.xy, camera->rect.center.z);
-    camera->rect = CreateRect3f_CenterDims(camera->rect.center, V3F(boundsRect.dims, camera->rect.center.z));
+    camera->rect = CreateRect3f_CenterDims(camera->rect.center, camera->rect.dims);
     camera->screenCenterPixels = V2F((f32)commands->width, (f32)commands->height) / 2.0f;
 }

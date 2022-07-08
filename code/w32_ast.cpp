@@ -550,12 +550,52 @@ function void W32_ProcessPendingMessages(HWND window, Game_Mouse *mouse, Game_Ke
                 b32 keyIsDown = (msg.lParam & (1 << 31)) == 0;
                 if (keyWasDown != keyIsDown)
                 {
-#define ProcessKey(vk, key) if (vkCode == vk) { W32_ProcessKeyboardEvent(&keyboard->##key, keyIsDown); }
-                    ProcessKey('W', keyW);
-                    ProcessKey('A', keyA);
-                    ProcessKey('D', keyD);
-                    ProcessKey(VK_SPACE, keySpace);
+#define ProcessKey(vk, key) if (vkCode == vk) { W32_ProcessKeyboardEvent(&keyboard->key.state, keyIsDown); }
+#define ProcessASCIIKey(c) if ((s32)vkCode == *(#c)) { W32_ProcessKeyboardEvent(&keyboard->key##c.state, keyIsDown); keyboard->key##c.value = *(#c);}
+#define ProcessASCIIVK(vk, key, val) if ((s32)vkCode ==  vk) { W32_ProcessKeyboardEvent(&keyboard->key.state, keyIsDown); keyboard->key.value = val;}
+                    ProcessASCIIKey(A);
+                    ProcessASCIIKey(B);
+                    ProcessASCIIKey(C);
+                    ProcessASCIIKey(D);
+                    ProcessASCIIKey(E);
+                    ProcessASCIIKey(F);
+                    ProcessASCIIKey(G);
+                    ProcessASCIIKey(H);
+                    ProcessASCIIKey(I);
+                    ProcessASCIIKey(J);
+                    ProcessASCIIKey(K);
+                    ProcessASCIIKey(L);
+                    ProcessASCIIKey(M);
+                    ProcessASCIIKey(N);
+                    ProcessASCIIKey(O);
+                    ProcessASCIIKey(P);
+                    ProcessASCIIKey(Q);
+                    ProcessASCIIKey(R);
+                    ProcessASCIIKey(S);
+                    ProcessASCIIKey(T);
+                    ProcessASCIIKey(U);
+                    ProcessASCIIKey(V);
+                    ProcessASCIIKey(W);
+                    ProcessASCIIKey(X);
+                    ProcessASCIIKey(Y);
+                    ProcessASCIIKey(Z);
+                    ProcessASCIIKey(0);
+                    ProcessASCIIKey(1);
+                    ProcessASCIIKey(2);
+                    ProcessASCIIKey(3);
+                    ProcessASCIIKey(4);
+                    ProcessASCIIKey(5);
+                    ProcessASCIIKey(6);
+                    ProcessASCIIKey(7);
+                    ProcessASCIIKey(8);
+                    ProcessASCIIKey(9);
+                    ProcessASCIIVK(VK_SPACE, keySpace, ' ');
+                    ProcessASCIIVK(VK_OEM_1, keySemicolon, ';');
+                    ProcessASCIIVK(VK_OEM_MINUS, keyMinus, '-');
                     ProcessKey(VK_ESCAPE, keyEsc);
+                    ProcessKey(VK_BACK, keyBackspace);
+                    ProcessKey(VK_RETURN, keyEnter);
+                    ProcessKey(VK_OEM_3, keyTilde);
                     ProcessKey(VK_F1, keyF1);
                     ProcessKey(VK_F2, keyF2);
                     ProcessKey(VK_F3, keyF3);
@@ -565,11 +605,13 @@ function void W32_ProcessPendingMessages(HWND window, Game_Mouse *mouse, Game_Ke
                     ProcessKey(VK_DOWN, keyDown);
                     ProcessKey(VK_LEFT, keyLeft);
                     ProcessKey(VK_RIGHT, keyRight);
+                    ProcessKey(VK_SHIFT, keyShift);
+                    ProcessKey(VK_MENU, keyAlt);
+                    ProcessKey(VK_CONTROL, keyCtrl);
                     
                     if (keyIsDown)
                     {
-                        b32 altKeyDown = msg.lParam & (1 << 29);
-                        if (altKeyDown && vkCode == VK_F4)
+                        if (keyboard->keyAlt.state.endedFrameDown && vkCode == VK_F4)
                         {
                             globalRunning = false;
                         }
@@ -821,7 +863,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
                     for (s32 keyIndex = 0; keyIndex < ARRAY_COUNT(newKeyboard->keys); ++keyIndex)
                     {
-                        newKeyboard->keys[keyIndex].endedFrameDown = oldKeyboard->keys[keyIndex].endedFrameDown;
+                        newKeyboard->keys[keyIndex].state.endedFrameDown = oldKeyboard->keys[keyIndex].state.endedFrameDown;
                     }
                     
                     Game_Mouse *oldMouse = &oldInput->mouse;

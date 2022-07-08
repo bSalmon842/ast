@@ -27,6 +27,19 @@ inline f32 Cos(f32 theta)
     return result;
 }
 
+inline s32 Pow(s32 base, s32 ex)
+{
+    ASSERT(ex > 0);
+    s32 result = base;
+    
+    for (s32 i = 0; i < ex; ++i)
+    {
+        result *= base;
+    }
+    
+    return result;
+}
+
 inline f32 Sq(f32 value)
 {
     f32 result = value * value;

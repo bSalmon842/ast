@@ -216,6 +216,11 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                             charPosX = entry->positioning.pos.x;
                         } break;
                         
+                        case '\t':
+                        {
+                            charPosX += (128.0f * entry->scale);
+                        } break;
+                        
                         default:
                         {
                             LoadedAssetHeader *assetHeader = entry->assetHeaders[i];
@@ -244,7 +249,7 @@ function void OpenGL_Render(Game_RenderCommands *commands, PlatformAPI platform)
                                         }
                                     }
                                     
-                                    charPosX += (glyph.dims.x * entry->scale) + (kern.advance * entry->scale) + 1.0f;
+                                    charPosX += (glyph.dims.x * entry->scale) + (kern.advance * entry->scale);
                                 }
                             }
                         } break;

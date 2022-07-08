@@ -136,6 +136,21 @@ inline void PushClear(Game_RenderCommands *commands, v4f colour)
     }
 }
 
+inline f32 GetStringWidth(Game_RenderCommands *commands, char *font, char *string)
+{
+    // NOTE(bSalmon): Only suitable for monospace fonts
+    
+    f32 result = 0.0f;
+    
+    GlyphIdentifier id = {'0', font};
+    LoadedAssetHeader *loadedAsset = GetAsset(commands->loadedAssets, AssetType_Glyph, &id, false);
+    GlyphInfo info = loadedAsset->glyph;
+    
+    result = (f32)info.dims.x * StringLength(string);
+    
+    return result;
+}
+
 inline void PushText(Game_RenderCommands *commands, Camera camera, char *string, char *font, v3f offset, f32 scale, s32 zLayer, v4f colour)
 {
     RenderEntryPositioning positioning = GetRenderScreenPositioning(commands, camera, offset, V2F());
@@ -147,7 +162,7 @@ inline void PushText(Game_RenderCommands *commands, Camera camera, char *string,
         char *c = entry->string;
         for (s32 i = 0; *c; ++i)
         {
-            if (*c != '\n')
+            if (*c != '\n' && *c != '\t')
             {
                 GlyphIdentifier id = {*c, font};
                 entry->assetHeaders[i] = GetAsset(commands->loadedAssets, AssetType_Glyph, &id, false);

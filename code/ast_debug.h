@@ -98,6 +98,12 @@ struct DebugSettings
     DebugMenuItem menuSentinel;
 };
 
+struct ConsoleOutputString
+{
+    char *string;
+    v4f colour;
+};
+
 struct DebugState
 {
     b32 inFrame;
@@ -108,7 +114,20 @@ struct DebugState
     b32 openMenu;
     DebugSettings settings;
     
+    b32 openConsole;
+    char consoleCommand[128];
+    ConsoleOutputString consoleOutput[32];
+    s8 consoleCommandCursor;
+    
     b32 memInitialised;
+};
+
+enum CommandType
+{
+    CommandType_Invalid,
+    CommandType_Introspect_Valid,
+    CommandType_Introspect_InvalidStruct,
+    CommandType_Introspect_InvalidIndex,
 };
 
 struct DebugAutoBlock

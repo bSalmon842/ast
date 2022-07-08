@@ -1,3 +1,4 @@
+#ifndef CMT_GENERATED_H
 #define Preproc_MemberOffset(structName, member) (u32)&((structName *)0)->member
 
 IntrospectEnumDef introspected_EntityType[] =
@@ -81,3 +82,6 @@ IntrospectMemberDef introspected_Collider[] =
 };
 
 #define GetEnumDef(type, value) GetEnumDef_##type##(value)
+
+#define CMT_GENERATED_H
+#endif // CMT_GENERATED_H

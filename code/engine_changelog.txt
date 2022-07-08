@@ -1,4 +1,18 @@
 /////////////////////////////////////
+08JUN2022
+
+- Added integer pow function to ast_math.h
+- Abstracted preproc tokeniser to ast_token.*
+- Implemented numeric recognition to tokeniser
+/////////////////////////////////////
+07JUN2022
+
+- Implemented debug console shell
+/////////////////////////////////////
+06JUN2022
+
+- Unproject is now correct
+/////////////////////////////////////
 04JUN2022
 
 - Added enum introspection to preprocessor
