@@ -19,6 +19,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define RND_IMPLEMENTATION
 #include "rnd.h"
 
+#include "ast_id.h"
 #include "ast_timer.h"
 #include "ast_intrinsics.h"
 #include "ast_math.h"
@@ -35,6 +36,8 @@ struct Game_State
     b32 initialised;
     
     b32 paused;
+    
+    UniversalIDList universalIDList;
     
     World world;
     

@@ -31,6 +31,7 @@ return result;
 
 IntrospectMemberDef introspected_Entity[] =
 {
+{ MemberType_Array_char, "id", Preproc_MemberOffset(Entity, id), 32 },
 { MemberType_EntityType, "type", Preproc_MemberOffset(Entity, type), 1 },
 { MemberType_b32, "active", Preproc_MemberOffset(Entity, active), 1 },
 { MemberType_s32, "index", Preproc_MemberOffset(Entity, index), 1 },

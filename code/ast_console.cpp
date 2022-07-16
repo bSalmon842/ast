@@ -6,6 +6,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 #include "ast_generated.h"
+#include "ast_console_commands.h"
 
 #define CONSOLE_OUTPUT_MAX_STRING 128
 function void AddToDebugConsoleOutput(DebugState *debugState, PlatformAPI platform, char *string, v4f colour = V4F(1.0f))
@@ -110,10 +111,13 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
             
             Lexer lexer = {};
             lexer.cursor = commandString;
-            CommandType commandType = CommandType_Invalid;
+            CommandType commandType = CommandType_Valid;
             Token commandTkn = {};
-            Token paramTkn = {};
-            Token valueTkn = {};
+            Token paramTkns[MAX_PARAM_COUNT] = {};
+            Token invalidParamTkn = {};
+            s32 paramCount = 0;
+            ConsoleCommandDesc commandDesc = {};
+            b32 isHelpCommand = false;
             
             {
                 commandTkn = GetToken(&lexer);
@@ -122,27 +126,96 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
                 {
                     case TokenType_Identifier:
                     {
-                        if (StringsAreSame(commandTkn.text, "introspect", 10))
+                        s32 foundCommandIndex = -1;
+                        for (s32 commandIndex = 0; commandIndex < ARRAY_COUNT(consoleCommandList); ++commandIndex)
                         {
-                            paramTkn = GetToken(&lexer);
-                            
-                            if (TokenIsType(&lexer, TokenType_Colon) && paramTkn.type == TokenType_Identifier && StringsAreSame(paramTkn.text, "Entity", 6))
+                            char *command = consoleCommandList[commandIndex].command;
+                            if (StringsAreSame(commandTkn.text, command, StringLength(command)))
                             {
-                                valueTkn = GetToken(&lexer);
-                                if (valueTkn.type == TokenType_Integer)
+                                foundCommandIndex = commandIndex;
+                            }
+                        }
+                        
+                        if (foundCommandIndex > -1)
+                        {
+                            for (;;)
+                            {
+                                Token tkn = GetToken(&lexer);
+                                if (tkn.type == TokenType_EOS)
                                 {
-                                    // TODO(bSalmon): Bug with negative indices
-                                    commandType = CommandType_Introspect_Valid;
+                                    break;
                                 }
-                                else
+                                else if (tkn.type == TokenType_Identifier ||
+                                         tkn.type == TokenType_String ||
+                                         tkn.type == TokenType_Integer ||
+                                         tkn.type == TokenType_Float)
                                 {
-                                    commandType = CommandType_Introspect_InvalidIndex;
+                                    paramTkns[paramCount++] = tkn;
                                 }
+                            }
+                            
+                            isHelpCommand = StringsAreSame("help", commandTkn.text, commandTkn.length);
+                            commandDesc = consoleCommandList[foundCommandIndex];
+                            if (paramCount < commandDesc.reqParamCount && !isHelpCommand)
+                            {
+                                commandType = CommandType_Invalid_ParamCount;
                             }
                             else
                             {
-                                commandType = CommandType_Introspect_InvalidStruct;
+                                CommandLayout layout = commandDesc.layout;
+                                switch (layout)
+                                {
+                                    case CommandLayout_String: {} break;
+                                    
+                                    case CommandLayout_ID:
+                                    {
+                                        if (!IDExists(paramTkns[0].text, paramTkns[0].length))
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[0];
+                                        }
+                                    } break;
+                                    
+                                    case CommandLayout_ID_V3F:
+                                    {
+                                        if (!IDExists(paramTkns[0].text, paramTkns[0].length))
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[0];
+                                        }
+                                        
+                                        f32 x = TokenToFloat(paramTkns[1]);
+                                        if (x < commandDesc.validMinV3F.x || x > commandDesc.validMaxV3F.x)
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[1];
+                                            break;
+                                        }
+                                        
+                                        f32 y = TokenToFloat(paramTkns[2]);
+                                        if (y < commandDesc.validMinV3F.y || y > commandDesc.validMaxV3F.y)
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[2];
+                                            break;
+                                        }
+                                        
+                                        f32 z = TokenToFloat(paramTkns[3]);
+                                        if (z < commandDesc.validMinV3F.z || z > commandDesc.validMaxV3F.z)
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[3];
+                                            break;
+                                        }
+                                    } break;
+                                    
+                                    INVALID_DEFAULT;
+                                }
                             }
+                        }
+                        else
+                        {
+                            commandType = CommandType_Invalid_Command;
                         }
                     } break;
                     
@@ -152,51 +225,89 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
             
             switch (commandType)
             {
-                case CommandType_Invalid:
+                case CommandType_Invalid_Command:
                 {
-                    char string[32] = {};
+                    char string[64] = {};
                     stbsp_sprintf(string, "Unknown Command: '%.*s'", commandTkn.length, commandTkn.text);
                     AddToDebugConsoleOutput(debugState, memory->platform, string, V4F(1.0f, 0.0f, 0.0f, 1.0f));
                 } break;
                 
-                // TODO(bSalmon): This only works with entities, should work with more (particles, game state, etc)
-                case CommandType_Introspect_Valid:
+                case CommandType_Invalid_ParamCount:
                 {
-                    s32 index = TokenToInt(valueTkn);
-                    if (index < ARRAY_COUNT(gameState->entities) && index >= 0)
-                    {
-                        Entity *entity = &gameState->entities[index];
-                        
-                        Meta_DumpStruct(ARRAY_COUNT(introspected_Entity), introspected_Entity, entity, debugState, memory->platform, 0, 0);
-                        
-                        char string[32] = {};
-                        stbsp_sprintf(string, "Found Entity at index %.*s", valueTkn.length, valueTkn.text);
-                        AddToDebugConsoleOutput(debugState, memory->platform, string, V4F(0.0f, 1.0f, 0.0f, 1.0f));
-                    }
-                    else
-                    {
-                        char string[32] = {};
-                        stbsp_sprintf(string, "Invalid Entity Index %.*s", valueTkn.length, valueTkn.text);
-                        AddToDebugConsoleOutput(debugState, memory->platform, string, V4F(1.0f, 0.0f, 0.0f, 1.0f));
-                    }
-                    
-                    char attemptString[32] = {};
-                    stbsp_sprintf(attemptString, "Attempting to introspect Entity at index %.*s", valueTkn.length, valueTkn.text);
-                    AddToDebugConsoleOutput(debugState, memory->platform, attemptString, V4F(1.0f));
-                } break;
-                
-                case CommandType_Introspect_InvalidStruct:
-                {
-                    char string[32] = {};
-                    stbsp_sprintf(string, "Invalid introspect param: %.*s", paramTkn.length, paramTkn.text);
+                    char string[64] = {};
+                    stbsp_sprintf(string, "Too Few Parameters: Expected %d, Got %d", commandDesc.reqParamCount, paramCount);
                     AddToDebugConsoleOutput(debugState, memory->platform, string, V4F(1.0f, 0.0f, 0.0f, 1.0f));
                 } break;
                 
-                case CommandType_Introspect_InvalidIndex:
+                case CommandType_Invalid_Param:
                 {
-                    char string[32] = {};
-                    stbsp_sprintf(string, "Index must be an integer value: %.*s", valueTkn.length, valueTkn.text);
+                    char string[64] = {};
+                    stbsp_sprintf(string, "Invalid Parameter: %.*s", invalidParamTkn.length, invalidParamTkn.text);
                     AddToDebugConsoleOutput(debugState, memory->platform, string, V4F(1.0f, 0.0f, 0.0f, 1.0f));
+                } break;
+                
+                case CommandType_Valid:
+                {
+                    CommandLayout layout = commandDesc.layout;
+                    switch (layout)
+                    {
+                        case CommandLayout_String:
+                        {
+                            if (isHelpCommand)
+                            {
+                                if (paramCount > 0)
+                                {
+                                    GetHelpForCommand(memory, paramTkns[0].text);
+                                }
+                                else
+                                {
+                                    ListCommandsForHelpToConsole(memory);
+                                }
+                            }
+                            else
+                            {
+                                
+                            }
+                        } break;
+                        
+                        case CommandLayout_ID:
+                        {
+                            UniversalID id = GetIDInfo(paramTkns[0].text, paramTkns[0].length);
+                            if (StringsAreSame("introspect", commandTkn.text, commandTkn.length))
+                            {
+                                switch (id.type)
+                                {
+                                    case IDPtrType_Entity:
+                                    {
+                                        Entity *entity = (Entity *)id.ptr;
+                                        Meta_DumpStruct(ARRAY_COUNT(introspected_Entity), introspected_Entity, entity, debugState, memory->platform, 0, 0);
+                                    } break;
+                                    
+                                    INVALID_DEFAULT;
+                                }
+                            }
+                        } break;
+                        
+                        case CommandLayout_ID_V3F:
+                        {
+                            UniversalID id = GetIDInfo(paramTkns[0].text, paramTkns[0].length);
+                            if (StringsAreSame("set_pos", commandTkn.text, commandTkn.length))
+                            {
+                                switch (id.type)
+                                {
+                                    case IDPtrType_Entity:
+                                    {
+                                        Entity *entity = (Entity *)id.ptr;
+                                        entity->pos = V3F(TokenToFloat(paramTkns[1]), TokenToFloat(paramTkns[2]), TokenToFloat(paramTkns[3]));
+                                    } break;
+                                    
+                                    INVALID_DEFAULT;
+                                }
+                            }
+                        } break;
+                        
+                        INVALID_DEFAULT;
+                    }
                 } break;
                 
                 INVALID_DEFAULT;
@@ -208,9 +319,9 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
         {
             if (debugState->consoleOutput[stringIndex].string && StringLength(debugState->consoleOutput[stringIndex].string))
             {
-                PushText(commands, camera, debugState->consoleOutput[stringIndex].string, "Debug", outputPos, 0.9f, layer + 2, debugState->consoleOutput[stringIndex].colour);
+                PushText(commands, camera, debugState->consoleOutput[stringIndex].string, "Debug", outputPos, 0.75f, layer + 2, debugState->consoleOutput[stringIndex].colour);
             }
-            outputPos.y -= 20.0f;
+            outputPos.y -= 15.0f;
         }
     }
 }

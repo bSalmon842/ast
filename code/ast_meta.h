@@ -18,6 +18,7 @@ enum MemberType
     MemberType_EntityType,
     MemberType_Collider,
     MemberType_ColliderType,
+    MemberType_Array_char,
     MemberType_Array_CollisionInfo,
 };
 

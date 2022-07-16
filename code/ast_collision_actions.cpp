@@ -47,9 +47,10 @@ function COLLIDER_TRIGGER_ACTION(CollisionTrigger_Shot_Asteroid)
                 while (astDP.y == 0.0f) { astDP.y = (f32)rnd_pcg_range(&gameState->pcg, -1, 1); }
                 astDP *= GetAsteroidBaseSpeed(newSize) * (V2F(rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg)) + 0.5f);
                 
-                *newAst.entity = MakeEntity_Asteroid(gameState, newAst.index, true, oldPos, astDP,
-                                                     astDA, newSize, newAstBitmapIndex,
-                                                     platform);
+                MakeEntity_Asteroid(gameState, newAst.index, true, oldPos, astDP,
+                                    astDA, newSize, newAstBitmapIndex,
+                                    platform);
+                
                 --asteroidsToCreate;
             }
         }

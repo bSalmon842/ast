@@ -192,11 +192,51 @@ inline s32 TokenToInt(Token tkn)
         {
             s32 index = lengthRemaining - i;
             s32 power = index + 1;
-            result += CharToInt(tkn.text[i]) * Pow(10, power);
+            result += CharToInt(tkn.text[index]) * RoundF32ToS32(Pow(10, (f32)power));
         }
     }
     
     result += CharToInt(tkn.text[lengthRemaining - 1]);
+    result *= (negative) ? -1 : 1;
+    
+    return result;
+}
+
+inline f32 TokenToFloat(Token tkn)
+{
+    f32 result = 0;
+    
+    b32 negative = (tkn.text[0] == '-');
+    
+    s32 decimalPos = -1;
+    for (u32 i = 0; i < tkn.length; ++i)
+    {
+        if (tkn.text[i] == '.')
+        {
+            decimalPos = i;
+            break;
+        }
+    }
+    
+    Token exponent = {};
+    exponent.text = (negative) ? &tkn.text[1] : tkn.text;
+    exponent.length = ((u32)&tkn.text[decimalPos] - (u32)&exponent.text[0]);
+    
+    Token mantissa = {};
+    if (decimalPos != -1)
+    {
+        mantissa.text = &tkn.text[decimalPos + 1];
+        mantissa.length = tkn.length - (decimalPos + 1);
+    }
+    
+    result += (f32)TokenToInt(exponent);
+    
+    if (mantissa.length > 0)
+    {
+        f32 decAdjust = Pow(10, (f32)mantissa.length);
+        result += ((f32)TokenToInt(mantissa) / decAdjust);
+    }
+    
     result *= (negative) ? -1 : 1;
     
     return result;

@@ -12,6 +12,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Menues
 // TODO(bSalmon): Loading Screens
 // TODO(bSalmon): Collision double dispatch method review
+// TODO(bSalmon): Collision still sucks, getting stuck on debug boxes
 // TODO(bSalmon): Fix warping on resolution change
 // TODO(bSalmon): Multiple resolutions
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
@@ -21,7 +22,6 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Nesting Functions in timers
 // TODO(bSalmon): Dropdown menus (I don't remember why) (Maybe for autocomplete in console) (I remembered it was originally for audio device selection)
 // TODO(bSalmon): Use probing for picking
-// TODO(bSalmon): Maybe some better way of making console commands
 
 // Sim Region Brainstorming
 // TODO(bSalmon): 2 kinds of entities, one in/near the sim region, and the other dormant which is occasionally updated (1 per frame or multithreaded?)
@@ -46,6 +46,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Ambient UFO active
 
 #include "ast.h"
+#include "ast_id.cpp"
 #include "ast_timer.cpp"
 #include "ast_world.cpp"
 #include "ast_parallel_memory.cpp"
@@ -164,31 +165,29 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         u32 timeSeed = SafeTruncateU64(memory->platform.SecondsSinceEpoch());
         rnd_pcg_seed(&gameState->pcg, timeSeed);
         
+        globalIDList = &gameState->universalIDList;
+        
         //gameState->world = InitialiseWorld(V2F(360.0f, 180.0f), WorldBorder_Loop);
         gameState->world = InitialiseWorld(V2F(100.0f, 100.0f), WorldBorder_Loop);
-        
-        for (s32 i = 0; i < ARRAY_COUNT(gameState->entities); ++i)
-        {
-            gameState->entities[i] = NullEntity;
-        }
         
         BuildCollisionRulesAndTriggers(gameState);
         
         gameState->gameCamera = InitialiseCamera(V3F(gameState->world.area.dims / 2.0f, DEFAULT_CAMERA_Z));
         
-        gameState->entities[0] = NullEntity;
-        
         v3f playerStartPos = V3F(gameState->world.area.dims / 2.0f, 0.0f);
         v2f playerDims = V2F(2.5f);
-        gameState->entities[1] = MakeEntity(Entity_Player, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), 1, true, playerStartPos, playerDims, TAU * 0.25f);
+        MakeEntity(gameState->entities, Entity_Player, true, 1, MakeCollider(gameState, ColliderType_Player, playerStartPos, playerDims), TAU * 0.25f, 0.0f, playerStartPos, V2F(), playerDims);
         gameState->playerEntity = &gameState->entities[1];
         LinkCameraToEntity(&gameState->gameCamera, gameState->playerEntity->index);
         
         v3f wallPos = V3F(gameState->world.area.dims / 4.0f, -1.0f);
         v2f wallDims = V2F(10.0f);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 1] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims), ARRAY_COUNT(gameState->entities) - 1, true, wallPos, wallDims, false);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 2] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims), ARRAY_COUNT(gameState->entities) - 2, true, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims, false);
-        gameState->entities[ARRAY_COUNT(gameState->entities) - 3] = MakeEntity(Entity_Debug_Wall, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(70.0f, 80.0f, 0.0f), wallDims), ARRAY_COUNT(gameState->entities) - 3, true, V3F(70.0f, 80.0f, 0.0f), wallDims, false);
+        MakeEntity(gameState->entities, Entity_Debug_Wall, true, ARRAY_COUNT(gameState->entities) - 1, MakeCollider(gameState, ColliderType_Debug_Wall, wallPos, wallDims),
+                   0.0f, 0.0f, wallPos, V2F(), wallDims);
+        MakeEntity(gameState->entities, Entity_Debug_Wall, true, ARRAY_COUNT(gameState->entities) - 2, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), wallDims),
+                   0.0f, 0.0f,  V3F(wallPos.x, wallPos.y - 10.0f, 0.0f), V2F(), wallDims);
+        MakeEntity(gameState->entities, Entity_Debug_Wall, true, ARRAY_COUNT(gameState->entities) - 3, MakeCollider(gameState, ColliderType_Debug_Wall, V3F(70.0f, 80.0f, 0.0f), wallDims),
+                   0.0f, 0.0f, V3F(70.0f, 80.0f, 0.0f), V2F(), wallDims);
         
         gameState->asteroidRotationRate = 0.5f;
         
@@ -206,7 +205,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             while (baseDP.y == 0.0f) { baseDP.y = (f32)rnd_pcg_range(&gameState->pcg, -1, 1); }
             baseDP *= GetAsteroidBaseSpeed(AsteroidSize_Large) * (V2F(rnd_pcg_nextf(&gameState->pcg), rnd_pcg_nextf(&gameState->pcg)) + 0.5f);
             
-            *currAst = MakeEntity_Asteroid(gameState, 2 + i, true, astInitialPos, baseDP, dA, AsteroidSize_Large, astBitmapIndex, memory->platform);
+            MakeEntity_Asteroid(gameState, 2 + i, true, astInitialPos, baseDP, dA, AsteroidSize_Large, astBitmapIndex, memory->platform);
         }
         gameState->asteroidCount = 4;
         
@@ -232,9 +231,11 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                    progress2, shape3, V2F(0.5f), true, 0, 0, TestParticleSimCollision);
 #endif
         
+#if 0
         printf("%zd\n", sizeof(Game_State));
         printf("%zd\n", sizeof(Transient_State));
         printf("%zd\n", sizeof(DebugState));
+#endif
         gameState->initialised = true;
     }
     
@@ -280,26 +281,29 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     v2f playerForward = V2F(Cos(gameState->playerEntity->angle), Sin(gameState->playerEntity->angle));
     gameState->playerDDP = V2F();
     
-    if (keyboard->keyW.state.endedFrameDown)
+    if (!globalDebugState->openConsole)
     {
-        gameState->playerDDP = V2F(50.0f) * playerForward;
-        trail = true;
-    }
-    if (keyboard->keyA.state.endedFrameDown)
-    {
-        gameState->playerEntity->angle += playerRotateSpeed;
-    }
-    if (keyboard->keyD.state.endedFrameDown)
-    {
-        gameState->playerEntity->angle -= playerRotateSpeed;
-    }
-    if (InputNoRepeat(keyboard->keySpace.state))
-    {
-        FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
-        ASSERT(found.entity);
-        
-        v2f dP = playerForward * 75.0f;
-        *found.entity = MakeEntity_Shot_Player(gameState, found.index, gameState->playerEntity->pos, dP, 1.0f, memory->platform);
+        if (keyboard->keyW.state.endedFrameDown)
+        {
+            gameState->playerDDP = V2F(50.0f) * playerForward;
+            trail = true;
+        }
+        if (keyboard->keyA.state.endedFrameDown)
+        {
+            gameState->playerEntity->angle += playerRotateSpeed;
+        }
+        if (keyboard->keyD.state.endedFrameDown)
+        {
+            gameState->playerEntity->angle -= playerRotateSpeed;
+        }
+        if (InputNoRepeat(keyboard->keySpace.state))
+        {
+            FindFirstNullEntityResult found = FindFirstNullEntity(gameState->entities, ARRAY_COUNT(gameState->entities));
+            ASSERT(found.entity);
+            
+            v2f dP = playerForward * 75.0f;
+            MakeEntity_Shot_Player(gameState, found.index, gameState->playerEntity->pos, dP, 1.0f, memory->platform);
+        }
     }
     if (InputNoRepeat(keyboard->keyEsc.state))
     {
@@ -380,8 +384,8 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
         
         b32 smallUFO = (rnd_pcg_range(&gameState->pcg, 0, 9) >= 8);
         v2f ufoDims = smallUFO ? V2F(3.0f, 3.0f) : V2F(5.0f, 3.0f);
-        *found.entity = MakeEntity_UFO(gameState, found.index, V3F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->world.area.dims.y, 0.0f), ufoDims, smallUFO,
-                                       ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
+        MakeEntity_UFO(gameState, found.index, V3F(0.0f, rnd_pcg_nextf(&gameState->pcg) * gameState->world.area.dims.y, 0.0f), ufoDims, smallUFO,
+                       ((rnd_pcg_next(&gameState->pcg) % 2) == 0) ? -1 : 1, memory->platform);
         gameState->ufoSpawned = true;
     }
     
@@ -460,7 +464,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
                             
                             // TODO(bSalmon): Make this target nearby asteroids occasionally
                             v2f dP = V2F((rnd_pcg_nextf(&gameState->pcg) * 2.0f) - 1.0f, (rnd_pcg_nextf(&gameState->pcg) * 2.0f) - 1.0f) * 75.0f;
-                            *found.entity = MakeEntity_Shot_UFO(gameState, found.index, entity->pos, dP, 1.0f, memory->platform);
+                            MakeEntity_Shot_UFO(gameState, found.index, entity->pos, dP, 1.0f, memory->platform);
                             
                             ResetTimer(&ufoInfo->shotTimer);
                         }
@@ -497,7 +501,6 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
             v2f entityMin = entity->pos.xy - (entity->dims / 2.0f);
             v2f entityMax = entityMin + entity->dims;
             v2f projectedMousePos = UnprojectPoint(renderCommands, gameState->gameCamera, gameState->gameCamera.rect.center.z, V2F((f32)input->mouse.x, (f32)input->mouse.y));
-            printf("projMouse: {%.01f, %.01f}\n", projectedMousePos.x, projectedMousePos.y);
             PushRect(renderCommands, gameState->gameCamera, V3F(projectedMousePos, 0.0f), V2F(1.0f), 0.0f, 0, V4F(1.0f, 0.0f, 1.0f, 1.0f));
             if (projectedMousePos > entityMin && projectedMousePos < entityMax)
             {
@@ -630,7 +633,7 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
 #endif
     
     // AUDIO
-    //OutputTestSineWave(gameState, audioBuffer, 256);
+    OutputTestSineWave(gameState, audioBuffer, 256);
 }
 
 ////////// DEBUG STUFF FROM HERE ON OUT /////////////*

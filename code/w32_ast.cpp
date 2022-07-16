@@ -592,6 +592,7 @@ function void W32_ProcessPendingMessages(HWND window, Game_Mouse *mouse, Game_Ke
                     ProcessASCIIVK(VK_SPACE, keySpace, ' ');
                     ProcessASCIIVK(VK_OEM_1, keySemicolon, ';');
                     ProcessASCIIVK(VK_OEM_MINUS, keyMinus, '-');
+                    ProcessASCIIVK(VK_OEM_PERIOD, keyPeriod, '.');
                     ProcessKey(VK_ESCAPE, keyEsc);
                     ProcessKey(VK_BACK, keyBackspace);
                     ProcessKey(VK_RETURN, keyEnter);

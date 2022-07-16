@@ -71,6 +71,11 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
                 stbsp_sprintf(string, "%s: %s (%d)", def->name, enumDef.name, (u16)enumDef.value);
             } break;
             
+            case MemberType_Array_char:
+            {
+                stbsp_sprintf(string, "%s: \"%s\"", def->name, (char *)memberPtr);
+            } break;
+            
             case MemberType_Array_CollisionInfo:
             {
                 stbsp_sprintf(string, "%s: [%d] %p", def->name, def->elementCount, (CollisionInfo *)memberPtr);
@@ -157,6 +162,11 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
                 stbsp_sprintf(partialString, "%s: %s (%d)", def->name, enumDef.name, (u16)enumDef.value);
             } break;
             
+            case MemberType_Array_char:
+            {
+                stbsp_sprintf(partialString, "%s: \"%s\"", def->name, (char *)memberPtr);
+            } break;
+            
             case MemberType_Array_CollisionInfo:
             {
                 stbsp_sprintf(partialString, "%s: [%d] %p", def->name, def->elementCount, (CollisionInfo *)memberPtr);
@@ -164,7 +174,7 @@ function void Meta_DumpStruct(u32 defCount, IntrospectMemberDef *defs, void *ptr
             
             default:
             {
-                stbsp_sprintf(partialString, "%s: Unhandled (%d)\n", def->name, def->type);
+                stbsp_sprintf(partialString, "%s: Unhandled (%d)", def->name, def->type);
             } break;
         }
         

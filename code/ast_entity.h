@@ -55,6 +55,8 @@ struct EntityInfo_UFO
 
 introspect(category:"null") struct Entity
 {
+    char id[32];
+    
     EntityType type;
     b32 active;
     s32 index;

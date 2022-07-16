@@ -211,7 +211,7 @@ struct Game_Keyboard
     
     union
     {
-        Game_Key keys[55];
+        Game_Key keys[56];
         struct
         {
             Game_Key keyA;
@@ -253,6 +253,7 @@ struct Game_Keyboard
             Game_Key keySpace;
             Game_Key keySemicolon;
             Game_Key keyMinus;
+            Game_Key keyPeriod;
             Game_Key keyEsc;
             Game_Key keyBackspace;
             Game_Key keyEnter;

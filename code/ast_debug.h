@@ -124,10 +124,10 @@ struct DebugState
 
 enum CommandType
 {
-    CommandType_Invalid,
-    CommandType_Introspect_Valid,
-    CommandType_Introspect_InvalidStruct,
-    CommandType_Introspect_InvalidIndex,
+    CommandType_Valid,
+    CommandType_Invalid_Command,
+    CommandType_Invalid_ParamCount,
+    CommandType_Invalid_Param,
 };
 
 struct DebugAutoBlock

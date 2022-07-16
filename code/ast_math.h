@@ -27,16 +27,9 @@ inline f32 Cos(f32 theta)
     return result;
 }
 
-inline s32 Pow(s32 base, s32 ex)
+inline f32 Pow(f32 base, f32 ex)
 {
-    ASSERT(ex > 0);
-    s32 result = base;
-    
-    for (s32 i = 0; i < ex; ++i)
-    {
-        result *= base;
-    }
-    
+    f32 result = powf(base, ex);
     return result;
 }
 
