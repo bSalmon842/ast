@@ -10,14 +10,16 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #define MAX_PARAM_COUNT 8
 enum CommandLayout
 {
+    CommandLayout_None,
     CommandLayout_String,
+    CommandLayout_Integer,
     CommandLayout_ID,
     CommandLayout_ID_V3F,
 };
 
 struct ConsoleCommandDesc
 {
-    char command[16];
+    char command[32];
     
     CommandLayout layout;
     u8 reqParamCount;
@@ -67,10 +69,23 @@ inline ConsoleCommandDesc MakeConsoleCommand(char *command, CommandLayout layout
     return result;
 }
 
+inline ConsoleCommandDesc MakeConsoleCommand(char *command, CommandLayout layout, u8 reqParamCount, s32 min, s32 max)
+{
+    ConsoleCommandDesc result = {};
+    
+    BaseCommandInfoFill;
+    result.validMinI = min;
+    result.validMaxI = max;
+    
+    return result;
+}
+
 global ConsoleCommandDesc consoleCommandList[] =
 {
     MakeConsoleCommand("introspect", CommandLayout_ID, 1),
     MakeConsoleCommand("set_pos", CommandLayout_ID_V3F, 4, V3F(0.0f), V3F(100.0f)),
+    MakeConsoleCommand("get_audio_devices", CommandLayout_None, 0),
+    MakeConsoleCommand("set_audio_playback_device", CommandLayout_Integer, 1, 0, U8_MAX),
     
     MakeConsoleCommand("help", CommandLayout_String, 1),
 };
@@ -84,6 +99,20 @@ function void ListCommandsForHelpToConsole(Game_Memory *memory)
         {
             AddToDebugConsoleOutput(debugState, memory->platform, consoleCommandList[i].command, V4F(1.0f));
         }
+    }
+}
+
+function void ListAudioDevicesToConsole(Game_Memory *memory, Game_Audio *audio)
+{
+    DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
+    if (debugState)
+    {
+        for (s32 i = audio->playbackDeviceCount - 1; i >= 0; --i)
+        {
+            v4f colour = (i == audio->currPlaybackDeviceIndex) ? V4F(0.0f, 1.0f, 0.0f, 1.0f): V4F(1.0f);
+            AddToDebugConsoleOutput(debugState, memory->platform, audio->playbackDevices[i].name, colour);
+        }
+        AddToDebugConsoleOutput(debugState, memory->platform, "PLAYBACK:", V4F(1.0f, 1.0f, 0.0f, 1.0f));
     }
 }
 
@@ -115,9 +144,19 @@ function void GetHelpForCommand(Game_Memory *memory, char *command)
         switch (desc.layout)
         {
             // TODO(bSalmon): Each command should probably have a description that says what it actually does
+            case CommandLayout_None:
+            {
+                stbsp_sprintf(string, "%s", desc.command);
+            } break;
+            
             case CommandLayout_String:
             {
                 stbsp_sprintf(string, "%s [String]", desc.command);
+            } break;
+            
+            case CommandLayout_Integer:
+            {
+                stbsp_sprintf(string, "%s [s32 {%d - %d}]", desc.command, desc.validMinI, desc.validMaxI);
             } break;
             
             case CommandLayout_ID:

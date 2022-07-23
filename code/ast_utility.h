@@ -54,10 +54,11 @@ typedef u64 usize;
 #define MAX(a, b) ((a > b) ? a : b)
 #define MIN(a, b) ((a < b) ? a : b)
 
-#define FLT_MAX 340282346638528859811704183484516925440.0000000000000000
+#define F32_MAX 340282346638528859811704183484516925440.0000000000000000
 #define U64_MAX 18446744073709551615
 #define U32_MAX 4294967295
 #define U16_MAX 65535
+#define U8_MAX 255
 
 #define Align8(value) ((value + 7) & ~7)
 

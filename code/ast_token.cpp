@@ -5,8 +5,6 @@ Author: Brock Salmon
 Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
-#include "ast_token.h"
-
 inline b32 IsNewLine(char c)
 {
     b32 result = (c == '\n' || c == '\r');

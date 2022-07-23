@@ -6,7 +6,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 */
 
 // TODO(bSalmon): Engine:
-// TODO(bSalmon): Audio Mixing, output selection
+// TODO(bSalmon): Audio Mixing
 // TODO(bSalmon): More OpenGL work
 // TODO(bSalmon): Animation (Sprite-sheets?)
 // TODO(bSalmon): Menues
@@ -17,6 +17,13 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 // TODO(bSalmon): Multiple resolutions
 // TODO(bSalmon): Better memory system (actually use MemoryRegions and work out how region eviction needs to work)
 // TODO(bSalmon): Fix the DEP crashes
+
+// TODO(bSalmon): Audio
+// TODO(bSalmon): Audio files in asset builder
+// TODO(bSalmon): Mixed Audio
+// TODO(bSalmon): Volume
+// TODO(bSalmon): Looping sounds
+// TODO(bSalmon): Positional sound
 
 // New Debug Infrastructure
 // TODO(bSalmon): Nesting Functions in timers
@@ -51,6 +58,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_world.cpp"
 #include "ast_parallel_memory.cpp"
 #include "ast_asset.cpp"
+#include "ast_audio.cpp"
 #include "ast_render.cpp"
 #include "ast_interface.cpp"
 #include "ast_collision.cpp"
@@ -67,31 +75,6 @@ inline BitmapID GetAsteroidBitmapID(u32 index)
 {
     BitmapID result = (BitmapID)(BitmapID_Asteroid0 + index);
     return result;
-}
-
-function void OutputTestSineWave(Game_State *gameState, Game_AudioBuffer *audioBuffer, s32 toneHz)
-{
-    persist f32 tSine;
-    
-    s16 volume = 3000;
-    s32 wavePeriod = audioBuffer->samplesPerSecond / toneHz;
-    
-    s16 *sampleOut = (s16 *)audioBuffer->samples;
-    for (s32 sampleIndex = 0; sampleIndex < audioBuffer->sampleCount; ++sampleIndex)
-    {
-        f32 sineValue = Sin(tSine);
-        s16 sampleValue = (s16)(sineValue * volume);
-        
-        //s16 sampleValue = 0;
-        *sampleOut++ = sampleValue;
-        *sampleOut++ = sampleValue;
-        
-        tSine += (TAU * (1.0f / (f32)wavePeriod));
-        if (tSine > TAU)
-        {
-            tSine -= TAU;
-        }
-    }
 }
 
 inline v2f RandomChoosePointInArea(Game_State *gameState, v2f min, v2f max, b32 exclusionArea)
@@ -627,17 +610,39 @@ extern "C" GAME_UPDATE_RENDER(Game_UpdateRender)
     }
     else
     {
-        DebugConsole(memory, renderCommands, input, gameState, gameState->gameCamera);
+        DebugConsole(memory, renderCommands, input, gameState, audio, gameState->gameCamera);
     }
     
 #endif
-    
-    // AUDIO
-    OutputTestSineWave(gameState, audioBuffer, 256);
 }
 
-////////// DEBUG STUFF FROM HERE ON OUT /////////////*
+////////// DEBUG STUFF FROM HERE ON OUT ////////////
 /////// ABANDON ALL HOPE, YE WHO ENTER HERE ////////
+extern "C" GAME_FILL_AUDIO_SAMPLES(Game_FillAudioSamples)
+{
+    persist f32 tSine;
+    
+    s16 volume = 3000;
+    s32 wavePeriod = audio->sampleRate / 256;
+    
+    s16 *sampleOut = (s16 *)output;
+    s32 sampleCount = (u32)(bytesToWrite / sizeof(s16)) / audio->channelCount;
+    for (s32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        f32 sineValue = Sin(tSine);
+        s16 sampleValue = (s16)(sineValue * volume);
+        
+        //s16 sampleValue = 0;
+        *sampleOut++ = sampleValue;
+        *sampleOut++ = sampleValue;
+        
+        tSine += (TAU * (1.0f / (f32)wavePeriod));
+        if (tSine > TAU)
+        {
+            tSine -= TAU;
+        }
+    }
+}
 
 extern "C" GAME_INITIALISE_DEBUG_STATE(Game_InitialiseDebugState)
 {

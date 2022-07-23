@@ -129,7 +129,7 @@ inline void PushHollowRect(Game_RenderCommands *commands, Camera camera, v3f off
 
 inline void PushClear(Game_RenderCommands *commands, v4f colour)
 {
-    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -FLT_MAX, 0);
+    RenderEntry_Clear *entry = (RenderEntry_Clear *)PushRenderEntry(commands, RenderEntry_Clear, -F32_MAX, 0);
     if (entry)
     {
         entry->colour = colour;

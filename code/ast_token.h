@@ -34,7 +34,7 @@ enum TokenType
 
 struct Token
 {
-    TokenType type;
+    s32 type;
     u32 length;
     char *text;
 };

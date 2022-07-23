@@ -29,6 +29,7 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 #include "ast_render.h"
 #include "ast_world.h"
 #include "ast_particle.h"
+#include "ast_token.h"
 #include "ast_meta.h"
 
 struct Game_State

@@ -31,7 +31,7 @@ function void AddToDebugConsoleOutput(DebugState *debugState, PlatformAPI platfo
     }
 }
 
-function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Game_State *gameState, Camera camera)
+function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, Game_Input *input, Game_State *gameState, Game_Audio *audio, Camera camera)
 {
     DebugState *debugState = (DebugState *)memory->storage[DEBUG_STORAGE_INDEX].ptr;
     if (debugState)
@@ -165,7 +165,18 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
                                 CommandLayout layout = commandDesc.layout;
                                 switch (layout)
                                 {
+                                    case CommandLayout_None: {} break;
                                     case CommandLayout_String: {} break;
+                                    
+                                    case CommandLayout_Integer:
+                                    {
+                                        s32 i = TokenToInt(paramTkns[0]);
+                                        if (i < commandDesc.validMinI || i > commandDesc.validMaxI)
+                                        {
+                                            commandType = CommandType_Invalid_Param;
+                                            invalidParamTkn = paramTkns[0];
+                                        }
+                                    } break;
                                     
                                     case CommandLayout_ID:
                                     {
@@ -251,6 +262,14 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
                     CommandLayout layout = commandDesc.layout;
                     switch (layout)
                     {
+                        case CommandLayout_None:
+                        {
+                            if (StringsAreSame("get_audio_devices", commandTkn.text, commandTkn.length))
+                            {
+                                ListAudioDevicesToConsole(memory, audio);
+                            }
+                        };
+                        
                         case CommandLayout_String:
                         {
                             if (isHelpCommand)
@@ -267,6 +286,15 @@ function void DebugConsole(Game_Memory *memory, Game_RenderCommands *commands, G
                             else
                             {
                                 
+                            }
+                        } break;
+                        
+                        case CommandLayout_Integer:
+                        {
+                            s32 i = TokenToInt(paramTkns[0]);
+                            if (StringsAreSame("set_audio_playback_device", commandTkn.text, commandTkn.length))
+                            {
+                                memory->platform.ChangeAudioPlaybackDevice(audio, i);
                             }
                         } break;
                         

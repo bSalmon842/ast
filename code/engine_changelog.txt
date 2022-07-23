@@ -1,4 +1,11 @@
 /////////////////////////////////////
+23JUL2022
+
+- Changed platform layer from WASAPI to MiniAudio
+- Audio Samples are now filled on request by the audio data callback
+- Game_Audio now stores available audio devices
+- Implemented Console Commands: get_audio_devices, set_audio_playback_device
+/////////////////////////////////////
 16JUL2022
 
 - Implemented help Console Command

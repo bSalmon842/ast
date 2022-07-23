@@ -7,14 +7,15 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <mmdeviceapi.h>
-#include <AudioClient.h>
 #include <direct.h>
 #include <gl/gl.h>
 
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif // MSC_VER
+
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
 
 #include "ast_platform.h"
 #include "w32_ast_dev.cpp"
@@ -107,53 +108,58 @@ function PLATFORM_SECONDS_SINCE_EPOCH(W32_SecondsSinceEpoch)
 }
 
 //~ AUDIO
-#define CHECK_COM_FAILURE_ASSERT(func) if (FAILED(func)) {ASSERT(!"Error");}
-function void W32_InitWASAPI(IAudioClient **audioClient, IAudioRenderClient **audioRenderClient, s32 samplesPerSecond, s32 bufferSizeSamples)
+#define TEST_CHUNK_SIZE 24000
+function void MA_AudioCallback(ma_device *maDevice, void *out, const void *in, u32 frameCount)
 {
-    IMMDeviceEnumerator *enumerator;
-    IMMDevice *device;
+    W32_AudioInfo *audioInfo = (W32_AudioInfo *)maDevice->pUserData;
+    ma_rb *rb = audioInfo->ringBuffer;
+    u32 byteCount = frameCount * ma_get_bytes_per_frame(maDevice->playback.format, maDevice->playback.channels);
+    u32 bytesProcessed = 0;
+    u32 bytesAvailable = 0;
+    u8 *byteOutput = (u8 *)out;
     
-    CHECK_COM_FAILURE_ASSERT(CoInitializeEx(0, COINIT_SPEED_OVER_MEMORY));
-    CHECK_COM_FAILURE_ASSERT(CoCreateInstance(__uuidof(MMDeviceEnumerator), 0, CLSCTX_ALL, IID_PPV_ARGS(&enumerator)));
-    CHECK_COM_FAILURE_ASSERT(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device));
-    CHECK_COM_FAILURE_ASSERT(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, 0, (LPVOID *)&(*audioClient)));
-    
-    WAVEFORMATEXTENSIBLE wavFmt;
-    wavFmt.Format.cbSize = sizeof(wavFmt);
-    wavFmt.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wavFmt.Format.wBitsPerSample = 16;
-    wavFmt.Format.nChannels = 2;
-    wavFmt.Format.nSamplesPerSec = samplesPerSecond;
-    wavFmt.Format.nBlockAlign = wavFmt.Format.nChannels * (wavFmt.Format.wBitsPerSample / 8);
-    wavFmt.Format.nAvgBytesPerSec = wavFmt.Format.nSamplesPerSec * wavFmt.Format.nBlockAlign;
-    wavFmt.Samples.wValidBitsPerSample = 16;
-    wavFmt.dwChannelMask = KSAUDIO_SPEAKER_STEREO;
-    wavFmt.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
-    
-    REFERENCE_TIME bufDuration = 10000000ULL * bufferSizeSamples / samplesPerSecond;
-    u32 audioFrameCount;
-    
-    CHECK_COM_FAILURE_ASSERT((*audioClient)->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_NOPERSIST, bufDuration, 0, &wavFmt.Format, 0));
-    CHECK_COM_FAILURE_ASSERT((*audioClient)->GetService(IID_PPV_ARGS(&(*audioRenderClient))));
-    CHECK_COM_FAILURE_ASSERT((*audioClient)->GetBufferSize(&audioFrameCount));
-    ASSERT(bufferSizeSamples <= (s32)audioFrameCount);
+    while (bytesProcessed < byteCount)
+    {
+        u32 bytesRemaining = byteCount - bytesProcessed;
+        bytesAvailable = ma_rb_available_read(rb);
+        if (bytesAvailable > 0)
+        {
+            usize bytesToRead = (bytesRemaining < bytesAvailable) ? bytesRemaining : bytesAvailable;
+            void *readBuffer;
+            
+            ma_rb_acquire_read(rb, &bytesToRead, &readBuffer);
+            memcpy(byteOutput, readBuffer, bytesToRead);
+            ma_rb_commit_read(rb, bytesToRead);
+            
+            byteOutput += (u32)bytesToRead;
+            bytesProcessed += (u32)bytesToRead;
+        }
+        else
+        {
+            usize bytesToWrite = TEST_CHUNK_SIZE;
+            void *writeBuffer;
+            
+            ma_rb_reset(rb);
+            ma_rb_acquire_write(rb, &bytesToWrite, &writeBuffer);
+            if (audioInfo->FillAudioSamples)
+            {
+                audioInfo->FillAudioSamples(audioInfo->gameAudio, writeBuffer, bytesToWrite);
+            }
+            ma_rb_commit_write(rb, bytesToWrite);
+        }
+    }
 }
 
-function void W32_FillAudioBuffer(W32_AudioOutput *audioOutput, u32 samplesWriteCount, Game_AudioBuffer *src)
+function PLATFORM_CHANGE_AUDIO_PLAYBACK_DEVICE(MA_ChangeAudioPlaybackDevice)
 {
-    BYTE *audioBufferData;
-    if (SUCCEEDED(audioOutput->renderClient->GetBuffer(samplesWriteCount, &audioBufferData)))
+    if (playbackIndex >= 0 && playbackIndex < audio->playbackDeviceCount)
     {
-        s16 *srcSample = src->samples;
-        s16 *destSample = (s16 *)audioBufferData;
-        for (u32 sampleIndex = 0; sampleIndex < samplesWriteCount; ++sampleIndex)
-        {
-            *destSample++ = *srcSample++;
-            *destSample++ = *srcSample++;
-            ++audioOutput->runningSampleIndex;
-        }
+        ma_device_uninit(audio->maDevice);
         
-        audioOutput->renderClient->ReleaseBuffer(samplesWriteCount, 0);
+        audio->maDeviceConfig->playback.pDeviceID = &audio->playbackDevices[playbackIndex].id;
+        
+        if (ma_device_init(audio->maContext, audio->maDeviceConfig, audio->maDevice) != MA_SUCCESS) { ASSERT(false); }
+        if (ma_device_start(audio->maDevice) != MA_SUCCESS) { ASSERT(false); }
     }
 }
 
@@ -453,6 +459,7 @@ function void RenderDebugVerticalLine(W32_BackBuffer *backBuffer, s32 x, s32 yTo
     }
 }
 
+#if 0
 function void W32_RenderAudioBufferMarker(W32_BackBuffer *backBuffer, W32_AudioOutput *audioOutput, f32 c, s32 padX, s32 top, s32 bot,
                                           s32 value, u32 colour)
 {
@@ -478,6 +485,7 @@ function void W32_RenderAudioSyncDisplay(W32_BackBuffer *backBuffer, s32 markerC
         W32_RenderAudioBufferMarker(backBuffer, audioOutput, c, padX, top, bot, currMarker->playCursor, 0xFFFFFFFF);
     }
 }
+#endif
 
 //~ WINDOWS
 function PLATFORM_DEBUG_SYSTEM_COMMAND(W32_DebugSystemCommand)
@@ -715,6 +723,8 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
         
         if (window)
         {
+            globalRunning = true;
+            
             globalDeviceContext = GetDC(window);
             W32_InitOpenGL(globalDeviceContext, &globalGLContext);
             
@@ -733,25 +743,83 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 CloseHandle(threadHandle);
             }
             
-            s32 audioLatencyFrames = 1;
-            W32_AudioOutput audioOutput = {};
-            audioOutput.samplesPerSecond = 48000;
-            audioOutput.bytesPerSample = sizeof(s16) * 2;
-            audioOutput.secondaryBufferSize = audioOutput.samplesPerSecond;
-            audioOutput.latencySampleCount = audioLatencyFrames * (audioOutput.samplesPerSecond / 60);
-            
-            W32_InitWASAPI(&audioOutput.audioClient, &audioOutput.renderClient, audioOutput.samplesPerSecond, audioOutput.secondaryBufferSize);
-            audioOutput.audioClient->Start();
-            
-            globalRunning = true;
-            
             W32_ProgramCode programCode = W32_LoadProgramCode(programCodeDLLPath, tempDLLPath, lockPath);
+            
+            u32 sampleRate = 48000;
+            u32 channelCount = 2;
+            Game_Audio gameAudio = {};
+            gameAudio.channelCount = channelCount;
+            gameAudio.sampleRate = sampleRate;
+            ma_context maContext = {};
+            if (ma_context_init(0, 0, 0, &maContext) != MA_SUCCESS)
+            {
+                printf("Failed to initialise MiniAudio Context\n");
+                ASSERT(false);
+            }
+            gameAudio.maContext = &maContext;
+            
+            if (ma_context_get_devices(gameAudio.maContext, &gameAudio.playbackDevices, &gameAudio.playbackDeviceCount, 0, 0) != MA_SUCCESS)
+            {
+                printf("Failed to get info for audio devices\n");
+                ASSERT(false);
+            }
+            
+            printf("\nPLAYBACK DEVICES:\n");
+            for (u32 i = 0; i < gameAudio.playbackDeviceCount; ++i)
+            {
+                printf("\t%u: %s\n", i, gameAudio.playbackDevices[i].name);
+            }
+            
+            ma_format format = ma_format_s16;
+            
+            ma_rb maBuffer = {};
+            if (ma_rb_init(TEST_CHUNK_SIZE, 0, 0, &maBuffer) != MA_SUCCESS)
+            {
+                printf("Failed to initialise MiniAudio ring buffer\n");
+                ASSERT(false);
+            }
+            
+            W32_AudioInfo audioInfo = {};
+            audioInfo.ringBuffer = &maBuffer;
+            audioInfo.gameAudio = &gameAudio;
+            audioInfo.FillAudioSamples = programCode.FillAudioSamples;
+            
+            // TODO(bSalmon): Setup device config to use a saved audio output
+            ma_device_config maDeviceConfig = ma_device_config_init(ma_device_type_playback);
+            maDeviceConfig.playback.format = format;
+            maDeviceConfig.playback.channels = channelCount;
+            maDeviceConfig.sampleRate = sampleRate;
+            maDeviceConfig.dataCallback = MA_AudioCallback;
+            maDeviceConfig.pUserData = &audioInfo;
+            gameAudio.maDeviceConfig = &maDeviceConfig;
+            
+            ma_device maDevice = {};
+            if (ma_device_init(&maContext, &maDeviceConfig, &maDevice) != MA_SUCCESS)
+            {
+                printf("Failed to initialise MiniAudio device\n");
+                ASSERT(false);
+            }
+            gameAudio.maDevice = &maDevice;
+            
+            for (u8 i = 0; i < gameAudio.playbackDeviceCount; ++i)
+            {
+                if (StringsAreSame(maDevice.playback.name, gameAudio.playbackDevices[i].name, StringLength(gameAudio.playbackDevices[i].name)))
+                {
+                    gameAudio.currPlaybackDeviceIndex = i;
+                    break;
+                }
+            }
+            
+            if (ma_device_start(&maDevice) != MA_SUCCESS)
+            {
+                printf("Failed to start MiniAudio device\n");
+                ASSERT(false);
+            }
+            
             
             Game_Input inputs[2] = {};
             Game_Input *newInput = &inputs[0];
             Game_Input *oldInput = &inputs[1];
-            
-            s16 *samples = (s16 *)VirtualAlloc(0, audioOutput.secondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             
 #if AST_INTERNAL
             LPVOID baseAddress = (LPVOID)TERABYTE(2);
@@ -778,6 +846,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
             platform.HasParallelWorkFinished = W32_HasParallelWorkFinished;
             platform.AllocTexture = WGL_AllocTexture;
             platform.FreeTexture = WGL_FreeTexture;
+            platform.ChangeAudioPlaybackDevice = MA_ChangeAudioPlaybackDevice;
             
             platform.DebugSystemCommand = W32_DebugSystemCommand;
             
@@ -809,14 +878,8 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                 programCode.InitialiseDebugState(&gameMem);
             }
             
-            if (samples && gameMem.storage[PERMA_STORAGE_INDEX].ptr && gameMem.storage[TRANS_STORAGE_INDEX].ptr)
+            if (gameMem.storage[PERMA_STORAGE_INDEX].ptr && gameMem.storage[TRANS_STORAGE_INDEX].ptr)
             {
-                s32 debugTimeMarkerIndex = 0;
-                W32_DebugTimeMarker debugTimeMarkers[60] = {};
-                
-                u32 lastPlayCursor = 0;
-                b32 soundValid = false;
-                
                 usize maxPushBufferSize = MEGABYTE(4);
                 void *pushBufferBase = VirtualAlloc(0, maxPushBufferSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
                 Game_RenderCommands gameRenderCommands = InitialiseRenderCommands(maxPushBufferSize, pushBufferBase,
@@ -888,27 +951,6 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     debugGlobalMem = &gameMem;
                     DEBUG_FRAME_MARKER(Input);
 #endif
-                    s32 samplesToWrite = 0;
-                    u32 audioPadding;
-                    if (SUCCEEDED(audioOutput.audioClient->GetCurrentPadding(&audioPadding)))
-                    {
-                        samplesToWrite = (s32)(audioOutput.secondaryBufferSize - audioPadding);
-                        if (samplesToWrite > audioOutput.latencySampleCount)
-                        {
-                            samplesToWrite = audioOutput.latencySampleCount;
-                        }
-                    }
-                    
-                    Game_AudioBuffer gameAudioBuffer = {};
-                    gameAudioBuffer.samplesPerSecond = audioOutput.samplesPerSecond;
-                    gameAudioBuffer.sampleCount = Align8(samplesToWrite);
-                    gameAudioBuffer.samples = samples;
-                    
-                    W32_FillAudioBuffer(&audioOutput, samplesToWrite, &gameAudioBuffer);
-                    
-#if AST_INTERNAL
-                    DEBUG_FRAME_MARKER(Audio);
-#endif
                     
                     W32_WindowDims resizeCheck = W32_GetWindowDims(window);
                     if (resizeCheck.width != gameRenderCommands.width ||
@@ -920,7 +962,7 @@ s32 WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, s3
                     
                     if (programCode.UpdateRender)
                     {
-                        programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudioBuffer);
+                        programCode.UpdateRender(&gameRenderCommands, &gameMem, newInput, &gameAudio);
                     }
                     
 #if AST_INTERNAL

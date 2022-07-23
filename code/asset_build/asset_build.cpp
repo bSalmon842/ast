@@ -501,7 +501,6 @@ s32 main(s32 argc, char **argv)
     AddToAssets_Bitmap(&assets, ".\\raw\\ufoL.bmp", BitmapID_UFO_Large);
     AddToAssets_Bitmap(&assets, ".\\raw\\ufoS.bmp", BitmapID_UFO_Small);
     WriteAssetFile(assets, "graphics.aaf", logFile);
-    
     ClearAssets(&assets);
     
     for (s32 fontIndex = 0; fontIndex < ARRAY_COUNT(fonts); ++fontIndex)
@@ -516,6 +515,10 @@ s32 main(s32 argc, char **argv)
     }
     
     WriteAssetFile(assets, "fonts.aaf", logFile);
+    ClearAssets(&assets);
+    
+    WriteAssetFile(assets, "audio.aaf", logFile);
+    ClearAssets(&assets);
     
     fclose(logFile);
     

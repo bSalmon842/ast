@@ -19,6 +19,7 @@ struct W32_ProgramCode
     FILETIME dllLastWriteTime;
     
     game_updateRender *UpdateRender;
+    game_fillAudioSamples *FillAudioSamples;
     game_debugFrameEnd *DebugFrameEnd;
     game_initialiseDebugState *InitialiseDebugState;
     
@@ -72,6 +73,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
         if (result.programCodeDLL)
         {
             result.UpdateRender = (game_updateRender *)GetProcAddress(result.programCodeDLL, "Game_UpdateRender");
+            result.FillAudioSamples = (game_fillAudioSamples *)GetProcAddress(result.programCodeDLL, "Game_FillAudioSamples");
             result.DebugFrameEnd = (game_debugFrameEnd *)GetProcAddress(result.programCodeDLL, "Game_DebugFrameEnd");
             result.InitialiseDebugState = (game_initialiseDebugState *)GetProcAddress(result.programCodeDLL, "Game_InitialiseDebugState");
             
@@ -82,6 +84,7 @@ function W32_ProgramCode W32_LoadProgramCode(char *dllName, char *tempDLLName, c
     if (!result.isValid)
     {
         result.UpdateRender = 0;
+        result.FillAudioSamples = 0;
         result.DebugFrameEnd = 0;
         result.InitialiseDebugState = 0;
     }
@@ -99,6 +102,7 @@ function void W32_UnloadProgramCode(W32_ProgramCode *programCode)
     programCode->programCodeDLL = 0;
     programCode->isValid = false;
     programCode->UpdateRender = 0;
+    programCode->FillAudioSamples = 0;
     programCode->DebugFrameEnd = 0;
     programCode->InitialiseDebugState = 0;
 }

@@ -104,9 +104,15 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
             break;
         }
     }
-    ASSERT(result);
     
-    if (!result->asset && result->loadState == AssetLoad_Unloaded)
+#if AST_INTERNAL
+    if (!result)
+    {
+        printf("Failed to get asset of type: %d", type);
+    }
+#endif
+    
+    if (result && !result->asset && result->loadState == AssetLoad_Unloaded)
     {
         result->loadState = AssetLoad_Loading;
         if (immediate)
@@ -150,7 +156,7 @@ function LoadedAssetHeader *GetAsset(Game_LoadedAssets *loadedAssets, AssetType 
         }
     }
     
-    if (result->loadState == AssetLoad_Loaded && result->textureHandle == 0)
+    if (result && result->loadState == AssetLoad_Loaded && result->textureHandle == 0)
     {
         if (result->type == AssetType_Bitmap)
         {

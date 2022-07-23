@@ -9,6 +9,8 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #include <stdio.h>
 
+#include "miniaudio.h"
+
 #include "ast_debug_config.h"
 
 #include "ast_utility.h"
@@ -39,6 +41,7 @@ enum Platform_WriteType
 };
 
 struct Platform_ParallelQueue;
+struct Game_Audio;
 
 #define PLATFORM_DEBUG_SYSTEM_COMMAND(funcName) void funcName(char *command, char *path)
 typedef PLATFORM_DEBUG_SYSTEM_COMMAND(platformDebugSystemCommand);
@@ -97,6 +100,9 @@ typedef PLATFORM_COMPLETE_ALL_PARALLEL_WORK(platformCompleteAllParallelWork);
 #define PLATFORM_HAS_PARALLEL_WORK_FINISHED(funcName) b32 funcName(Platform_ParallelQueue *queue)
 typedef PLATFORM_HAS_PARALLEL_WORK_FINISHED(platformHasParallelWorkFinished);
 
+#define PLATFORM_CHANGE_AUDIO_PLAYBACK_DEVICE(funcName) void funcName(Game_Audio *audio, u32 playbackIndex)
+typedef PLATFORM_CHANGE_AUDIO_PLAYBACK_DEVICE(platformChangeAudioPlaybackDevice);
+
 struct ParallelWorkEntry
 {
     parallelWorkCallback *callback;
@@ -147,6 +153,8 @@ struct PlatformAPI
     platformAllocTexture *AllocTexture;
     platformFreeTexture *FreeTexture;
     
+    platformChangeAudioPlaybackDevice *ChangeAudioPlaybackDevice;
+    
     platformDebugSystemCommand *DebugSystemCommand;
 };
 
@@ -186,11 +194,18 @@ inline Game_RenderCommands InitialiseRenderCommands(usize maxPushBufferSize, voi
     return result;
 }
 
-struct Game_AudioBuffer
+struct Game_Audio
 {
-    s32 samplesPerSecond;
-    s32 sampleCount;
-    s16 *samples;
+    u32 playbackDeviceCount;
+    ma_device_info *playbackDevices;
+    u8 currPlaybackDeviceIndex;
+    
+    u32 sampleRate;
+    u32 channelCount;
+    
+    ma_context *maContext;
+    ma_device *maDevice;
+    ma_device_config *maDeviceConfig;
 };
 
 struct Game_ButtonState
@@ -449,7 +464,10 @@ typedef GAME_INITIALISE_DEBUG_STATE(game_initialiseDebugState);
 #define GAME_DEBUG_FRAME_END(funcName) void funcName(Game_Memory *memory)
 typedef GAME_DEBUG_FRAME_END(game_debugFrameEnd);
 
-#define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_AudioBuffer *audioBuffer)
+#define GAME_FILL_AUDIO_SAMPLES(funcName) void funcName(Game_Audio *audio, void *output, usize bytesToWrite)
+typedef GAME_FILL_AUDIO_SAMPLES(game_fillAudioSamples);
+
+#define GAME_UPDATE_RENDER(funcName) void funcName(Game_RenderCommands *renderCommands, Game_Memory *memory, Game_Input *input, Game_Audio *audio)
 typedef GAME_UPDATE_RENDER(game_updateRender);
 
 #define AST_PLATFORM_H

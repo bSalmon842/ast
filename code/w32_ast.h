@@ -7,48 +7,44 @@ Notice: (C) Copyright 2022 by Brock Salmon. All Rights Reserved
 
 #ifndef W32_AST_H
 
-typedef struct
+struct W32_BackBuffer
 {
     BITMAPINFO info;
     void *memory;
     s32 width;
     s32 height;
     u32 pitch;
-} W32_BackBuffer;
+};
 
-typedef struct
+struct W32_WindowDims
 {
     u32 width;
     u32 height;
-} W32_WindowDims;
+};
 
-typedef struct
+struct W32_AudioInfo
 {
-    IAudioClient *audioClient;
-    IAudioRenderClient *renderClient;
-    s32 samplesPerSecond;
-    s32 bytesPerSample;
-    s32 secondaryBufferSize;
-    s32 latencySampleCount;
-    u32 runningSampleIndex;
-} W32_AudioOutput;
+    ma_rb *ringBuffer;
+    Game_Audio *gameAudio;
+    game_fillAudioSamples *FillAudioSamples;
+};
 
-typedef struct
+struct W32_DebugTimeMarker
 {
     u32 playCursor;
     u32 writeCursor;
-} W32_DebugTimeMarker;
+};
 
-typedef struct
+struct W32_FileHandle
 {
     HANDLE w32Handle;
-} W32_FileHandle;
+};
 
-typedef struct
+struct W32_FileGroup
 {
     HANDLE findHandle;
     WIN32_FIND_DATAW findData;
-} W32_FileGroup;
+};
 
 #define W32_AST_H
 #endif //W32_AST_H
